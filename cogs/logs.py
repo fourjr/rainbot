@@ -68,7 +68,7 @@ class Logging:
         await self.send_log(log_channel, payload, True, 'deleted')
 
     async def on_message_edit(self, before, after):
-        if not before.guild or before.author.bot:
+        if not before.guild or before.author.bot or before.content == after.content:
             return
         log_channel = await self.check_enabled(before.guild.id, 'message_edit')
         if not log_channel:

@@ -28,6 +28,15 @@ class Setup:
                 'role_create': None,
                 'role_delete': None
             },
+            'modlog': {
+                'member_mute': None,
+                'member_unmute': None,
+                'member_kick': None,
+                'member_ban': None,
+                'member_unban': None,
+                'member_softban': None,
+                'message_purge': None
+            },
             'time_offset': 0,
             'detections': {
                 'filters': [],
@@ -69,6 +78,20 @@ class Setup:
                 raise commands.BadArgument('Invalid log name, pick one from below:\n' + ', '.join(valid_logs))
 
             await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'logs.{log_name}': str(channel.id)}}, upsert=True)
+        await ctx.send(self.bot.accept)
+
+    @command(10, alises=['set_modlog', 'set-modlog'])
+    async def setmodlog(self, ctx, log_name: lower, channel: discord.TextChannel):
+        """Sets the log channel for various types of logging"""
+        valid_logs = self.default['modlog'].keys()
+        if log_name == 'all':
+            for i in valid_logs:
+                await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'modlog.{i}': str(channel.id)}}, upsert=True)
+        else:
+            if log_name not in valid_logs:
+                raise commands.BadArgument('Invalid log name, pick one from below:\n' + ', '.join(valid_logs))
+
+            await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'modlog.{log_name}': str(channel.id)}}, upsert=True)
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_perm_level', 'set-perm-level'])

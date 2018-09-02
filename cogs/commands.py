@@ -80,6 +80,37 @@ class Commands:
         em.add_field(name='Member Information', value=member_info, inline=False)
         await ctx.send(embed=em)
 
+    async def send_log(ctx, *args):
+        guild_info = (await ctx.guild_info()).get('modlog')
+        offset = guild_info.get('time_offset', 0)
+        current_time = (datetime.utcnow() + timedelta(hours=offset)).strftime('%H:%M:%S')
+
+        try:
+            if ctx.command.name == 'purge':
+                fmt = f'`{current_time}` {ctx.author} purged {args[0]} messages in **#{ctx.channel.name}**'
+                if args[1]:
+                    fmt += f', from {args[1]}'
+                await ctx.bot.get_channel(guild_info.get('message_purge'])).send(fmt)
+            elif ctx.command.name == 'kick':
+                fmt = f'`{current_time}` {ctx.author} kicked {args[0]} ({args[0].id}), reason: {args[1]}'
+                await ctx.bot.get_channel(guild_info.get('member_kick')).send(fmt)
+            elif ctx.command.name == 'softban':
+                fmt = f'`{current_time}` {ctx.author} softbanned {args[0]} ({args[0].id}), reason: {args[1]}'
+                await ctx.bot.get_channel(guild_info.get('member_softban')).send(fmt)
+            elif ctx.command.name == 'ban':
+                name = getattr(args[0], 'name', '(no name)')
+                fmt = f'`{current_time}` {ctx.author} banned {name} ({args[0].id}), reason: {args[1]}'
+                await ctx.bot.get_channel(guild_info.get('member_ban')).send(fmt)
+            elif ctx.command.name == 'unban':
+                name = getattr(args[0], 'name', '(no name)')
+                fmt = f'`{current_time}` {ctx.author} unbanned {name} ({args[0].id}), reason: {args[1]}'
+                await ctx.bot.get_channel(guild_info.get('member_unban')).send(fmt)
+            else:
+                raise NotImplementedError(f'{ctx.command.name} not implemented for commands/send_log')
+        except AttributeError:
+            # channel not found [None.send()]
+            pass
+
     @command(5)
     async def mute(self, ctx, member: discord.Member, duration: int=None, *, reason=None):
         """Mutes a user"""
@@ -99,7 +130,7 @@ class Commands:
             await ctx.send(self.bot.accept)
 
     @command(5, aliases=['clean', 'prune'])
-    async def purge(self, ctx, limit: int, member: MemberOrID=None):
+    async def purge(self, ctx, limit: int, *, member: MemberOrID=None):
         """Deletes messages in bulk"""
         def predicate(m):
             if member:
@@ -108,6 +139,7 @@ class Commands:
 
         await ctx.channel.purge(limit, check=predicate)
         accept = await ctx.send(self.bot.accept)
+        await self.send_log(ctx, limit, member)
         await asyncio.sleep(3)
         await accept.delete()
         await ctx.message.delete()
@@ -120,6 +152,7 @@ class Commands:
         else:
             await member.kick(reason=reason)
             await ctx.send(self.bot.accept)
+            await self.send_log(ctx, member, reason)
 
     @command(6)
     async def softban(self, ctx, member: discord.Member, *, reason=None):
@@ -131,12 +164,21 @@ class Commands:
             await asyncio.sleep(2)
             await member.unban(reason=reason)
             await ctx.send(self.bot.accept)
+            await self.send_log(ctx, member, reason)
 
     @command(6)
     async def ban(self, ctx, member: MemberOrID, *, reason=None):
         """Swings the banhammer"""
         await ctx.guild.ban(member, reason=reason)
         await ctx.send(self.bot.accept)
+        await self.send_log(ctx, member, reason)
+
+    @command(6)
+    async def ban(self, ctx, member: MemberOrID, *, reason=None):
+        """Swings the banhammer"""
+        await ctx.guild.unban(member, reason=reason)
+        await ctx.send(self.bot.accept)
+        await self.send_log(ctx, member, reason)
 
 
 def setup(bot):
