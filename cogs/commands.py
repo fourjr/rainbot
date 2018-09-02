@@ -90,7 +90,7 @@ class Commands:
                 fmt = f'`{current_time}` {ctx.author} purged {args[0]} messages in **#{ctx.channel.name}**'
                 if args[1]:
                     fmt += f', from {args[1]}'
-                await ctx.bot.get_channel(guild_info.get('message_purge'])).send(fmt)
+                await ctx.bot.get_channel(guild_info.get('message_purge')).send(fmt)
             elif ctx.command.name == 'kick':
                 fmt = f'`{current_time}` {ctx.author} kicked {args[0]} ({args[0].id}), reason: {args[1]}'
                 await ctx.bot.get_channel(guild_info.get('member_kick')).send(fmt)

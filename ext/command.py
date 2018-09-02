@@ -7,7 +7,7 @@ from ext.errors import Underleveled
 async def check_perm_level(ctx):
     guild_info = await ctx.guild_config()
 
-    if ctx.author == ctx.guild.owner:
+    if ctx.author.guild_permissions.administrator:
         perm_level = 15
     else:
         perm_level = get_perm_level(ctx.author, guild_info)[0]
