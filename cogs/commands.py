@@ -38,7 +38,7 @@ class Commands:
         if ctx.author.guild_permissions.administrator:
             perm_level = (15, 'Administrator')
         else:
-            perm_level = get_perm_level(ctx.author, await ctx.guild_info())
+            perm_level = get_perm_level(ctx.author, await ctx.guild_config())
         await ctx.send(f'You are on level {perm_level[0]} ({perm_level[1]})')
 
     @command(5)
