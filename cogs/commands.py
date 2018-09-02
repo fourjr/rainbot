@@ -35,7 +35,10 @@ class Commands:
     @command(0, aliases=['level'])
     async def mylevel(self, ctx):
         """Checks your permission level"""
-        perm_level = get_perm_level(ctx.author, await ctx.guild_info())
+        if ctx.author.guild_permissions.administrator:
+            perm_level = (15, 'Administrator')
+        else:
+            perm_level = get_perm_level(ctx.author, await ctx.guild_info())
         await ctx.send(f'You are on level {perm_level[0]} ({perm_level[1]})')
 
     @command(5)
