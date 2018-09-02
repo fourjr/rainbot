@@ -114,6 +114,7 @@ class Utility:
         await self.bot.process_commands(ctx.message)
 
     async def can_run(self, ctx, cmd):
+        ctx.command = cmd
         can_run = True
         if cmd.checks:
             try:

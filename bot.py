@@ -21,6 +21,7 @@ class rainbot(commands.AutoShardedBot):
 
         self.session = aiohttp.ClientSession(loop=self.loop)
         self.accept = '<:check:383917703083327489>'
+        self.dev_mode = os.name == 'nt'
 
         # Set up logging
         self.logger = logging.getLogger('rainbot')
@@ -47,8 +48,8 @@ class rainbot(commands.AutoShardedBot):
                 try:
                     self.load_extension(f'cogs.{i.replace(".py", "")}')
                 except Exception as e:
-                    self.logger.exception(f'Failed to load {i}')
-            self.logger.info('All extensions loaded.')
+                    self.logger.exception(f'Failed to load cogs/{i}')
+        self.logger.info('All extensions loaded.')
 
     async def on_message(self, message):
         if not message.author.bot and message.guild:
@@ -56,6 +57,8 @@ class rainbot(commands.AutoShardedBot):
             await self.invoke(ctx)
 
     async def get_prefix(self, message):
+        if self.dev_mode:
+            return './'
         guild_info = await self.mongo.config.guilds.find_one({'guild_id': str(message.guild.id)}) or {}
         return commands.when_mentioned_or(guild_info.get('prefix', '!!'))(self, message)
 
