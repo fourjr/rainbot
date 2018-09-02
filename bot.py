@@ -153,7 +153,7 @@ class rainbot(commands.AutoShardedBot):
             if mute_role in member.roles:
                 await member.remove_roles(mute_role)
                 if log_channel:
-                    await log_channel.send(f"`{current_time}` {member} ({member.id}) has been unmuted. Reason: {reasono}")
+                    await log_channel.send(f"`{current_time}` {member} ({member.id}) has been unmuted. Reason: {reason}")
         else:
             await log_channel.send(f"`{current_time}` Tried to unmute {member} ({member.id}), member not in server")
 

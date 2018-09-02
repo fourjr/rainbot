@@ -177,8 +177,8 @@ class Commands:
         await self.send_log(ctx, member, reason)
 
     @command(6)
-    async def ban(self, ctx, member: MemberOrID, *, reason=None):
-        """Swings the banhammer"""
+    async def unban(self, ctx, member: MemberOrID, *, reason=None):
+        """Unswing the banhammer"""
         await ctx.guild.unban(member, reason=reason)
         await ctx.send(self.bot.accept)
         await self.send_log(ctx, member, reason)
