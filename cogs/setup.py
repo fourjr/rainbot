@@ -122,7 +122,7 @@ class Setup:
     async def setdetection(self, ctx, detection_type: lower, value):
         """Sets or toggle the auto moderation types"""
         if detection_type == 'block_invite':
-            await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {'detections.block_invite': commands._convert_to_bool(value)}}, upsert=True)
+            await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {'detections.block_invite': commands.core._convert_to_bool(value)}}, upsert=True)
         elif detection_type in ('mention_limit', 'spam_detection'):
             try:
                 if int(value) <= 0:
