@@ -133,12 +133,11 @@ class Commands:
                 return m.id == member.id
             return True
 
-        await ctx.channel.purge(limit, check=predicate)
+        await ctx.channel.purge(limit=limit + 1, check=predicate)
         accept = await ctx.send(self.bot.accept)
         await self.send_log(ctx, limit, member)
         await asyncio.sleep(3)
         await accept.delete()
-        await ctx.message.delete()
 
     @command(6)
     async def kick(self, ctx, member: discord.Member, *, reason=None):

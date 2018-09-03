@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 
+import discord
+
 
 class Logging:
     def __init__(self, bot):
@@ -126,6 +128,13 @@ class Logging:
         log_channel = await self.check_enabled(channel.guild.id, 'channel_create')
         if log_channel:
             await self.send_log(log_channel, channel, False, mode='channel_role_create', extra='Channel')
+
+        # Setup mute role perms
+        guild_config = await self.bot.mongo.config.guilds.find_one({'guild_id': str(channel.guild.id)})
+        if guild_config.get('mute_role'):
+            role = discord.utils.get(channel.guild.roles, id=int(guild_config['mute_role']))
+            if isinstance(channel, (discord.TextChannel, discord.VoiceChannel)):
+                await channel.set_permissions(role, send_messages=False, speak=False)
 
     async def on_guild_channel_delete(self, channel):
         log_channel = await self.check_enabled(channel.guild.id, 'channel_delete')

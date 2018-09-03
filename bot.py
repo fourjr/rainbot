@@ -11,6 +11,7 @@ from discord.ext import commands
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 
+from ext import errors
 from ext.state import ConnState
 from ext.context import RainContext
 
@@ -25,7 +26,10 @@ class rainbot(commands.Bot):
 
         # Set up logging
         self.logger = logging.getLogger('rainbot')
-        self.logger.setLevel(logging.DEBUG)
+        if self.dev_mode:
+            self.logger.setLevel(logging.DEBUG)
+        else:
+            self.logger.setLevel(logging.INFO)
         handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
         self.logger.addHandler(handler)
@@ -75,7 +79,7 @@ class rainbot(commands.Bot):
             commands.CheckFailure,
             discord.Forbidden
         )
-        if isinstance(e, commands.UserInputError):
+        if isinstance(e, (commands.UserInputError, errors.BotMissingPermissionsInChannel)):
             await ctx.invoke(self.get_command('help'), command_or_cog=ctx.command.name, error=e)
         elif isinstance(e, ignored):
             pass
@@ -115,7 +119,7 @@ class rainbot(commands.Bot):
         await member.add_roles(mute_role)
 
         # mute complete, log it
-        log_channel = self.get_channel(int(guild_info.get('logs', {}).get('member_mute', 0)))
+        log_channel = self.get_channel(int(guild_info.get('modlog', {}).get('member_mute', 0)))
         if log_channel:
             current_time = datetime.utcnow()
 
@@ -142,7 +146,7 @@ class rainbot(commands.Bot):
         guild_info = await self.mongo.config.guilds.find_one({'guild_id': str(member.guild.id)}) or {}
         mute_role = discord.utils.get(member.guild.roles, id=int(guild_info.get('mute_role', 0)))
 
-        log_channel = self.get_channel(int(guild_info.get('logs', {}).get('member_unmute', 0)))
+        log_channel = self.get_channel(int(guild_info.get('modlog', {}).get('member_unmute', 0)))
         current_time = datetime.utcnow()
 
         offset = guild_info.get('time_offset', 0)
@@ -158,7 +162,10 @@ class rainbot(commands.Bot):
             await log_channel.send(f"`{current_time}` Tried to unmute {member} ({member.id}), member not in server")
 
         # set db
-        await self.mongo.config.guilds.find_one_and_update({'guild_id': str(member.guild.id)}, {'$pull': {'mutes': {'member': str(member.id), 'time': duration}}})
+        pull = {'$pull': {'mutes': {'member': str(member.id)}}}
+        if duration is not None:
+            pull['$pull']['mutes']['time'] = duration
+        await self.mongo.config.guilds.find_one_and_update({'guild_id': str(member.guild.id)}, pull)
 
 
 if __name__ == '__main__':

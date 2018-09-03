@@ -4,6 +4,7 @@ import json
 import discord
 from discord.ext import commands
 
+from ext.errors import BotMissingPermissionsInChannel
 from ext.utils import lower
 from ext.command import command, group
 
@@ -64,7 +65,7 @@ class Setup:
             await ctx.send(f'```json\n{json.dumps(guild_info, indent=2)}\n```')
         except discord.HTTPException:
             async with self.bot.session.post('https://hastebin.com/documents', data=json.dumps(guild_info, indent=4)) as resp:
-                await ctx.send(f"Your server's configuration: https://hastebin.com/{await resp.json()['key']}.jsons")
+                await ctx.send(f"Your server's configuration: https://hastebin.com/{(await resp.json())['key']}")
 
     @command(10, alises=['set_log', 'set-log'])
     async def setlog(self, ctx, log_name: lower, channel: discord.TextChannel=None):
@@ -73,6 +74,11 @@ class Setup:
         Valid types: all, {', '.join(self.default['logs'].keys())}
         """
         valid_logs = self.default['logs'].keys()
+        try:
+            await channel.send('Testing the logs')
+        except discord.Forbidden:
+            raise BotMissingPermissionsInChannel(['send_messages'], channel)
+
         if log_name == 'all':
             for i in valid_logs:
                 await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'logs.{i}': str(channel.id)}}, upsert=True)
@@ -89,6 +95,11 @@ class Setup:
 
         Valid types: all, {', '.join(self.default['modlog'].keys())}
         """
+        try:
+            await channel.send('Testing the logs')
+        except discord.Forbidden:
+            raise BotMissingPermissionsInChannel(['send_messages'], channel)
+
         valid_logs = self.default['modlog'].keys()
         if log_name == 'all':
             for i in valid_logs:
@@ -144,6 +155,16 @@ class Setup:
         else:
             raise commands.BadArgument('Invalid log name, pick one from below:\nblock_invite, mention_limit, spam_detection')
 
+    @command(10, aliases=['set-guild-whitelist', 'set_guild_whitelist'])
+    async def setguildwhitelist(self, ctx, guild_id: int):
+        """Adds a server to the whitelist.
+
+        Invite detection will not trigger when this guild's invite is sent.
+        The current server is always whitelisted.
+        """
+        await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$push': {'whitelisted_guilds': str(guild_id)}})
+        await ctx.send(self.bot.accept)
+
     @group(8, name='filter', invoke_without_command=True)
     async def filter_(self, ctx):
         """Controls the word filter"""
@@ -152,20 +173,20 @@ class Setup:
     @filter_.command(8)
     async def add(self, ctx, *, word: lower):
         """Add blacklisted words into the word filter"""
-        await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$push': {'filters': word}}, upsert=True)
+        await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$push': {'detections.filters': word}}, upsert=True)
         await ctx.send(self.bot.accept)
 
     @filter_.command(8)
     async def remove(self, ctx, *, word: lower):
         """Removes blacklisted words from the word filter"""
-        await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$pull': {'filters': word}}, upsert=True)
+        await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$pull': {'detections.filters': word}}, upsert=True)
         await ctx.send(self.bot.accept)
 
     @filter_.command(7, name='list')
     async def list_(self, ctx):
         """Lists the full word filter"""
         guild_info = await self.bot.mongo.config.guilds.find_one({'guild_id': str(ctx.guild.id)})
-        await ctx.send(f"Filters: {', '.join([f'`{i}`' for i in guild_info.get('filters', [])])}")
+        await ctx.send(f"Filters: {', '.join([f'`{i}`' for i in guild_info.get('detections', {}).get('filters', [])])}")
 
 
 def setup(bot):
