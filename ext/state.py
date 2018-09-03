@@ -54,8 +54,8 @@ class ConnState(ConnectionState):
             self.dispatch('message_delete', msg)
             self._messages.remove(msg)
         for msg in raw_deleted:
-            data = RawBulkMessageIndividualDeleteEvent(data, msg)
-            self.dispatch('raw_message_individual_delete', data)
+            dispatch_data = RawBulkMessageIndividualDeleteEvent(data, msg)
+            self.dispatch('raw_message_individual_delete', dispatch_data)
 
     def parse_message_update(self, data):
         raw = RawMessageUpdateEvent(data)

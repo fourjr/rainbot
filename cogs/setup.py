@@ -67,8 +67,11 @@ class Setup:
                 await ctx.send(f"Your server's configuration: https://hastebin.com/{await resp.json()['key']}.jsons")
 
     @command(10, alises=['set_log', 'set-log'])
-    async def setlog(self, ctx, log_name: lower, channel: discord.TextChannel):
-        """Sets the log channel for various types of logging"""
+    async def setlog(self, ctx, log_name: lower, channel: discord.TextChannel=None):
+        f"""Sets the log channel for various types of logging
+
+        Valid types: all, {', '.join(self.default['logs'].keys())}
+        """
         valid_logs = self.default['logs'].keys()
         if log_name == 'all':
             for i in valid_logs:
@@ -81,8 +84,11 @@ class Setup:
         await ctx.send(self.bot.accept)
 
     @command(10, alises=['set_modlog', 'set-modlog'])
-    async def setmodlog(self, ctx, log_name: lower, channel: discord.TextChannel):
-        """Sets the log channel for various types of logging"""
+    async def setmodlog(self, ctx, log_name: lower, channel: discord.TextChannel=None):
+        f"""Sets the log channel for various types of logging
+
+        Valid types: all, {', '.join(self.default['modlog'].keys())}
+        """
         valid_logs = self.default['modlog'].keys()
         if log_name == 'all':
             for i in valid_logs:
@@ -120,16 +126,21 @@ class Setup:
 
     @command(10, aliases=['set_detection', 'set-detection'])
     async def setdetection(self, ctx, detection_type: lower, value):
-        """Sets or toggle the auto moderation types"""
+        """Sets or toggle the auto moderation types
+
+        Valid types: block_invite, mention_limit, spam_detection
+        """
         if detection_type == 'block_invite':
             await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {'detections.block_invite': commands.core._convert_to_bool(value)}}, upsert=True)
+            await ctx.send(self.bot.accept)
         elif detection_type in ('mention_limit', 'spam_detection'):
             try:
                 if int(value) <= 0:
                     raise ValueError
-                await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {'detections.mention_limit': int(value)}}, upsert=True)
+                await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'detections.{detection_type}': int(value)}}, upsert=True)
             except ValueError as e:
-                raise commands.BadArgument(f'{value} is not a valid number above 0') from e
+                raise commands.BadArgument(f'{value} (`value`) is not a valid number above 0') from e
+            await ctx.send(self.bot.accept)
         else:
             raise commands.BadArgument('Invalid log name, pick one from below:\nblock_invite, mention_limit, spam_detection')
 

@@ -32,15 +32,6 @@ class Commands:
         if isinstance(error, discord.Forbidden):
             await ctx.send(f'I do not have the required permissions needed to run `{ctx.command.name}`.')
 
-    @command(0, aliases=['level'])
-    async def mylevel(self, ctx):
-        """Checks your permission level"""
-        if ctx.author.guild_permissions.administrator:
-            perm_level = (15, 'Administrator')
-        else:
-            perm_level = get_perm_level(ctx.author, await ctx.guild_config())
-        await ctx.send(f'You are on level {perm_level[0]} ({perm_level[1]})')
-
     @command(5)
     async def user(self, ctx, member: discord.Member):
         """Get a user's info"""
@@ -83,41 +74,43 @@ class Commands:
         em.add_field(name='Member Information', value=member_info, inline=False)
         await ctx.send(embed=em)
 
-    async def send_log(ctx, *args):
-        guild_info = (await ctx.guild_info()).get('modlog')
-        offset = guild_info.get('time_offset', 0)
+    async def send_log(self, ctx, *args):
+        guild_config = await ctx.guild_config()
+        offset = guild_config.get('time_offset', 0)
         current_time = (datetime.utcnow() + timedelta(hours=offset)).strftime('%H:%M:%S')
+        guild_config = {i: int(guild_config.get('modlog', {})[i]) for i in guild_config.get('modlog', {})}
 
         try:
             if ctx.command.name == 'purge':
                 fmt = f'`{current_time}` {ctx.author} purged {args[0]} messages in **#{ctx.channel.name}**'
                 if args[1]:
                     fmt += f', from {args[1]}'
-                await ctx.bot.get_channel(guild_info.get('message_purge')).send(fmt)
+                await ctx.bot.get_channel(guild_config.get('message_purge')).send(fmt)
             elif ctx.command.name == 'kick':
                 fmt = f'`{current_time}` {ctx.author} kicked {args[0]} ({args[0].id}), reason: {args[1]}'
-                await ctx.bot.get_channel(guild_info.get('member_kick')).send(fmt)
+                await ctx.bot.get_channel(guild_config.get('member_kick')).send(fmt)
             elif ctx.command.name == 'softban':
                 fmt = f'`{current_time}` {ctx.author} softbanned {args[0]} ({args[0].id}), reason: {args[1]}'
-                await ctx.bot.get_channel(guild_info.get('member_softban')).send(fmt)
+                await ctx.bot.get_channel(guild_config.get('member_softban')).send(fmt)
             elif ctx.command.name == 'ban':
                 name = getattr(args[0], 'name', '(no name)')
                 fmt = f'`{current_time}` {ctx.author} banned {name} ({args[0].id}), reason: {args[1]}'
-                await ctx.bot.get_channel(guild_info.get('member_ban')).send(fmt)
+                await ctx.bot.get_channel(guild_config.get('member_ban')).send(fmt)
             elif ctx.command.name == 'unban':
                 name = getattr(args[0], 'name', '(no name)')
                 fmt = f'`{current_time}` {ctx.author} unbanned {name} ({args[0].id}), reason: {args[1]}'
-                await ctx.bot.get_channel(guild_info.get('member_unban')).send(fmt)
+                await ctx.bot.get_channel(guild_config.get('member_unban')).send(fmt)
             else:
                 raise NotImplementedError(f'{ctx.command.name} not implemented for commands/send_log')
-        except AttributeError:
+        except AttributeError as e:
+            raise
             # channel not found [None.send()]
             pass
 
     @command(5)
     async def mute(self, ctx, member: discord.Member, duration: int=None, *, reason=None):
         """Mutes a user"""
-        if get_perm_level(member, await ctx.guild_info()) >= get_perm_level(ctx.author, await ctx.guild_info()):
+        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
             await ctx.send('User has insufficient permissions')
         else:
             await self.bot.mute(member, duration, reason=reason)
@@ -126,7 +119,7 @@ class Commands:
     @command(5)
     async def unmute(self, ctx, member: discord.Member, *, reason=None):
         """Unmutes a user"""
-        if get_perm_level(member, await ctx.guild_info()) >= get_perm_level(ctx.author, await ctx.guild_info()):
+        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
             await ctx.send('User has insufficient permissions')
         else:
             await self.bot.unmute(ctx.guild.id, member.id, None, reason=reason)
@@ -150,7 +143,7 @@ class Commands:
     @command(6)
     async def kick(self, ctx, member: discord.Member, *, reason=None):
         """Kicks a user"""
-        if get_perm_level(member, await ctx.guild_info()) >= get_perm_level(ctx.author, await ctx.guild_info()):
+        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
             await ctx.send('User has insufficient permissions')
         else:
             await member.kick(reason=reason)
@@ -160,7 +153,7 @@ class Commands:
     @command(6)
     async def softban(self, ctx, member: discord.Member, *, reason=None):
         """Swings the banhammer"""
-        if get_perm_level(member, await ctx.guild_info()) >= get_perm_level(ctx.author, await ctx.guild_info()):
+        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
             await ctx.send('User has insufficient permissions')
         else:
             await member.ban(reason=reason)

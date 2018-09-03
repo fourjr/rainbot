@@ -15,7 +15,7 @@ from ext.state import ConnState
 from ext.context import RainContext
 
 
-class rainbot(commands.AutoShardedBot):
+class rainbot(commands.Bot):
     def __init__(self):
         super().__init__(command_prefix=None)
 
@@ -91,7 +91,7 @@ class rainbot(commands.AutoShardedBot):
     async def mute(self, member, duration, reason):
         """Mutes a ``member`` for ``duration`` seconds"""
         guild_info = await self.mongo.config.guilds.find_one({'guild_id': str(member.guild.id)}) or {}
-        mute_role = discord.utils.get(member.guild.roles, id=int(guild_info.get('mute_role', 0)))
+        mute_role = discord.utils.get(member.guild.roles, id=int(guild_info.get('mute_role') or 0))
         if not mute_role:
             # mute role
             mute_role = discord.utils.get(member.guild.roles, name='Muted')

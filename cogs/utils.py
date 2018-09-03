@@ -7,7 +7,7 @@ from contextlib import redirect_stdout
 import discord
 from discord.ext import commands
 
-from ext.utils import owner
+from ext.utils import owner, get_perm_level
 from ext.command import command, RainCommand, RainGroup
 from ext.paginator import Paginator
 
@@ -210,6 +210,12 @@ class Utility:
                     ems.append(em)
 
             await Paginator(ctx, *ems).start()
+
+    @command(0, aliases=['level'])
+    async def mylevel(self, ctx):
+        """Checks your permission level"""
+        perm_level = get_perm_level(ctx.author, await ctx.guild_config())
+        await ctx.send(f'You are on level {perm_level[0]} ({perm_level[1]})')
 
 
 def setup(bot):
