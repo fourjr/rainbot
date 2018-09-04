@@ -69,32 +69,34 @@ class Setup:
 
     @command(10, alises=['set_log', 'set-log'])
     async def setlog(self, ctx, log_name: lower, channel: discord.TextChannel=None):
-        f"""Sets the log channel for various types of logging
+        """Sets the log channel for various types of logging
 
-        Valid types: all, {', '.join(self.default['logs'].keys())}
+        Valid types: all, message_delete, message_edit, member_join, member_remove, member_ban, member_unban, vc_state_change, channel_create, channel_delete, role_create, role_delete
         """
         valid_logs = self.default['logs'].keys()
+        channel_id = None
         if channel:
             try:
                 await channel.send('Testing the logs')
             except discord.Forbidden:
                 raise BotMissingPermissionsInChannel(['send_messages'], channel)
+            channel_id = str(channel.id)
 
         if log_name == 'all':
             for i in valid_logs:
-                await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'logs.{i}': str(channel.id)}}, upsert=True)
+                await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'logs.{i}': channel_id}}, upsert=True)
         else:
             if log_name not in valid_logs:
                 raise commands.BadArgument('Invalid log name, pick one from below:\n' + ', '.join(valid_logs))
 
-            await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'logs.{log_name}': str(channel.id)}}, upsert=True)
+            await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'logs.{log_name}': channel_id}}, upsert=True)
         await ctx.send(self.bot.accept)
 
     @command(10, alises=['set_modlog', 'set-modlog'])
     async def setmodlog(self, ctx, log_name: lower, channel: discord.TextChannel=None):
-        f"""Sets the log channel for various types of logging
+        """Sets the log channel for various types of logging
 
-        Valid types: all, {', '.join(self.default['modlog'].keys())}
+        Valid types: all, member_mute, member_unmute, member_kick, member_ban, member_unban, member_softban, message_purge
         """
         channel_id = None
         if channel:
