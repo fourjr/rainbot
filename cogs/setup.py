@@ -74,10 +74,11 @@ class Setup:
         Valid types: all, {', '.join(self.default['logs'].keys())}
         """
         valid_logs = self.default['logs'].keys()
-        try:
-            await channel.send('Testing the logs')
-        except discord.Forbidden:
-            raise BotMissingPermissionsInChannel(['send_messages'], channel)
+        if channel:
+            try:
+                await channel.send('Testing the logs')
+            except discord.Forbidden:
+                raise BotMissingPermissionsInChannel(['send_messages'], channel)
 
         if log_name == 'all':
             for i in valid_logs:
@@ -95,10 +96,11 @@ class Setup:
 
         Valid types: all, {', '.join(self.default['modlog'].keys())}
         """
-        try:
-            await channel.send('Testing the logs')
-        except discord.Forbidden:
-            raise BotMissingPermissionsInChannel(['send_messages'], channel)
+        if channel:
+            try:
+                await channel.send('Testing the logs')
+            except discord.Forbidden:
+                raise BotMissingPermissionsInChannel(['send_messages'], channel)
 
         valid_logs = self.default['modlog'].keys()
         if log_name == 'all':
