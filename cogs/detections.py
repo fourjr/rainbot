@@ -36,7 +36,6 @@ class Detections:
 
         elif any(filtered_words.values()):
             await m.delete()
-            await self.bot.mute(m.author, 60 * 10, reason=f'Use of filtered words ({", ".join(i for i in filtered_words.keys() if filtered_words[i])})')
 
         elif detection_config.get('block_invite') and invite_match is not None:
             for i in invite_match:

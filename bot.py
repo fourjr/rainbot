@@ -119,7 +119,7 @@ class rainbot(commands.Bot):
         await member.add_roles(mute_role)
 
         # mute complete, log it
-        log_channel = self.get_channel(int(guild_info.get('modlog', {}).get('member_mute', 0)))
+        log_channel = self.get_channel(int(guild_info.get('modlog', {}).get('member_mute') or 0))
         if log_channel:
             current_time = datetime.utcnow()
 
@@ -146,7 +146,7 @@ class rainbot(commands.Bot):
         guild_info = await self.mongo.config.guilds.find_one({'guild_id': str(member.guild.id)}) or {}
         mute_role = discord.utils.get(member.guild.roles, id=int(guild_info.get('mute_role', 0)))
 
-        log_channel = self.get_channel(int(guild_info.get('modlog', {}).get('member_unmute', 0)))
+        log_channel = self.get_channel(int(guild_info.get('modlog', {}).get('member_unmute') or 0))
         current_time = datetime.utcnow()
 
         offset = guild_info.get('time_offset', 0)
