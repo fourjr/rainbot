@@ -96,21 +96,23 @@ class Setup:
 
         Valid types: all, {', '.join(self.default['modlog'].keys())}
         """
+        channel_id = None
         if channel:
             try:
                 await channel.send('Testing the logs')
             except discord.Forbidden:
                 raise BotMissingPermissionsInChannel(['send_messages'], channel)
+            channel_id = str(channel.id)
 
         valid_logs = self.default['modlog'].keys()
         if log_name == 'all':
             for i in valid_logs:
-                await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'modlog.{i}': str(channel.id)}}, upsert=True)
+                await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'modlog.{i}': channel_id}}, upsert=True)
         else:
             if log_name not in valid_logs:
                 raise commands.BadArgument('Invalid log name, pick one from below:\n' + ', '.join(valid_logs))
 
-            await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'modlog.{log_name}': str(channel.id)}}, upsert=True)
+            await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'modlog.{log_name}': channel_id}}, upsert=True)
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_perm_level', 'set-perm-level'])
