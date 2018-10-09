@@ -81,8 +81,9 @@ class Logging:
         log_channel = await self.check_enabled(payload.data.get('guild_id'), 'message_edit')
         if not payload.data.get('guild_id') or not log_channel:
             return
+
         try:
-            await self.send_log(log_channel, payload, True, f"edited: {payload.data['content']}")
+            await self.send_log(log_channel, payload, True, f"updated: ```\n{payload.data['content']}\n```")
         except KeyError:
             pass
 
