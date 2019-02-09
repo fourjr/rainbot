@@ -134,7 +134,7 @@ class Logging:
         guild_config = await self.bot.mongo.config.guilds.find_one({'guild_id': str(channel.guild.id)})
         if guild_config.get('mute_role'):
             role = discord.utils.get(channel.guild.roles, id=int(guild_config['mute_role']))
-            if isinstance(channel, (discord.TextChannel, discord.VoiceChannel)):
+            if isinstance(channel, (discord.TextChannel, discord.VoiceChannel, discord.CategoryChannel)):
                 await channel.set_permissions(role, send_messages=False, speak=False)
 
     async def on_guild_channel_delete(self, channel):
