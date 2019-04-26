@@ -40,7 +40,7 @@ class rainbot(commands.Bot):
         self.remove_command('help')
         self.load_extensions()
 
-        self._connection = ConnState(dispatch=self.dispatch, chunker=self._chunker,
+        self._connection = ConnState(dispatch=self.dispatch, chunker=self._chunker, handlers=self._handlers,
                                      syncer=self._syncer, http=self.http, loop=self.loop, max_messages=100000)
 
         self.loop.run_until_complete(self.setup_unmutes())
