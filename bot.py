@@ -139,10 +139,14 @@ class rainbot(commands.Bot):
         await self.wait_until_ready()
         if duration is not None:
             await asyncio.sleep(duration - time())
+
         try:
             member = self.get_guild(int(guild_id)).get_member(int(member_id))
         except AttributeError:
+            member = None
+        if not member:
             return
+
         guild_info = await self.mongo.config.guilds.find_one({'guild_id': str(member.guild.id)}) or {}
         mute_role = discord.utils.get(member.guild.roles, id=int(guild_info.get('mute_role', 0)))
 
