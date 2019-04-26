@@ -213,7 +213,7 @@ class Utility:
 
     @command(0)
     async def about(self, ctx):
-        await ctx.send('**What is rowboat?**\nrainbot is an invite-only moderation bot that any server can get by applying!\nLook at <https://github.com/fourjr/rainbot/wiki/About> for more information')
+        await ctx.send('**What is rainbot?**\nrainbot is an invite-only moderation bot that any server can get by applying!\nLook at <https://github.com/fourjr/rainbot/wiki/About> for more information')
 
     @command(0)
     async def mylevel(self, ctx):

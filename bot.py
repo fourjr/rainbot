@@ -142,34 +142,34 @@ class rainbot(commands.Bot):
 
         try:
             member = self.get_guild(int(guild_id)).get_member(int(member_id))
+            member.guild.id
         except AttributeError:
             member = None
-        if not member:
-            return
-
-        guild_info = await self.mongo.config.guilds.find_one({'guild_id': str(member.guild.id)}) or {}
-        mute_role = discord.utils.get(member.guild.roles, id=int(guild_info.get('mute_role', 0)))
-
-        log_channel = self.get_channel(int(guild_info.get('modlog', {}).get('member_unmute') or 0))
-        current_time = datetime.utcnow()
-
-        offset = guild_info.get('time_offset', 0)
-        current_time += timedelta(hours=offset)
-        current_time = current_time.strftime('%H:%M:%S')
 
         if member:
-            if mute_role in member.roles:
-                await member.remove_roles(mute_role)
-                if log_channel:
-                    await log_channel.send(f"`{current_time}` {member} ({member.id}) has been unmuted. Reason: {reason}")
-        else:
-            await log_channel.send(f"`{current_time}` Tried to unmute {member} ({member.id}), member not in server")
+            guild_info = await self.mongo.config.guilds.find_one({'guild_id': str(member.guild.id)}) or {}
+            mute_role = discord.utils.get(member.guild.roles, id=int(guild_info.get('mute_role', 0)))
 
-        # set db
-        pull = {'$pull': {'mutes': {'member': str(member.id)}}}
-        if duration is not None:
-            pull['$pull']['mutes']['time'] = duration
-        await self.mongo.config.guilds.find_one_and_update({'guild_id': str(member.guild.id)}, pull)
+            log_channel = self.get_channel(int(guild_info.get('modlog', {}).get('member_unmute') or 0))
+            current_time = datetime.utcnow()
+
+            offset = guild_info.get('time_offset', 0)
+            current_time += timedelta(hours=offset)
+            current_time = current_time.strftime('%H:%M:%S')
+
+            if member:
+                if mute_role in member.roles:
+                    await member.remove_roles(mute_role)
+                    if log_channel:
+                        await log_channel.send(f"`{current_time}` {member} ({member.id}) has been unmuted. Reason: {reason}")
+            else:
+                await log_channel.send(f"`{current_time}` Tried to unmute {member} ({member.id}), member not in server")
+
+            # set db
+            pull = {'$pull': {'mutes': {'member': str(member.id)}}}
+            if duration is not None:
+                pull['$pull']['mutes']['time'] = duration
+            await self.mongo.config.guilds.find_one_and_update({'guild_id': str(member.guild.id)}, pull)
 
 
 if __name__ == '__main__':
