@@ -167,11 +167,11 @@ class rainbot(commands.Bot):
             else:
                 await log_channel.send(f"`{current_time}` Tried to unmute {member} ({member.id}), member not in server")
 
-            # set db
-            pull = {'$pull': {'mutes': {'member': str(member.id)}}}
-            if duration is not None:
-                pull['$pull']['mutes']['time'] = duration
-            await self.mongo.config.guilds.find_one_and_update({'guild_id': str(member.guild.id)}, pull)
+        # set db
+        pull = {'$pull': {'mutes': {'member': str(member_id)}}}
+        if duration is not None:
+            pull['$pull']['mutes']['time'] = duration
+        await self.mongo.config.guilds.find_one_and_update({'guild_id': str(guild_id)}, pull)
 
 
 if __name__ == '__main__':
