@@ -148,6 +148,7 @@ class rainbot(commands.Bot):
 
         print(guild_id, member_id, duration, reason, member)
         if member:
+            print('ran')
             guild_info = await self.mongo.config.guilds.find_one({'guild_id': str(member.guild.id)}) or {}
             mute_role = discord.utils.get(member.guild.roles, id=int(guild_info.get('mute_role', 0)))
 
