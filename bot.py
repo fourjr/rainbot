@@ -43,7 +43,7 @@ class rainbot(commands.Bot):
         self._connection = ConnState(dispatch=self.dispatch, chunker=self._chunker, handlers=self._handlers,
                                      syncer=self._syncer, http=self.http, loop=self.loop, max_messages=100000)
 
-        self.loop.run_until_complete(self.setup_unmutes())
+        # self.loop.run_until_complete(self.setup_unmutes())
         self.run(os.getenv('token'))
 
     def load_extensions(self):
