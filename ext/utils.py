@@ -1,3 +1,4 @@
+import random
 from discord.ext.commands import check
 
 
@@ -26,3 +27,6 @@ def owner():
     def predicate(ctx):
         return ctx.author.id == 180314310298304512
     return check(predicate)
+
+def random_color():
+    return random.randint(0, 0xfffff)

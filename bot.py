@@ -48,7 +48,7 @@ class rainbot(commands.Bot):
 
     def load_extensions(self):
         for i in os.listdir('cogs'):
-            if i.endswith('.py'):
+            if i.endswith('.py') and not (i == 'giveaway.py' and not self.dev_mode):
                 try:
                     self.load_extension(f'cogs.{i.replace(".py", "")}')
                 except Exception as e:
