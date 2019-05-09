@@ -71,7 +71,7 @@ class Utility:
         try:
             with redirect_stdout(stdout):
                 ret = await func()
-        except Exception as e:
+        except Exception:
             value = stdout.getvalue()
             err = await ctx.send(f'```py\n{value}{traceback.format_exc()}\n```')
         else:
@@ -169,15 +169,8 @@ class Utility:
                 if await self.can_run(ctx, i):
                     commands.append(i)
 
-            # for i in commands:
-            #     cmdlen = len(f'`{i.name}`')
-            #     if cmdlen > maxlen:
-            #         maxlen = cmdlen
-
             for i in commands:
-                # cmdlen = len(f'`{i.name}`')
                 subcommands += f"`{i.name}` {i.short_doc}\n"
-                # subcommands += f"`{i.name}` {' ' * (maxlen - cmdlen)}{i.short_doc}\n"
 
             em.add_field(name='Subcommands', value=subcommands)
             return em

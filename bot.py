@@ -48,11 +48,13 @@ class rainbot(commands.Bot):
 
     def load_extensions(self):
         for i in os.listdir('cogs'):
-            if i.endswith('.py') and not (i == 'giveaway.py' and not self.dev_mode):
+            if i.endswith('.py'):
                 try:
                     self.load_extension(f'cogs.{i.replace(".py", "")}')
-                except Exception as e:
+                except:
                     self.logger.exception(f'Failed to load cogs/{i}')
+                else:
+                    self.logger.info(f'Loaded {i}')
         self.logger.info('All extensions loaded.')
 
     async def on_message(self, message):
@@ -80,7 +82,7 @@ class rainbot(commands.Bot):
             discord.Forbidden
         )
         if isinstance(e, (commands.UserInputError, errors.BotMissingPermissionsInChannel)):
-            await ctx.invoke(self.get_command('help'), command_or_cog=ctx.command.name, error=e)
+            await ctx.invoke(self.get_command('help'), command_or_cog=ctx.command.qualified_name, error=e)
         elif isinstance(e, ignored):
             pass
         else:

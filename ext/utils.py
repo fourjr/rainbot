@@ -28,5 +28,6 @@ def owner():
         return ctx.author.id == 180314310298304512
     return check(predicate)
 
+
 def random_color():
     return random.randint(0, 0xfffff)
