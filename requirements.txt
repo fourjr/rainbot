@@ -3,4 +3,4 @@ motor
 dnspython
 python-dotenv
 parsedatetime
-dateutil
+python-dateutil
