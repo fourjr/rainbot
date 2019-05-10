@@ -102,7 +102,7 @@ class Commands:
                 await ctx.bot.get_channel(guild_config.get('member_unban')).send(fmt)
             else:
                 raise NotImplementedError(f'{ctx.command.name} not implemented for commands/send_log')
-        except AttributeError as e:
+        except AttributeError:
             raise
             # channel not found [None.send()]
             pass

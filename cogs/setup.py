@@ -45,6 +45,11 @@ class Setup:
                 'mention_limit': None,
                 'spam_detection': None,
             },
+            'giveaway': {
+                'channel_id': None,
+                'role_id': None,
+                'emoji_id': None
+            },
             'perm_levels': {},
             'mute_role': None,
             'mutes': [],
