@@ -56,7 +56,7 @@ class rainbot(commands.Bot):
             print('Fatal exception')
             traceback.print_exc(file=sys.stderr)
         finally:
-            requests.get(f'https://fourjr-herokustartup/logout/{os.getenv("HEROKU_APP_NAME")}')
+            requests.get(f'https://fourjr-herokustartup.herokuapp.com/logout/{os.getenv("HEROKU_APP_NAME")}')
 
     def load_extensions(self):
         for i in os.listdir('cogs'):
@@ -190,5 +190,5 @@ class rainbot(commands.Bot):
 
 if __name__ == '__main__':
     load_dotenv()
-    requests.get(f'https://fourjr-herokustartup/login/{os.getenv("HEROKU_APP_NAME")}')
+    requests.get(f'https://fourjr-herokustartup.herokuapp.com/login/{os.getenv("HEROKU_APP_NAME")}')
     rainbot()
