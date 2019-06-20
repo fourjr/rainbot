@@ -4,3 +4,4 @@ dnspython
 python-dotenv
 parsedatetime
 python-dateutil
+requests

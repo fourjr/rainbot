@@ -1,7 +1,9 @@
 import asyncio
 import discord
 import logging
+import requests
 import sys
+import traceback
 import os
 from datetime import datetime, timedelta
 from time import time
@@ -44,7 +46,17 @@ class rainbot(commands.Bot):
                                      syncer=self._syncer, http=self.http, loop=self.loop, max_messages=100000)
 
         # self.loop.run_until_complete(self.setup_unmutes())
-        self.run(os.getenv('token'))
+        try:
+            self.run(os.getenv('token'))
+        except discord.LoginFailure:
+            print('Invalid token')
+        except KeyboardInterrupt:
+            pass
+        except Exception:
+            print('Fatal exception')
+            traceback.print_exc(file=sys.stderr)
+        finally:
+            requests.get(f'https://fourjr-herokustartup/logout/{os.getenv("HEROKU_APP_NAME")}')
 
     def load_extensions(self):
         for i in os.listdir('cogs'):
@@ -178,4 +190,5 @@ class rainbot(commands.Bot):
 
 if __name__ == '__main__':
     load_dotenv()
+    requests.get(f'https://fourjr-herokustartup/login/{os.getenv("HEROKU_APP_NAME")}')
     rainbot()
