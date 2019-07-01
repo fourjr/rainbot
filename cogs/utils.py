@@ -179,7 +179,7 @@ class Utility:
     async def help_(self, ctx, *, command_or_cog=None, error=None):
         """Shows the help message"""
         if error:
-            error = f'<:xmark:383917691318042624> `{error}`'
+            error = f'Error: `{error}`'
         prefix = (await ctx.guild_config()).get('prefix', '!!')
         invalid_command = discord.Embed(title='Invalid command or cog name.', color=0xff0000)
 
