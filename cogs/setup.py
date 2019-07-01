@@ -10,7 +10,6 @@ from ext.command import command, group
 
 
 class Setup:
-    """Setting up rainbot: https://github.com/fourjr/rainbot/wiki/Setting-up-rainbot"""
 
     def __init__(self, bot):
         self.bot = bot
