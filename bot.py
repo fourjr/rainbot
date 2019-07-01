@@ -23,7 +23,7 @@ class rainbot(commands.Bot):
         super().__init__(command_prefix=None)
 
         self.session = aiohttp.ClientSession(loop=self.loop)
-        self.accept = '<:check:383917703083327489>'
+        self.accept = 'Operation completed successfully!'
         self.dev_mode = os.name == 'nt'
 
         # Set up logging
