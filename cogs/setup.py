@@ -165,15 +165,6 @@ class Setup:
         else:
             raise commands.BadArgument('Invalid log name, pick one from below:\nblock_invite, mention_limit, spam_detection')
 
-    @command(10, aliases=['set-guild-whitelist', 'set_guild_whitelist'])
-    async def setguildwhitelist(self, ctx, guild_id: int):
-        """Adds a server to the whitelist.
-
-        Invite detection will not trigger when this guild's invite is sent.
-        The current server is always whitelisted.
-        """
-        await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$push': {'whitelisted_guilds': str(guild_id)}})
-        await ctx.send(self.bot.accept)
 
     @group(8, name='filter', invoke_without_command=True)
     async def filter_(self, ctx):
