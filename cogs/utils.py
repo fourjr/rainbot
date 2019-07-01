@@ -206,7 +206,7 @@ class Utility:
 
     @command(0)
     async def about(self, ctx):
-        await ctx.send('**What is rainbot?**\nrainbot is an invite-only moderation bot that any server can get by applying!\nLook at <https://github.com/fourjr/rainbot/wiki/About> for more information')
+        await ctx.send('A moderation/giveaway bot made by 4JR and hosted by Fatal.')
 
     @command(0)
     async def mylevel(self, ctx):
