@@ -107,7 +107,7 @@ class Commands:
             # channel not found [None.send()]
             pass
 
-    @command(5)
+    @command(6)
     async def mute(self, ctx, member: discord.Member, duration: int=None, *, reason=None):
         """Mutes a user"""
         if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
@@ -116,7 +116,7 @@ class Commands:
             await self.bot.mute(member, duration, reason=reason)
             await ctx.send(self.bot.accept)
 
-    @command(5)
+    @command(6)
     async def unmute(self, ctx, member: discord.Member, *, reason=None):
         """Unmutes a user"""
         if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
@@ -125,7 +125,7 @@ class Commands:
             await self.bot.unmute(ctx.guild.id, member.id, None, reason=reason)
             await ctx.send(self.bot.accept)
 
-    @command(5, aliases=['clean', 'prune'])
+    @command(7, aliases=['clean', 'prune'])
     async def purge(self, ctx, limit: int, *, member: MemberOrID=None):
         """Deletes messages in bulk"""
         def predicate(m):
@@ -139,7 +139,7 @@ class Commands:
         await asyncio.sleep(3)
         await accept.delete()
 
-    @command(6)
+    @command(7)
     async def kick(self, ctx, member: discord.Member, *, reason=None):
         """Kicks a user"""
         if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
@@ -149,7 +149,7 @@ class Commands:
             await ctx.send(self.bot.accept)
             await self.send_log(ctx, member, reason)
 
-    @command(6)
+    @command(7)
     async def softban(self, ctx, member: discord.Member, *, reason=None):
         """Swings the banhammer"""
         if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
@@ -161,14 +161,14 @@ class Commands:
             await ctx.send(self.bot.accept)
             await self.send_log(ctx, member, reason)
 
-    @command(6)
+    @command(7)
     async def ban(self, ctx, member: MemberOrID, *, reason=None):
         """Swings the banhammer"""
         await ctx.guild.ban(member, reason=reason)
         await ctx.send(self.bot.accept)
         await self.send_log(ctx, member, reason)
 
-    @command(6)
+    @command(7)
     async def unban(self, ctx, member: MemberOrID, *, reason=None):
         """Unswing the banhammer"""
         await ctx.guild.unban(member, reason=reason)
