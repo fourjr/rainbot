@@ -125,7 +125,7 @@ class Commands:
             await self.bot.unmute(ctx.guild.id, member.id, None, reason=reason)
             await ctx.send(self.bot.accept)
 
-    @command(7, aliases=['clean', 'prune'])
+    @command(6, aliases=['clean', 'prune'])
     async def purge(self, ctx, limit: int, *, member: MemberOrID=None):
         """Deletes messages in bulk"""
         def predicate(m):

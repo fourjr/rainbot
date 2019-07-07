@@ -46,7 +46,6 @@ class Giveaways:
 
     async def get_latest_giveaway(self, ctx=None, *, force=False, guild_id=None) -> discord.Message:
         """Gets the latest giveaway message.
-
         If force is False, it returns None if there is no current active giveaway
         """
         channel = await self.channel(ctx, guild_id=guild_id)
@@ -57,7 +56,6 @@ class Giveaways:
 
     async def roll_winner(self, ctx, nwinners=None) -> str:
         """Rolls winner(s) and returns a list of discord.Member
-
         Supports nwinners as an arg. Defaults to check giveaway message
         """
         latest_giveaway = await self.get_latest_giveaway(ctx, force=True)
@@ -95,7 +93,7 @@ class Giveaways:
         new_embed.color = INACTIVE_COLOR
         await giveaway.edit(embed=new_embed)
 
-    @group(6, invoke_without_command=True, aliases=['give'])
+    @group(8, invoke_without_command=True, aliases=['give'])
     async def giveaway(self, ctx):
         """Setup giveaways!"""
         await ctx.invoke(self.bot.get_command('help'), command_or_cog='giveaway')
@@ -103,7 +101,6 @@ class Giveaways:
     @giveaway.command(8, usage='<endtime> <winners> <description>')
     async def create(self, ctx, *, time: UserFriendlyTime):
         """Create a giveaway
-
         Example: `!giveaway create 3 days 5 $10USD`
         """
         async with ctx.typing():
