@@ -25,7 +25,6 @@ class Detections:
         invite_regex = r'((http(s|):\/\/|)(discord)(\.(gg|io|me)\/|app\.com\/invite\/)([0-z]+))'
         invite_match = re.findall(invite_regex, m.content)
 
-
         mentions = []
         for i in m.mentions:
             if i not in mentions and i != m.author:  # and not i.bot:
@@ -38,16 +37,6 @@ class Detections:
         elif any(filtered_words.values()):
             await m.delete()
 
-        elif "www." or "https://" in m.content.lower():
-            await m.delete()
-            await self.bot.mute(m.author, 60 * 10, reason=f'Posting a link!')
-            embed = discord.Embed(
-                title = "Link",
-                description = f"{m.author.mention} has been muted for 600s for posting a link!",
-                color = 0xFF2B2B
-            )
-            await m.channel.send(embed = embed)
-
         elif detection_config.get('block_invite') and invite_match is not None:
             for i in invite_match:
                 try:
@@ -58,12 +47,6 @@ class Detections:
                     if not (invite.guild.id == m.guild.id or str(invite.guild.id) in guild_config.get('whitelisted_guilds', [])):
                         await m.delete()
                         await self.bot.mute(m.author, 60 * 10, reason=f'Advertising discord server (<{invite.url}>)')
-                        embed = discord.Embed(
-                            title = "Invite Link",
-                            description = f"{m.author.mention} has been muted for 600s for posting an invite link!",
-                            color = 0xFF2B2B
-                        )
-                        await m.channel.send(embed = embed)
 
         elif detection_config.get('spam_detection') and len(self.messages.get(str(m.author.id), [])) >= detection_config.get('spam_detection'):
             await m.delete()
