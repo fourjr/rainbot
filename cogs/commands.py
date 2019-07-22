@@ -164,9 +164,12 @@ class Commands:
     @command(6)
     async def ban(self, ctx, member: MemberOrID, *, reason=None):
         """Swings the banhammer"""
-        await ctx.guild.ban(member, reason=reason)
-        await ctx.send(self.bot.accept)
-        await self.send_log(ctx, member, reason)
+        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
+            await ctx.send('User has insufficient permissions')
+        else:
+            await ctx.guild.ban(member, reason=reason)
+            await ctx.send(self.bot.accept)
+            await self.send_log(ctx, member, reason)
 
     @command(6)
     async def unban(self, ctx, member: MemberOrID, *, reason=None):
