@@ -21,7 +21,7 @@ class Detections:
             return
 
         detection_config = guild_config.get('detections', {})
-        filtered_words = {i: i in m.content.lower() for i in detection_config.get('filters', [])}
+        filtered_words = {i: bool(re.match(i, m.content)) for i in detection_config.get('filters', [])}
         invite_regex = r'((http(s|):\/\/|)(discord)(\.(gg|io|me)\/|app\.com\/invite\/)([0-z]+))'
         invite_match = re.findall(invite_regex, m.content)
 
