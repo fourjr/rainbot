@@ -141,11 +141,14 @@ class Commands:
         
     @command(6)   
     async def slowmode(self, ctx, time: int, channel: discord.TextChannel = None):
-        try:
-            await channel.edit(slowmode_delay=time)
-        except:
-            await ctx.channel.edit(slowmode_delay=time)
-        await ctx.send(self.bot.accept)
+        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
+            await ctx.send('User has insufficient permissions')
+        else:
+            try:
+                await channel.edit(slowmode_delay=time)
+            except:
+                await ctx.channel.edit(slowmode_delay=time)
+            await ctx.send(self.bot.accept)
 
     @command(6)
     async def kick(self, ctx, member: discord.Member, *, reason=None):
