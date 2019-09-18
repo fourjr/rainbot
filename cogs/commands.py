@@ -138,6 +138,14 @@ class Commands:
         await self.send_log(ctx, limit, member)
         await asyncio.sleep(3)
         await accept.delete()
+        
+    @command(6)   
+    async def slowmode(self, ctx, time: int, channel: discord.TextChannel = None):
+        try:
+            await channel.edit(slowmode_delay=time)
+        except:
+            await ctx.channel.edit(slowmode_delay=time)
+        await ctx.send(self.bot.accept)
 
     @command(6)
     async def kick(self, ctx, member: discord.Member, *, reason=None):
