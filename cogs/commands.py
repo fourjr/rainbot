@@ -107,7 +107,7 @@ class Commands:
             # channel not found [None.send()]
             pass
 
-    @command(5)
+    @command(6)
     async def mute(self, ctx, member: discord.Member, duration: int=None, *, reason=None):
         """Mutes a user"""
         if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
@@ -116,7 +116,7 @@ class Commands:
             await self.bot.mute(member, duration, reason=reason)
             await ctx.send(self.bot.accept)
 
-    @command(5)
+    @command(6)
     async def unmute(self, ctx, member: discord.Member, *, reason=None):
         """Unmutes a user"""
         if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
@@ -125,7 +125,7 @@ class Commands:
             await self.bot.unmute(ctx.guild.id, member.id, None, reason=reason)
             await ctx.send(self.bot.accept)
 
-    @command(5, aliases=['clean', 'prune'])
+    @command(6, aliases=['clean', 'prune'])
     async def purge(self, ctx, limit: int, *, member: MemberOrID=None):
         """Deletes messages in bulk"""
         def predicate(m):
