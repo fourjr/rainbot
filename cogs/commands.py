@@ -130,7 +130,7 @@ class Commands:
         """Deletes messages in bulk"""
         def predicate(m):
             if member:
-                return m.author == member
+                return m.author.id == member.id
             return True
 
         await ctx.channel.purge(limit=limit + 1, check=predicate)
