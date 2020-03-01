@@ -37,7 +37,6 @@ class rainbot(commands.Bot):
         self.logger.addHandler(handler)
 
         self.mongo = AsyncIOMotorClient(os.getenv('mongo'))
-        self.logger.info('Connected to Mongo')
 
         self.remove_command('help')
         self.load_extensions()
@@ -77,7 +76,7 @@ class rainbot(commands.Bot):
     async def get_prefix(self, message):
         if self.dev_mode:
             return './'
-        guild_info = await self.mongo.config.guilds.find_one({'guild_id': str(message.guild.id)}) or {}
+        guild_info = await self.mongo.rainbot.guilds.find_one({'guild_id': str(message.guild.id)}) or {}
         return commands.when_mentioned_or(guild_info.get('prefix', '!!'))(self, message)
 
     async def on_connect(self):
@@ -101,14 +100,14 @@ class rainbot(commands.Bot):
             self.logger.exception(f'Error while executing {ctx.command} ({ctx.message.content})', exc_info=(type(e), e, e.__traceback__))
 
     async def setup_unmutes(self):
-        data = self.mongo.config.guilds.find({'mutes': {'$exists': True, '$ne': []}})
+        data = self.mongo.rainbot.guilds.find({'mutes': {'$exists': True, '$ne': []}})
         async for d in data:
             for m in d['mutes']:
                 self.loop.create_task(self.unmute(d['guild_id'], m['member'], m['time']))
 
     async def mute(self, member, duration, reason):
         """Mutes a ``member`` for ``duration`` seconds"""
-        guild_info = await self.mongo.config.guilds.find_one({'guild_id': str(member.guild.id)}) or {}
+        guild_info = await self.mongo.rainbot.guilds.find_one({'guild_id': str(member.guild.id)}) or {}
         mute_role = discord.utils.get(member.guild.roles, id=int(guild_info.get('mute_role') or 0))
         if not mute_role:
             # mute role
@@ -129,7 +128,7 @@ class rainbot(commands.Bot):
                     except discord.Forbidden:
                         pass
 
-            await self.mongo.config.guilds.find_one_and_update({'guild_id': str(member.guild.id)}, {'$set': {'mute_role': str(mute_role.id)}}, upsert=True)
+            await self.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(member.guild.id)}, {'$set': {'mute_role': str(mute_role.id)}}, upsert=True)
         await member.add_roles(mute_role)
 
         # mute complete, log it
@@ -146,7 +145,7 @@ class rainbot(commands.Bot):
         # log complete, save to DB
         if duration is not None:
             duration += time()
-            await self.mongo.config.guilds.find_one_and_update({'guild_id': str(member.guild.id)}, {'$push': {'mutes': {'member': str(member.id), 'time': duration}}}, upsert=True)
+            await self.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(member.guild.id)}, {'$push': {'mutes': {'member': str(member.id), 'time': duration}}}, upsert=True)
             self.loop.create_task(self.unmute(member.guild.id, member.id, duration))
 
     async def unmute(self, guild_id, member_id, duration, reason='Auto'):
@@ -163,7 +162,7 @@ class rainbot(commands.Bot):
         print(guild_id, member_id, duration, reason, member)
         if member:
             print('ran')
-            guild_info = await self.mongo.config.guilds.find_one({'guild_id': str(member.guild.id)}) or {}
+            guild_info = await self.mongo.rainbot.guilds.find_one({'guild_id': str(member.guild.id)}) or {}
             mute_role = discord.utils.get(member.guild.roles, id=int(guild_info.get('mute_role', 0)))
 
             log_channel = self.get_channel(int(guild_info.get('modlog', {}).get('member_unmute') or 0))
@@ -185,7 +184,7 @@ class rainbot(commands.Bot):
         pull = {'$pull': {'mutes': {'member': str(member_id)}}}
         if duration is not None:
             pull['$pull']['mutes']['time'] = duration
-        await self.mongo.config.guilds.find_one_and_update({'guild_id': str(guild_id)}, pull)
+        await self.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(guild_id)}, pull)
 
 
 if __name__ == '__main__':

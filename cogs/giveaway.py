@@ -29,17 +29,17 @@ class Giveaways(commands.Cog):
 
     async def channel(self, ctx=None, *, guild_id=None):
         guild_id = guild_id or ctx.guild.id
-        guild_config = await self.bot.mongo.config.guilds.find_one({'guild_id': str(guild_id)}) or {}
-        if guild_config and guild_config['giveaway']['channel_id']:
+        guild_config = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(guild_id)}) or {}
+        if guild_config['giveaway']['channel_id']:
             return self.bot.get_channel(int(guild_config['giveaway']['channel_id']))
 
     async def role(self, ctx):
-        guild_config = await self.bot.mongo.config.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
+        guild_config = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
         if guild_config['giveaway']['role_id']:
             return discord.utils.get(ctx.guild.roles, id=int(guild_config['giveaway']['role_id']))
 
     async def emoji(self, ctx):
-        guild_config = await self.bot.mongo.config.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
+        guild_config = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
         if guild_config['giveaway']['emoji_id']:
             return int(guild_config['giveaway']['emoji_id'])
 
@@ -170,7 +170,7 @@ class Giveaways(commands.Cog):
             else:
                 await ctx.send('No giveaway found')
 
-    @giveaway.command(8, usage='<description>')
+    @giveaway.command(8)
     async def edit(self, ctx, *, description):
         """Edit the description of the latest giveaway"""
         latest_giveaway = await self.get_latest_giveaway(ctx)

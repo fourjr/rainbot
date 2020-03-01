@@ -59,12 +59,12 @@ class Setup(commands.Cog):
     async def on_guild_join(self, guild):
         default = copy.copy(self.default)
         default['guild_id'] = str(guild.id)
-        await self.bot.mongo.config.guilds.insert_one(default)
+        await self.bot.mongo.rainbot.guilds.insert_one(default)
 
     @command(6, aliases=['view_config', 'view-config'])
     async def viewconfig(self, ctx):
         """View the current guild configuration"""
-        guild_info = await self.bot.mongo.config.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {'_id': None}
+        guild_info = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {'_id': None}
         del guild_info['_id']
         try:
             await ctx.send(f'```json\n{json.dumps(guild_info, indent=2)}\n```')
@@ -89,12 +89,12 @@ class Setup(commands.Cog):
 
         if log_name == 'all':
             for i in valid_logs:
-                await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'logs.{i}': channel_id}}, upsert=True)
+                await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'logs.{i}': channel_id}}, upsert=True)
         else:
             if log_name not in valid_logs:
                 raise commands.BadArgument('Invalid log name, pick one from below:\n' + ', '.join(valid_logs))
 
-            await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'logs.{log_name}': channel_id}}, upsert=True)
+            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'logs.{log_name}': channel_id}}, upsert=True)
         await ctx.send(self.bot.accept)
 
     @command(10, alises=['set_modlog', 'set-modlog'])
@@ -114,12 +114,12 @@ class Setup(commands.Cog):
         valid_logs = self.default['modlog'].keys()
         if log_name == 'all':
             for i in valid_logs:
-                await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'modlog.{i}': channel_id}}, upsert=True)
+                await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'modlog.{i}': channel_id}}, upsert=True)
         else:
             if log_name not in valid_logs:
                 raise commands.BadArgument('Invalid log name, pick one from below:\n' + ', '.join(valid_logs))
 
-            await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'modlog.{log_name}': channel_id}}, upsert=True)
+            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'modlog.{log_name}': channel_id}}, upsert=True)
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_perm_level', 'set-perm-level'])
@@ -128,13 +128,13 @@ class Setup(commands.Cog):
         if perm_level < 0:
             raise commands.BadArgument(f'{perm_level} is below 0')
 
-        await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'perm_levels.{role.id}': perm_level}}, upsert=True)
+        await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'perm_levels.{role.id}': perm_level}}, upsert=True)
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_prefix', 'set-prefix'])
     async def setprefix(self, ctx, new_prefix):
         """Sets the guild prefix"""
-        await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {'prefix': new_prefix}}, upsert=True)
+        await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {'prefix': new_prefix}}, upsert=True)
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_offset', 'set-offset'])
@@ -143,7 +143,7 @@ class Setup(commands.Cog):
         if not -12 < offset < 14:
             raise commands.BadArgument(f'{offset} has to be between -12 and 14.')
 
-        await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {'time_offset': offset}}, upsert=True)
+        await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {'time_offset': offset}}, upsert=True)
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_detection', 'set-detection'])
@@ -153,13 +153,13 @@ class Setup(commands.Cog):
         Valid types: block_invite, mention_limit, spam_detection
         """
         if detection_type == 'block_invite':
-            await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {'detections.block_invite': commands.core._convert_to_bool(value)}}, upsert=True)
+            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {'detections.block_invite': commands.core._convert_to_bool(value)}}, upsert=True)
             await ctx.send(self.bot.accept)
         elif detection_type in ('mention_limit', 'spam_detection'):
             try:
                 if int(value) <= 0:
                     raise ValueError
-                await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'detections.{detection_type}': int(value)}}, upsert=True)
+                await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'detections.{detection_type}': int(value)}}, upsert=True)
             except ValueError as e:
                 raise commands.BadArgument(f'{value} (`value`) is not a valid number above 0') from e
             await ctx.send(self.bot.accept)
@@ -173,7 +173,7 @@ class Setup(commands.Cog):
         Invite detection will not trigger when this guild's invite is sent.
         The current server is always whitelisted.
         """
-        await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$push': {'whitelisted_guilds': str(guild_id)}})
+        await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$push': {'whitelisted_guilds': str(guild_id)}})
         await ctx.send(self.bot.accept)
 
     @group(8, name='filter', invoke_without_command=True)
@@ -181,22 +181,22 @@ class Setup(commands.Cog):
         """Controls the word filter"""
         await ctx.invoke(self.bot.get_command('help'), command_or_cog='filter')
 
-    @filter_.command(8, usage='<word>')
+    @filter_.command(8)
     async def add(self, ctx, *, word: lower):
         """Add blacklisted words into the word filter"""
-        await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$push': {'detections.filters': word}}, upsert=True)
+        await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$push': {'detections.filters': word}}, upsert=True)
         await ctx.send(self.bot.accept)
 
-    @filter_.command(8, usage='<word>')
+    @filter_.command(8)
     async def remove(self, ctx, *, word: lower):
         """Removes blacklisted words from the word filter"""
-        await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$pull': {'detections.filters': word}}, upsert=True)
+        await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$pull': {'detections.filters': word}}, upsert=True)
         await ctx.send(self.bot.accept)
 
     @filter_.command(7, name='list')
     async def list_(self, ctx):
         """Lists the full word filter"""
-        guild_info = await self.bot.mongo.config.guilds.find_one({'guild_id': str(ctx.guild.id)})
+        guild_info = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)})
         await ctx.send(f"Filters: {', '.join([f'`{i}`' for i in guild_info.get('detections', {}).get('filters', [])])}")
 
 

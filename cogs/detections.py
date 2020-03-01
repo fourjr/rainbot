@@ -17,7 +17,7 @@ class Detections(commands.Cog):
         if not m.guild or m.type != discord.MessageType.default or m.author.bot or self.bot.dev_mode:
             return
 
-        guild_config = await self.bot.mongo.config.guilds.find_one({'guild_id': str(m.guild.id)}) or {}
+        guild_config = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(m.guild.id)}) or {}
         if get_perm_level(m.author, guild_config)[0] >= 5:
             return
 

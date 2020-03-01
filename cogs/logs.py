@@ -9,7 +9,7 @@ class Logging(commands.Cog):
         self.bot = bot
 
     async def check_enabled(self, guild_id, item):
-        data = await self.bot.mongo.config.guilds.find_one({'guild_id': str(guild_id)}) or {}
+        data = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(guild_id)}) or {}
         try:
             return self.bot.get_channel(int(data.get('logs', {}).get(item, 0)))
         except (ValueError, TypeError):
@@ -25,7 +25,7 @@ class Logging(commands.Cog):
             except AttributeError:
                 guild_id = payload.data.get('guild_id')
 
-        offset = await self.bot.mongo.config.guilds.find_one({'guild_id': str(guild_id)}) or {}
+        offset = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(guild_id)}) or {}
         offset = offset.get('time_offset', 0)
         current_time += timedelta(hours=offset)
         current_time = current_time.strftime('%H:%M:%S')
@@ -132,7 +132,7 @@ class Logging(commands.Cog):
             await self.send_log(log_channel, channel, False, mode='channel_role_create', extra='Channel')
 
         # Setup mute role perms
-        guild_config = await self.bot.mongo.config.guilds.find_one({'guild_id': str(channel.guild.id)})
+        guild_config = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(channel.guild.id)})
         if guild_config.get('mute_role'):
             role = discord.utils.get(channel.guild.roles, id=int(guild_config['mute_role']))
             if isinstance(channel, (discord.TextChannel, discord.VoiceChannel, discord.CategoryChannel)):
