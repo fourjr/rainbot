@@ -12,7 +12,7 @@ from ext.command import command, RainCommand, RainGroup
 from ext.paginator import Paginator
 
 
-class Utility:
+class Utility(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
@@ -124,7 +124,7 @@ class Utility:
         return can_run
 
     async def format_cog_help(self, ctx, prefix, cog):
-        em = discord.Embed(title=cog.__class__.__name__, description=cog.__doc__, color=0x7289da)
+        em = discord.Embed(title=cog.__class__.__name__, description=cog.__doc__ or "", color=0x7289da)
         commands = []
         fmt = ''
         # maxlen = 0
@@ -179,7 +179,7 @@ class Utility:
     async def help_(self, ctx, *, command_or_cog=None, error=None):
         """Shows the help message"""
         if error:
-            error = f'<:xmark:383917691318042624> `{error}`'
+            error = f'<:xmark:514047824493543424> `{error}`'
         prefix = (await ctx.guild_config()).get('prefix', '!!')
         invalid_command = discord.Embed(title='Invalid command or cog name.', color=0xff0000)
 

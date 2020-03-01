@@ -3,11 +3,12 @@ import re
 from collections import defaultdict
 
 import discord
+from discord.ext import commands
 
 from ext.utils import get_perm_level
 
 
-class Detections:
+class Detections(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.messages = defaultdict(list)

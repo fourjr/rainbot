@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta
 
 import discord
+from discord.ext import commands
 
 
-class Logging:
+class Logging(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 

@@ -18,8 +18,8 @@ class RainCommand(commands.Command):
     """Overwrites the default Command to use permission levels,
     overwrites signature to hide aliases"""
 
-    def __init__(self, name, callback, **kwargs):
-        super().__init__(name, callback, **kwargs)
+    def __init__(self, callback, **kwargs):
+        super().__init__(callback, **kwargs)
         self.perm_level = kwargs.get('perm_level')
         if self.perm_level:
             self.checks.append(check_perm_level)
@@ -61,8 +61,8 @@ class RainGroup(commands.Group):
     """Overwrites the default Command to use permission levels,
     overwrites signature to hide aliases"""
 
-    def __init__(self, **attrs):
-        super().__init__(**attrs)
+    def __init__(self, callback, **attrs):
+        super().__init__(callback, **attrs)
         self.perm_level = attrs.get('perm_level')
         if self.perm_level:
             self.checks.append(check_perm_level)

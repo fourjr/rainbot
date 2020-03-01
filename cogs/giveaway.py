@@ -5,7 +5,6 @@ import random
 from discord.ext import commands
 from datetime import datetime
 from ext.command import group
-from ext.utils import random_color
 from ext.time import UserFriendlyTime
 
 
@@ -13,7 +12,7 @@ ACTIVE_COLOR = 0x01dc5a
 INACTIVE_COLOR = 0xe8330f
 
 
-class Giveaways:
+class Giveaways(commands.Cog):
 
     def __init__(self, bot):
         self.bot: commands.Bot = bot
@@ -31,7 +30,7 @@ class Giveaways:
     async def channel(self, ctx=None, *, guild_id=None):
         guild_id = guild_id or ctx.guild.id
         guild_config = await self.bot.mongo.config.guilds.find_one({'guild_id': str(guild_id)}) or {}
-        if guild_config['giveaway']['channel_id']:
+        if guild_config and guild_config['giveaway']['channel_id']:
             return self.bot.get_channel(int(guild_config['giveaway']['channel_id']))
 
     async def role(self, ctx):

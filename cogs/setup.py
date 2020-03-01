@@ -9,7 +9,7 @@ from ext.utils import lower
 from ext.command import command, group
 
 
-class Setup:
+class Setup(commands.Cog):
     """Setting up rainbot: https://github.com/fourjr/rainbot/wiki/Setting-up-rainbot"""
 
     def __init__(self, bot):

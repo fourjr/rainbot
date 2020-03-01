@@ -23,7 +23,7 @@ class MemberOrID(commands.MemberConverter):
         return result
 
 
-class Commands:
+class Commands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
