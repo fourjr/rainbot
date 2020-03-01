@@ -170,7 +170,7 @@ class Giveaways(commands.Cog):
             else:
                 await ctx.send('No giveaway found')
 
-    @giveaway.command(8)
+    @giveaway.command(8, usage='<description>')
     async def edit(self, ctx, *, description):
         """Edit the description of the latest giveaway"""
         latest_giveaway = await self.get_latest_giveaway(ctx)

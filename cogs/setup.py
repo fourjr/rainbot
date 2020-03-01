@@ -181,13 +181,13 @@ class Setup(commands.Cog):
         """Controls the word filter"""
         await ctx.invoke(self.bot.get_command('help'), command_or_cog='filter')
 
-    @filter_.command(8)
+    @filter_.command(8, usage='<word>')
     async def add(self, ctx, *, word: lower):
         """Add blacklisted words into the word filter"""
         await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$push': {'detections.filters': word}}, upsert=True)
         await ctx.send(self.bot.accept)
 
-    @filter_.command(8)
+    @filter_.command(8, usage='<word>')
     async def remove(self, ctx, *, word: lower):
         """Removes blacklisted words from the word filter"""
         await self.bot.mongo.config.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$pull': {'detections.filters': word}}, upsert=True)
