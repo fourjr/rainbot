@@ -1,7 +1,6 @@
 import asyncio
 import discord
 import logging
-import requests
 import sys
 import traceback
 import os
@@ -54,8 +53,6 @@ class rainbot(commands.Bot):
         except Exception:
             print('Fatal exception')
             traceback.print_exc(file=sys.stderr)
-        finally:
-            requests.get(f'https://fourjr-herokustartup.herokuapp.com/logout/{os.getenv("HEROKU_APP_NAME")}')
 
     def load_extensions(self):
         for i in os.listdir('cogs'):
@@ -189,5 +186,4 @@ class rainbot(commands.Bot):
 
 if __name__ == '__main__':
     load_dotenv()
-    requests.get(f'https://fourjr-herokustartup.herokuapp.com/login/{os.getenv("HEROKU_APP_NAME")}')
     rainbot()
