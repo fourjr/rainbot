@@ -27,7 +27,7 @@ class Commands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    async def __error(self, ctx, error):
+    async def cog_error(self, ctx, error):
         """Handles discord.Forbidden"""
         if isinstance(error, discord.Forbidden):
             await ctx.send(f'I do not have the required permissions needed to run `{ctx.command.name}`.')
