@@ -3,6 +3,7 @@ import json
 
 import discord
 from discord.ext import commands
+from discord.ext.commands import Cog
 
 from ext.errors import BotMissingPermissionsInChannel
 from ext.utils import lower
@@ -56,6 +57,7 @@ class Setup(commands.Cog):
             'prefix': '!!'
         }
 
+    @Cog.listener()
     async def on_guild_join(self, guild):
         default = copy.copy(self.default)
         default['guild_id'] = str(guild.id)
@@ -175,6 +177,37 @@ class Setup(commands.Cog):
         """
         await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$push': {'whitelisted_guilds': str(guild_id)}})
         await ctx.send(self.bot.accept)
+
+    @command(10, aliases=['set-giveaway', 'set_giveaway'])
+    async def setgiveaway(self, ctx, giveaway_type: lower, value):
+        """
+        Sets the channel, emoji, and role for giveaways
+
+        Valid types: channel_id, emoji_id, role_id
+        """
+        if giveaway_type == 'channel_id':
+            channel = ctx.guild.get_channel(int(value))
+            if not channel:
+                raise commands.BadArgument('Invalid channel id.')
+
+            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'giveaway.channel_id': value}}, upsert=True)
+            await ctx.send(self.bot.accept)
+        elif giveaway_type == 'emoji_id':
+            emoji = discord.utils.get(ctx.guild.emojis, id=int(value))
+            if not emoji:
+                raise commands.BadArgument('Invalid emoji id.')
+
+            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'giveaway.emoji_id': value}}, upsert=True)
+            await ctx.send(self.bot.accept)
+        elif giveaway_type == 'role_id':
+            role = ctx.guild.get_role(int(value))
+            if not role:
+                raise commands.BadArgument('Invalid role id.')
+
+            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'giveaway.role_id': value}}, upsert=True)
+            await ctx.send(self.bot.accept)
+        else:
+            raise commands.BadArgument('Invalid giveaway property, pick one from below:\nchannel_id, emoji_id, role_id')
 
     @group(8, name='filter', invoke_without_command=True)
     async def filter_(self, ctx):

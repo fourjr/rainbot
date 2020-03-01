@@ -4,6 +4,7 @@ from collections import defaultdict
 
 import discord
 from discord.ext import commands
+from discord.ext.commands import Cog
 
 from ext.utils import get_perm_level
 
@@ -13,6 +14,7 @@ class Detections(commands.Cog):
         self.bot = bot
         self.messages = defaultdict(list)
 
+    @Cog.listener()
     async def on_message(self, m):
         if not m.guild or m.type != discord.MessageType.default or m.author.bot or self.bot.dev_mode:
             return

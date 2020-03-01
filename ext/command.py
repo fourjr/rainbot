@@ -117,4 +117,4 @@ def command(level, *args, **kwargs):
 def group(level, *args, **kwargs):
     """Overwrites the default group to use RainGroup"""
     kwargs['perm_level'] = level
-    return commands.command(cls=RainGroup, *args, **kwargs)
+    return commands.group(cls=RainGroup, *args, **kwargs)

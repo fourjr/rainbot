@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 
 import discord
 from discord.ext import commands
+from discord.ext.commands import Cog
 
 
 class Logging(commands.Cog):
@@ -56,6 +57,7 @@ class Logging(commands.Cog):
             else:
                 raise NotImplementedError(f'{mode} not implemented')
 
+    @Cog.listener()
     async def on_message_delete(self, message):
         if not message.guild or message.author.bot:
             return
@@ -64,12 +66,14 @@ class Logging(commands.Cog):
             return
         await self.send_log(log_channel, message, False, mode='message_delete')
 
+    @Cog.listener()
     async def on_raw_message_delete(self, payload):
         log_channel = await self.check_enabled(payload.guild_id, 'message_delete')
         if not payload.guild_id or not log_channel:
             return
         await self.send_log(log_channel, payload, True, 'deleted')
 
+    @Cog.listener()
     async def on_message_edit(self, before, after):
         if not before.guild or before.author.bot or before.content == after.content:
             return
@@ -78,6 +82,7 @@ class Logging(commands.Cog):
             return
         await self.send_log(log_channel, before, False, mode='message_edit', extra=after)
 
+    @Cog.listener()
     async def on_raw_message_edit(self, payload):
         log_channel = await self.check_enabled(payload.data.get('guild_id'), 'message_edit')
         if not payload.data.get('guild_id') or not log_channel:
@@ -88,12 +93,14 @@ class Logging(commands.Cog):
         except KeyError:
             pass
 
+    @Cog.listener()
     async def on_raw_message_individual_delete(self, payload):
         log_channel = await self.check_enabled(payload.guild_id, 'message_delete')
         if not payload.guild_id or not log_channel:
             return
         await self.send_log(log_channel, payload, True, 'deleted')
 
+    @Cog.listener()
     async def on_member_join(self, member):
         if not member.guild or member.bot:
             return
@@ -102,6 +109,7 @@ class Logging(commands.Cog):
             return
         await self.send_log(log_channel, member, False, mode='member_join')
 
+    @Cog.listener()
     async def on_member_remove(self, member):
         if not member.guild or member.bot:
             return
@@ -110,6 +118,7 @@ class Logging(commands.Cog):
             return
         await self.send_log(log_channel, member, False, mode='member_remove')
 
+    @Cog.listener()
     async def on_voice_state_update(self, member, before, after):
         if member.bot:
             return
@@ -126,6 +135,7 @@ class Logging(commands.Cog):
         if before.mute != after.mute:
             await self.send_log(log_channel, member, False, mode='member_mute_vc', extra=after.mute)
 
+    @Cog.listener()
     async def on_guild_channel_create(self, channel):
         log_channel = await self.check_enabled(channel.guild.id, 'channel_create')
         if log_channel:
@@ -138,16 +148,19 @@ class Logging(commands.Cog):
             if isinstance(channel, (discord.TextChannel, discord.VoiceChannel, discord.CategoryChannel)):
                 await channel.set_permissions(role, send_messages=False, speak=False)
 
+    @Cog.listener()
     async def on_guild_channel_delete(self, channel):
         log_channel = await self.check_enabled(channel.guild.id, 'channel_delete')
         if log_channel:
             await self.send_log(log_channel, channel, False, mode='channel_role_delete', extra='Channel')
 
+    @Cog.listener()
     async def on_guild_role_create(self, role):
         log_channel = await self.check_enabled(role.guild.id, 'role_create')
         if log_channel:
             await self.send_log(log_channel, role, False, mode='channel_role_create', extra='Role')
 
+    @Cog.listener()
     async def on_guild_role_delete(self, role):
         log_channel = await self.check_enabled(role.guild.id, 'role_delete')
         if log_channel:
