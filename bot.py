@@ -22,7 +22,7 @@ class rainbot(commands.Bot):
         super().__init__(command_prefix=None)
 
         self.session = aiohttp.ClientSession(loop=self.loop)
-        self.accept = '<:tick:514047808613908493>'
+        self.accept = '<:check:684169254618398735>'
         self.dev_mode = os.name == 'nt'
 
         # Set up logging
