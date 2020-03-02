@@ -100,6 +100,12 @@ class Commands(commands.Cog):
                 name = getattr(args[0], 'name', '(no name)')
                 fmt = f'`{current_time}` {ctx.author} unbanned {name} ({args[0].id}), reason: {args[1]}'
                 await ctx.bot.get_channel(guild_config.get('member_unban')).send(fmt)
+            elif ctx.command.name == 'warn':
+                fmt = f'`{current_time}` {ctx.author} warned {args[0]} ({args[0].id}), reason: {args[1]}'
+                await ctx.bot.get_channel(guild_config.get('member_warn')).send(fmt)
+            elif ctx.command.name == 'removewarn':
+                fmt = f'`{current_time}` {ctx.author} has deleted warn #{args[0]}'
+                await ctx.bot.get_channel(guild_config.get('member_warn')).send(fmt)
             else:
                 raise NotImplementedError(f'{ctx.command.name} not implemented for commands/send_log')
         except AttributeError:
@@ -178,6 +184,74 @@ class Commands(commands.Cog):
         await ctx.send(self.bot.accept)
         await self.send_log(ctx, member, reason)
 
+    @command(6)
+    async def warn(self, ctx, member: MemberOrID, *, reason):
+        """Warn a user"""
+        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
+            await ctx.send('User has insufficient permissions')
+        else:
+            warns = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
+            guild_warns = warns.get('warns', [])
+            warns = list(filter(lambda w: w['member_id'] == str(member.id), guild_warns))
+            try:
+                num_warns = len(warns) + 1
+                fmt = f'You have been warned in **{ctx.guild.name}** for {reason}. This is warning #{num_warns}.'
+                if num_warns < 3:
+                    fmt += ' On your third warning, you will be kicked.'
+                else:
+                    fmt += ' You have been kicked from the server.'
+                await member.send(fmt)
+            except discord.Forbidden:
+                await ctx.send('The user has PMs disabled or blocked the bot.')
+            finally:
+                offset = (await ctx.guild_config()).get('time_offset', 0)
+                current_date = (datetime.utcnow() + timedelta(hours=offset)).strftime('%Y-%m-%d')
+                if len(guild_warns) == 0:
+                    case_number = 1
+                else:
+                    case_number = guild_warns[-1]['case_number'] + 1
+                push = {
+                    'case_number': case_number,
+                    'date': current_date,
+                    'member_id': str(member.id),
+                    'moderator_id': str(ctx.author.id),
+                    'reason': reason
+                }
+                await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$push': {'warns': push}}, upsert=True)
+                await ctx.send(self.bot.accept)
+                await self.send_log(ctx, member, reason)
+
+                if num_warns >= 3:
+                    await ctx.invoke(self.kick, member, reason=reason)
+
+    @command(6)
+    async def removewarn(self, ctx, case_number: int):
+        """Remove a warn"""
+        warns = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
+        warns = warns.get('warns', [])
+        warn = list(filter(lambda w: w['case_number'] == case_number, warns))
+        if len(warn) == 0:
+            await ctx.send(f'Case number {case_number} does not exist.')
+        else:
+            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$pull': {'warns': warn[0]}})
+            await ctx.send(self.bot.accept)
+            await self.send_log(ctx, case_number)
+
+    @command(6)
+    async def warns(self, ctx, member: MemberOrID):
+        """View the warns of a user"""
+        warns = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
+        warns = warns.get('warns', [])
+        warns = list(filter(lambda w: w['member_id'] == str(member.id), warns))
+        if len(warns) == 0:
+            await ctx.send(f'{member} has no warns.')
+        else:
+            fmt = f'**{member} has {len(warns)} warns.**'
+            for warn in warns:
+                moderator = ctx.guild.get_member(int(warn['moderator_id']))
+                fmt += f"\n`{warn['date']}` Case #{warn['case_number']}: {moderator} warned {member} for {warn['reason']}"
+
+            await ctx.send(fmt)
 
 def setup(bot):
     bot.add_cog(Commands(bot))

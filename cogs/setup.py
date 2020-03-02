@@ -31,6 +31,7 @@ class Setup(commands.Cog):
                 'role_delete': None
             },
             'modlog': {
+                'member_warn': None,
                 'member_mute': None,
                 'member_unmute': None,
                 'member_kick': None,
@@ -52,6 +53,7 @@ class Setup(commands.Cog):
                 'emoji_id': None
             },
             'perm_levels': {},
+            'warns': [],
             'mute_role': None,
             'mutes': [],
             'prefix': '!!'
@@ -103,7 +105,7 @@ class Setup(commands.Cog):
     async def setmodlog(self, ctx, log_name: lower, channel: discord.TextChannel=None):
         """Sets the log channel for various types of logging
 
-        Valid types: all, member_mute, member_unmute, member_kick, member_ban, member_unban, member_softban, message_purge
+        Valid types: all, member_warn, member_mute, member_unmute, member_kick, member_ban, member_unban, member_softban, message_purge
         """
         channel_id = None
         if channel:
