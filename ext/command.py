@@ -70,6 +70,7 @@ class RainGroup(commands.Group):
     def command(self, *args, **kwargs):
         """Overwrites GroupMixin.command to use RainCommand"""
         def decorator(func):
+            kwargs.setdefault('parent', self)
             result = command(*args, **kwargs)(func)
             self.add_command(result)
             return result
