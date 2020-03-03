@@ -223,6 +223,7 @@ class Commands(commands.Cog):
                 await self.send_log(ctx, member, reason)
 
                 if num_warns >= 3:
+                    ctx.command = self.kick
                     await ctx.invoke(self.kick, member, reason=reason)
 
     @command(6)
