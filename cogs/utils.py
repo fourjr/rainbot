@@ -146,6 +146,9 @@ class Utility(commands.Cog):
         # maxlen = 0
 
         for i in inspect.getmembers(cog, predicate=lambda x: isinstance(x, (RainCommand, RainGroup))):
+            if i[1].parent:
+                # Ignore subcommands
+                continue
             if await self.can_run(ctx, i[1]):
                 commands.append(i[1])
 
