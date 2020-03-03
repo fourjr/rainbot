@@ -114,77 +114,6 @@ class Commands(commands.Cog):
             pass
 
     @command(6)
-    async def mute(self, ctx, member: discord.Member, duration: int=None, *, reason=None):
-        """Mutes a user"""
-        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
-            await ctx.send('User has insufficient permissions')
-        else:
-            await self.bot.mute(member, duration, reason=reason)
-            await ctx.send(self.bot.accept)
-
-    @command(6)
-    async def unmute(self, ctx, member: discord.Member, *, reason=None):
-        """Unmutes a user"""
-        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
-            await ctx.send('User has insufficient permissions')
-        else:
-            await self.bot.unmute(ctx.guild.id, member.id, None, reason=reason)
-            await ctx.send(self.bot.accept)
-
-    @command(6, aliases=['clean', 'prune'])
-    async def purge(self, ctx, limit: int, *, member: MemberOrID=None):
-        """Deletes messages in bulk"""
-        def predicate(m):
-            if member:
-                return m.author.id == member.id
-            return True
-
-        await ctx.channel.purge(limit=limit + 1, check=predicate)
-        accept = await ctx.send(self.bot.accept)
-        await self.send_log(ctx, limit, member)
-        await asyncio.sleep(3)
-        await accept.delete()
-
-    @command(6)
-    async def kick(self, ctx, member: discord.Member, *, reason=None):
-        """Kicks a user"""
-        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
-            await ctx.send('User has insufficient permissions')
-        else:
-            await member.kick(reason=reason)
-            await ctx.send(self.bot.accept)
-            await self.send_log(ctx, member, reason)
-
-    @command(6)
-    async def softban(self, ctx, member: discord.Member, *, reason=None):
-        """Swings the banhammer"""
-        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
-            await ctx.send('User has insufficient permissions')
-        else:
-            await member.ban(reason=reason)
-            await asyncio.sleep(2)
-            await member.unban(reason=reason)
-            await ctx.send(self.bot.accept)
-            await self.send_log(ctx, member, reason)
-
-    @command(6)
-    async def ban(self, ctx, member: MemberOrID, *, reason=None):
-        """Swings the banhammer"""
-        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
-            await ctx.send('User has insufficient permissions')
-        else:
-            await ctx.guild.ban(member, reason=reason)
-            await ctx.send(self.bot.accept)
-            await self.send_log(ctx, member, reason)
-
-    @command(6)
-    async def unban(self, ctx, member: MemberOrID, *, reason=None):
-        """Unswing the banhammer"""
-        await ctx.guild.unban(member, reason=reason)
-        await ctx.send(self.bot.accept)
-        await self.send_log(ctx, member, reason)
-
-    @command(6)
     async def warn(self, ctx, member: MemberOrID, *, reason):
         """Warn a user"""
         if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
@@ -254,6 +183,79 @@ class Commands(commands.Cog):
                 fmt += f"\n`{warn['date']}` Case #{warn['case_number']}: {moderator} warned {member} for {warn['reason']}"
 
             await ctx.send(fmt)
+
+    @command(6)
+    async def mute(self, ctx, member: discord.Member, duration: int=None, *, reason=None):
+        """Mutes a user"""
+        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
+            await ctx.send('User has insufficient permissions')
+        else:
+            await self.bot.mute(member, duration, reason=reason)
+            await ctx.send(self.bot.accept)
+
+    @command(6)
+    async def unmute(self, ctx, member: discord.Member, *, reason=None):
+        """Unmutes a user"""
+        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
+            await ctx.send('User has insufficient permissions')
+        else:
+            await self.bot.unmute(ctx.guild.id, member.id, None, reason=reason)
+            await ctx.send(self.bot.accept)
+
+    @command(6, aliases=['clean', 'prune'])
+    async def purge(self, ctx, limit: int, *, member: MemberOrID=None):
+        """Deletes messages in bulk"""
+        def predicate(m):
+            if member:
+                return m.author.id == member.id
+            return True
+
+        await ctx.channel.purge(limit=limit + 1, check=predicate)
+        accept = await ctx.send(self.bot.accept)
+        await self.send_log(ctx, limit, member)
+        await asyncio.sleep(3)
+        await accept.delete()
+
+    @command(6)
+    async def kick(self, ctx, member: discord.Member, *, reason=None):
+        """Kicks a user"""
+        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
+            await ctx.send('User has insufficient permissions')
+        else:
+            await member.kick(reason=reason)
+            if ctx.author != ctx.guild.me:
+                await ctx.send(self.bot.accept)
+            await self.send_log(ctx, member, reason)
+
+    @command(6)
+    async def softban(self, ctx, member: discord.Member, *, reason=None):
+        """Swings the banhammer"""
+        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
+            await ctx.send('User has insufficient permissions')
+        else:
+            await member.ban(reason=reason)
+            await asyncio.sleep(2)
+            await member.unban(reason=reason)
+            await ctx.send(self.bot.accept)
+            await self.send_log(ctx, member, reason)
+
+    @command(6)
+    async def ban(self, ctx, member: MemberOrID, *, reason=None):
+        """Swings the banhammer"""
+        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
+            await ctx.send('User has insufficient permissions')
+        else:
+            await ctx.guild.ban(member, reason=reason)
+            await ctx.send(self.bot.accept)
+            await self.send_log(ctx, member, reason)
+
+    @command(6)
+    async def unban(self, ctx, member: MemberOrID, *, reason=None):
+        """Unswing the banhammer"""
+        await ctx.guild.unban(member, reason=reason)
+        await ctx.send(self.bot.accept)
+        await self.send_log(ctx, member, reason)
+
 
 def setup(bot):
     bot.add_cog(Commands(bot))
