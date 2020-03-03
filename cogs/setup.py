@@ -53,6 +53,7 @@ class Setup(commands.Cog):
                 'emoji_id': None
             },
             'perm_levels': {},
+            'notes': [],
             'warns': [],
             'mute_role': None,
             'mutes': [],
@@ -228,7 +229,7 @@ class Setup(commands.Cog):
         await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$pull': {'detections.filters': word}}, upsert=True)
         await ctx.send(self.bot.accept)
 
-    @filter_.command(7, name='list')
+    @filter_.command(8, name='list')
     async def list_(self, ctx):
         """Lists the full word filter"""
         guild_info = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)})

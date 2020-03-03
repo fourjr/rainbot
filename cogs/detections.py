@@ -36,7 +36,7 @@ class Detections(commands.Cog):
 
         ctx = await self.bot.get_context(m, cls=RainContext)
         ctx.author = m.guild.me
-        warn_cmd = self.bot.get_command('warn')
+        warn_cmd = self.bot.get_command('warn add')
         ctx.command = warn_cmd
 
         if detection_config.get('mention_limit') and len(mentions) >= detection_config.get('mention_limit'):

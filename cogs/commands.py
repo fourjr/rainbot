@@ -6,7 +6,7 @@ import discord
 from discord.ext import commands
 
 from ext.utils import get_perm_level
-from ext.command import command
+from ext.command import command, group
 
 
 class MemberOrID(commands.MemberConverter):
@@ -31,6 +31,44 @@ class Commands(commands.Cog):
         """Handles discord.Forbidden"""
         if isinstance(error, discord.Forbidden):
             await ctx.send(f'I do not have the required permissions needed to run `{ctx.command.name}`.')
+
+    async def send_log(self, ctx, *args):
+        guild_config = await ctx.guild_config()
+        offset = guild_config.get('time_offset', 0)
+        current_time = (datetime.utcnow() + timedelta(hours=offset)).strftime('%H:%M:%S')
+        guild_config = {i: int(guild_config.get('modlog', {})[i]) for i in guild_config.get('modlog', {})}
+
+        try:
+            if ctx.command.name == 'purge':
+                fmt = f'`{current_time}` {ctx.author} purged {args[0]} messages in **#{ctx.channel.name}**'
+                if args[1]:
+                    fmt += f', from {args[1]}'
+                await ctx.bot.get_channel(guild_config.get('message_purge')).send(fmt)
+            elif ctx.command.name == 'kick':
+                fmt = f'`{current_time}` {ctx.author} kicked {args[0]} ({args[0].id}), reason: {args[1]}'
+                await ctx.bot.get_channel(guild_config.get('member_kick')).send(fmt)
+            elif ctx.command.name == 'softban':
+                fmt = f'`{current_time}` {ctx.author} softbanned {args[0]} ({args[0].id}), reason: {args[1]}'
+                await ctx.bot.get_channel(guild_config.get('member_softban')).send(fmt)
+            elif ctx.command.name == 'ban':
+                name = getattr(args[0], 'name', '(no name)')
+                fmt = f'`{current_time}` {ctx.author} banned {name} ({args[0].id}), reason: {args[1]}'
+                await ctx.bot.get_channel(guild_config.get('member_ban')).send(fmt)
+            elif ctx.command.name == 'unban':
+                name = getattr(args[0], 'name', '(no name)')
+                fmt = f'`{current_time}` {ctx.author} unbanned {name} ({args[0].id}), reason: {args[1]}'
+                await ctx.bot.get_channel(guild_config.get('member_unban')).send(fmt)
+            elif ctx.command.qualified_name == 'warn add':
+                fmt = f'`{current_time}` {ctx.author} warned {args[0]} ({args[0].id}), reason: {args[1]}'
+                await ctx.bot.get_channel(guild_config.get('member_warn')).send(fmt)
+            elif ctx.command.qualified_name == 'warn remove':
+                fmt = f'`{current_time}` {ctx.author} has deleted warn #{args[0]}'
+                await ctx.bot.get_channel(guild_config.get('member_warn')).send(fmt)
+            else:
+                raise NotImplementedError(f'{ctx.command.name} not implemented for commands/send_log')
+        except AttributeError:
+            # channel not found [None.send()]
+            pass
 
     @command(5)
     async def user(self, ctx, member: discord.Member):
@@ -74,47 +112,75 @@ class Commands(commands.Cog):
         em.add_field(name='Member Information', value=member_info, inline=False)
         await ctx.send(embed=em)
 
-    async def send_log(self, ctx, *args):
-        guild_config = await ctx.guild_config()
-        offset = guild_config.get('time_offset', 0)
-        current_time = (datetime.utcnow() + timedelta(hours=offset)).strftime('%H:%M:%S')
-        guild_config = {i: int(guild_config.get('modlog', {})[i]) for i in guild_config.get('modlog', {})}
+    @group(6, invoke_without_command=True)
+    async def note(self, ctx):
+        """Manage notes"""
+        await ctx.invoke(self.bot.get_command('help'), command_or_cog='note')
 
-        try:
-            if ctx.command.name == 'purge':
-                fmt = f'`{current_time}` {ctx.author} purged {args[0]} messages in **#{ctx.channel.name}**'
-                if args[1]:
-                    fmt += f', from {args[1]}'
-                await ctx.bot.get_channel(guild_config.get('message_purge')).send(fmt)
-            elif ctx.command.name == 'kick':
-                fmt = f'`{current_time}` {ctx.author} kicked {args[0]} ({args[0].id}), reason: {args[1]}'
-                await ctx.bot.get_channel(guild_config.get('member_kick')).send(fmt)
-            elif ctx.command.name == 'softban':
-                fmt = f'`{current_time}` {ctx.author} softbanned {args[0]} ({args[0].id}), reason: {args[1]}'
-                await ctx.bot.get_channel(guild_config.get('member_softban')).send(fmt)
-            elif ctx.command.name == 'ban':
-                name = getattr(args[0], 'name', '(no name)')
-                fmt = f'`{current_time}` {ctx.author} banned {name} ({args[0].id}), reason: {args[1]}'
-                await ctx.bot.get_channel(guild_config.get('member_ban')).send(fmt)
-            elif ctx.command.name == 'unban':
-                name = getattr(args[0], 'name', '(no name)')
-                fmt = f'`{current_time}` {ctx.author} unbanned {name} ({args[0].id}), reason: {args[1]}'
-                await ctx.bot.get_channel(guild_config.get('member_unban')).send(fmt)
-            elif ctx.command.name == 'warn':
-                fmt = f'`{current_time}` {ctx.author} warned {args[0]} ({args[0].id}), reason: {args[1]}'
-                await ctx.bot.get_channel(guild_config.get('member_warn')).send(fmt)
-            elif ctx.command.name == 'removewarn':
-                fmt = f'`{current_time}` {ctx.author} has deleted warn #{args[0]}'
-                await ctx.bot.get_channel(guild_config.get('member_warn')).send(fmt)
+    @note.command(6)
+    async def add(self, ctx, member: MemberOrID, *, note):
+        """Add a note"""
+        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
+            await ctx.send('User has insufficient permissions')
+        else:
+            notes = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
+            guild_notes = notes.get('notes', [])
+            notes = list(filter(lambda w: w['member_id'] == str(member.id), guild_notes))
+
+            offset = (await ctx.guild_config()).get('time_offset', 0)
+            current_date = (datetime.utcnow() + timedelta(hours=offset)).strftime('%Y-%m-%d')
+            if len(guild_notes) == 0:
+                case_number = 1
             else:
-                raise NotImplementedError(f'{ctx.command.name} not implemented for commands/send_log')
-        except AttributeError:
-            raise
-            # channel not found [None.send()]
-            pass
+                case_number = guild_notes[-1]['case_number'] + 1
 
-    @command(6)
-    async def warn(self, ctx, member: MemberOrID, *, reason):
+            push = {
+                'case_number': case_number,
+                'date': current_date,
+                'member_id': str(member.id),
+                'moderator_id': str(ctx.author.id),
+                'note': note
+            }
+            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$push': {'notes': push}}, upsert=True)
+            await ctx.send(self.bot.accept)
+
+    @note.command(6, aliases=['delete', 'del'])
+    async def remove(self, ctx, case_number: int):
+        """Remove a note"""
+        notes = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
+        notes = notes.get('notes', [])
+        note = list(filter(lambda w: w['case_number'] == case_number, notes))
+        if len(note) == 0:
+            await ctx.send(f'Note #{case_number} does not exist.')
+        else:
+            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$pull': {'notes': note[0]}})
+            await ctx.send(self.bot.accept)
+
+    @note.command(6, name='list', aliases=['view'])
+    async def _list(self, ctx, member: MemberOrID):
+        """View the notes of a user"""
+        notes = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
+        notes = notes.get('notes', [])
+        notes = list(filter(lambda w: w['member_id'] == str(member.id), notes))
+        name = getattr(member, 'name', str(member.id)) + getattr(member, 'discriminator', '')
+
+        if len(notes) == 0:
+            await ctx.send(f'{name} has no notes.')
+        else:
+            fmt = f'**{name} has {len(notes)} notes.**'
+            for note in notes:
+                moderator = ctx.guild.get_member(int(note['moderator_id']))
+                fmt += f"\n`{note['date']}` Note #{note['case_number']}: {moderator} noted {note['note']}"
+
+            await ctx.send(fmt)
+
+    @group(6, invoke_without_command=True)
+    async def warn(self, ctx):
+        """Manage warns"""
+        await ctx.invoke(self.bot.get_command('help'), command_or_cog='warn')
+
+    @warn.command(6, name='add')
+    async def add_(self, ctx, member: MemberOrID, *, reason):
         """Warn a user"""
         if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
             await ctx.send('User has insufficient permissions')
@@ -155,32 +221,34 @@ class Commands(commands.Cog):
                     ctx.command = self.kick
                     await ctx.invoke(self.kick, member, reason=reason)
 
-    @command(6)
-    async def removewarn(self, ctx, case_number: int):
+    @warn.command(6, name='remove', aliases=['delete', 'del'])
+    async def remove_(self, ctx, case_number: int):
         """Remove a warn"""
         warns = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
         warns = warns.get('warns', [])
         warn = list(filter(lambda w: w['case_number'] == case_number, warns))
         if len(warn) == 0:
-            await ctx.send(f'Case number {case_number} does not exist.')
+            await ctx.send(f'Warn #{case_number} does not exist.')
         else:
             await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$pull': {'warns': warn[0]}})
             await ctx.send(self.bot.accept)
             await self.send_log(ctx, case_number)
 
-    @command(6)
-    async def warns(self, ctx, member: MemberOrID):
+    @warn.command(6, name='list', aliases=['view'])
+    async def list_(self, ctx, member: MemberOrID):
         """View the warns of a user"""
         warns = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
         warns = warns.get('warns', [])
         warns = list(filter(lambda w: w['member_id'] == str(member.id), warns))
+        name = getattr(member, 'name', str(member.id)) + getattr(member, 'discriminator', '')
+
         if len(warns) == 0:
-            await ctx.send(f'{member} has no warns.')
+            await ctx.send(f'{name} has no warns.')
         else:
-            fmt = f'**{member} has {len(warns)} warns.**'
+            fmt = f'**{name} has {len(warns)} warns.**'
             for warn in warns:
                 moderator = ctx.guild.get_member(int(warn['moderator_id']))
-                fmt += f"\n`{warn['date']}` Case #{warn['case_number']}: {moderator} warned {member} for {warn['reason']}"
+                fmt += f"\n`{warn['date']}` Warn #{warn['case_number']}: {moderator} warned {name} for {warn['reason']}"
 
             await ctx.send(fmt)
 
@@ -216,7 +284,7 @@ class Commands(commands.Cog):
         await asyncio.sleep(3)
         await accept.delete()
 
-    @command(6)
+    @command(7)
     async def kick(self, ctx, member: discord.Member, *, reason=None):
         """Kicks a user"""
         if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
@@ -227,7 +295,7 @@ class Commands(commands.Cog):
                 await ctx.send(self.bot.accept)
             await self.send_log(ctx, member, reason)
 
-    @command(6)
+    @command(7)
     async def softban(self, ctx, member: discord.Member, *, reason=None):
         """Swings the banhammer"""
         if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
@@ -239,7 +307,7 @@ class Commands(commands.Cog):
             await ctx.send(self.bot.accept)
             await self.send_log(ctx, member, reason)
 
-    @command(6)
+    @command(7)
     async def ban(self, ctx, member: MemberOrID, *, reason=None):
         """Swings the banhammer"""
         if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
@@ -249,7 +317,7 @@ class Commands(commands.Cog):
             await ctx.send(self.bot.accept)
             await self.send_log(ctx, member, reason)
 
-    @command(6)
+    @command(7)
     async def unban(self, ctx, member: MemberOrID, *, reason=None):
         """Unswing the banhammer"""
         await ctx.guild.unban(member, reason=reason)
