@@ -3,6 +3,10 @@ from discord.ext.commands import check
 
 
 def get_perm_level(member, guild_info):
+    # User is not in server
+    if not getattr(member, 'guild_permissions', None):
+        return (0, None)
+
     if member.guild_permissions.administrator:
         perm_level = 15
         highest_role = 'Administrator'
