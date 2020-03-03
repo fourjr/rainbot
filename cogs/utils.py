@@ -1,15 +1,17 @@
 import inspect
 import io
+import subprocess
 import textwrap
 import traceback
+import os
 from contextlib import redirect_stdout
 
 import discord
 from discord.ext import commands
 
-from ext.utils import owner, get_perm_level
-from ext.command import command, RainCommand, RainGroup
+from ext.command import RainCommand, RainGroup, command
 from ext.paginator import Paginator
+from ext.utils import get_perm_level, owner
 
 
 class Utility(commands.Cog):
@@ -104,6 +106,20 @@ class Utility(commands.Cog):
             await ctx.message.add_reaction('\u2049')  # x
         else:
             await ctx.message.add_reaction('\u2705')
+
+    @owner()
+    @command(0, name='exec')
+    async def _exec(self, ctx, *, command):
+        """Executes code in the command line"""
+        cmd = subprocess.run(command, cwd=os.getcwd(), stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+        err = cmd.stderr.decode('utf-8')
+        res = cmd.stdout.decode('utf-8')
+        if len(res) > 1850 or len(err) > 1850:
+            async with self.bot.session.post('https://hastebin.com/documents', data=err or res) as resp:
+                data = await resp.json()
+            await ctx.send(f"Output: <https://hastebin.com/{data['key']}.txt>")
+        else:
+            await ctx.send(f'```{err or res}```')
 
     @owner()
     @command(0)
