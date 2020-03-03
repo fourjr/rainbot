@@ -218,7 +218,8 @@ class Commands(commands.Cog):
                     'reason': reason
                 }
                 await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$push': {'warns': push}}, upsert=True)
-                await ctx.send(self.bot.accept)
+                if ctx.author != ctx.guild.me:
+                    await ctx.send(self.bot.accept)
                 await self.send_log(ctx, member, reason)
 
                 if num_warns >= 3:

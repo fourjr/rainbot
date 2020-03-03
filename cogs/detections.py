@@ -6,6 +6,7 @@ import discord
 from discord.ext import commands
 from discord.ext.commands import Cog
 
+from ext.context import RainContext
 from ext.utils import get_perm_level
 
 
@@ -24,31 +25,39 @@ class Detections(commands.Cog):
             return
 
         detection_config = guild_config.get('detections', {})
-        filtered_words = {i: i in m.content.lower() for i in detection_config.get('filters', [])}
+        filtered_words = [i for i in detection_config.get('filters', []) if i in m.content.lower()]
         invite_regex = r'((http(s|):\/\/|)(discord)(\.(gg|io|me)\/|app\.com\/invite\/)([0-z]+))'
         invite_match = re.findall(invite_regex, m.content)
 
         mentions = []
         for i in m.mentions:
-            if i not in mentions and i != m.author:  # and not i.bot:
+            if i not in mentions and i != m.author and not i.bot:
                 mentions.append(i)
+
+        ctx = await self.bot.get_context(m, cls=RainContext)
+        ctx.author = m.guild.me
+        warn_cmd = self.bot.get_command('warn')
+        ctx.command = warn_cmd
 
         if detection_config.get('mention_limit') and len(mentions) >= detection_config.get('mention_limit'):
             await m.delete()
+            await ctx.invoke(warn_cmd, m.author, reason=f'Mass mentions ({len(m.mentions)})')
             await self.bot.mute(m.author, 60 * 10, reason=f'Mass mentions ({len(m.mentions)})')
 
-        elif any(filtered_words.values()):
+        elif len(filtered_words) != 0:
             await m.delete()
+            await ctx.invoke(warn_cmd, m.author, reason=f"Sending filtered words ({', '.join(filtered_words)})")
 
         elif detection_config.get('block_invite') and invite_match is not None:
             for i in invite_match:
                 try:
-                    invite = await self.bot.get_invite(i[-1])
+                    invite = await self.bot.fetch_invite(i[-1])
                 except discord.NotFound:
                     pass
                 else:
                     if not (invite.guild.id == m.guild.id or str(invite.guild.id) in guild_config.get('whitelisted_guilds', [])):
                         await m.delete()
+                        await ctx.invoke(warn_cmd, m.author, reason=f'Advertising discord server (<{invite.url}>)')
                         await self.bot.mute(m.author, 60 * 10, reason=f'Advertising discord server (<{invite.url}>)')
 
         elif detection_config.get('spam_detection') and len(self.messages.get(str(m.author.id), [])) >= detection_config.get('spam_detection'):
@@ -59,6 +68,7 @@ class Detections(commands.Cog):
                     await msg.delete()
                 except discord.NotFound:
                     pass
+            await ctx.invoke(warn_cmd, m.author, reason=f'Exceeding spam detection ({detection_config.get("spam_detection")} messages/5s)')
             await self.bot.mute(m.author, 60 * 10, reason=f'Exceeding spam detection ({detection_config.get("spam_detection")} messages/5s)')
 
         self.messages[str(m.author.id)].append(m.id)
