@@ -197,7 +197,8 @@ class Commands(commands.Cog):
                     fmt += ' You have been kicked from the server.'
                 await member.send(fmt)
             except discord.Forbidden:
-                await ctx.send('The user has PMs disabled or blocked the bot.')
+                if ctx.author != ctx.guild.me:
+                    await ctx.send('The user has PMs disabled or blocked the bot.')
             finally:
                 offset = (await ctx.guild_config()).get('time_offset', 0)
                 current_date = (datetime.utcnow() + timedelta(hours=offset)).strftime('%Y-%m-%d')
