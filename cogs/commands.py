@@ -162,7 +162,9 @@ class Commands(commands.Cog):
         notes = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
         notes = notes.get('notes', [])
         notes = list(filter(lambda w: w['member_id'] == str(member.id), notes))
-        name = getattr(member, 'name', str(member.id)) + getattr(member, 'discriminator', '')
+        name = getattr(member, 'name', str(member.id))
+        if name != str(member.id):
+            name += f'#{member.discriminator}'
 
         if len(notes) == 0:
             await ctx.send(f'{name} has no notes.')
@@ -241,7 +243,9 @@ class Commands(commands.Cog):
         warns = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
         warns = warns.get('warns', [])
         warns = list(filter(lambda w: w['member_id'] == str(member.id), warns))
-        name = getattr(member, 'name', str(member.id)) + getattr(member, 'discriminator', '')
+        name = getattr(member, 'name', str(member.id))
+        if name != str(member.id):
+            name += f'#{member.discriminator}'
 
         if len(warns) == 0:
             await ctx.send(f'{name} has no warns.')
