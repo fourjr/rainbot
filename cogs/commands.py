@@ -5,8 +5,9 @@ from datetime import datetime, timedelta
 import discord
 from discord.ext import commands
 
-from ext.utils import get_perm_level
 from ext.command import command, group
+from ext.time import UserFriendlyTime
+from ext.utils import get_perm_level
 
 
 class MemberOrID(commands.MemberConverter):
@@ -257,12 +258,14 @@ class Commands(commands.Cog):
 
             await ctx.send(fmt)
 
-    @command(6)
-    async def mute(self, ctx, member: discord.Member, duration: int=None, *, reason=None):
+    @command(6, usage='<member> <duration> <reason>')
+    async def mute(self, ctx, member: discord.Member, *, time: UserFriendlyTime):
         """Mutes a user"""
         if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
             await ctx.send('User has insufficient permissions')
         else:
+            duration = (time.dt - datetime.utcnow()).seconds
+            reason = time.arg
             await self.bot.mute(member, duration, reason=reason)
             await ctx.send(self.bot.accept)
 
