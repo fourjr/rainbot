@@ -46,7 +46,6 @@ class Detections(commands.Cog):
 
         elif len(filtered_words) != 0:
             await m.delete()
-            await ctx.invoke(warn_cmd, m.author, reason=f"Sending filtered words ({', '.join(filtered_words)})")
 
         elif detection_config.get('block_invite') and invite_match is not None:
             for i in invite_match:
