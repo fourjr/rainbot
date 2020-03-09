@@ -111,7 +111,7 @@ class Giveaways(commands.Cog):
                 try:
                     winners = max(int(time.arg.split(' ')[0]), 1)
                 except ValueError as e:
-                    raise commands.BadArgument('Converting to "int" failed for parameter "winnners".') from e
+                    raise commands.BadArgument('Converting to "int" failed for parameter "winners".') from e
 
                 description = ' '.join(time.arg.split(' ')[1:])
                 em = discord.Embed(
