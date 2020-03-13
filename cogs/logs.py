@@ -146,7 +146,10 @@ class Logging(commands.Cog):
         if guild_config.get('mute_role'):
             role = discord.utils.get(channel.guild.roles, id=int(guild_config['mute_role']))
             if isinstance(channel, (discord.TextChannel, discord.VoiceChannel, discord.CategoryChannel)):
-                await channel.set_permissions(role, send_messages=False, speak=False)
+                try:
+                    await channel.set_permissions(role, send_messages=False, speak=False)
+                except discord.NotFound:
+                    pass
 
     @Cog.listener()
     async def on_guild_channel_delete(self, channel):
