@@ -193,8 +193,8 @@ class Commands(commands.Cog):
             warns = list(filter(lambda w: w['member_id'] == str(member.id), guild_warns))
             try:
                 num_warns = len(warns) + 1
-                fmt = f'You have been warned in **{ctx.guild.name}** for {reason}. This is warning #{num_warns}.'
-                if num_warns < 3:
+                fmt = f'You have been warned in **{ctx.guild.name}**, reason: {reason}. This is warning #{num_warns}.'
+                if num_warns < 5:
                     fmt += ' On your 5th warning, you will be kicked.'
                 else:
                     fmt += ' You have been kicked from the server.'
