@@ -29,7 +29,7 @@ def lower(argument):
 
 def owner():
     def predicate(ctx):
-        return ctx.author.id == 281821029490229251
+        return ctx.author.id in [180314310298304512, 281821029490229251, 369848495546433537]
     return check(predicate)
 
 
