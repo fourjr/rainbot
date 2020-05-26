@@ -73,7 +73,6 @@ class Giveaways(commands.Cog):
     async def queue_roll(self, giveaway: discord.Message):
         """Queues up the autoroll."""
         time = (giveaway.embeds[0].timestamp - datetime.utcnow()).total_seconds()
-        print(giveaway, time)
         await asyncio.sleep(time)
 
         try:
