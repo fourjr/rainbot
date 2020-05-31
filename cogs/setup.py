@@ -75,7 +75,8 @@ class Setup(commands.Cog):
             await ctx.send(f'```json\n{json.dumps(guild_info, indent=2)}\n```')
         except discord.HTTPException:
             async with self.bot.session.post('https://hastebin.com/documents', data=json.dumps(guild_info, indent=4)) as resp:
-                await ctx.send(f"Your server's configuration: https://hastebin.com/{(await resp.json())['key']}")
+                data = await resp.json()
+                await ctx.send(f"Your server's configuration: https://hastebin.com/{data['key']}")
 
     @command(10, alises=['set_log', 'set-log'])
     async def setlog(self, ctx, log_name: lower, channel: discord.TextChannel=None):
