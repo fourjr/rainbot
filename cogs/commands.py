@@ -195,7 +195,7 @@ class Commands(commands.Cog):
                 num_warns = len(warns) + 1
                 fmt = f'You have been warned in **{ctx.guild.name}**, reason: {reason}. This is warning #{num_warns}.'
                 if num_warns < 5:
-                    fmt += ' On your 5th warning, you will be kicked.'
+                    fmt += ' On your 3rd warning, you will be kicked.'
                 else:
                     fmt += ' You have been kicked from the server.'
                 await member.send(fmt)
@@ -221,7 +221,7 @@ class Commands(commands.Cog):
                     await ctx.send(self.bot.accept)
                 await self.send_log(ctx, member, reason)
 
-                if num_warns >= 5:
+                if num_warns >= 3:
                     ctx.command = self.kick
                     await ctx.invoke(self.kick, member, reason=reason)
 
