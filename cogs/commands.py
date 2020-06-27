@@ -298,12 +298,10 @@ class Commands(commands.Cog):
                     break
         else:
             deleted = await ctx.channel.purge(limit=count)
-            count -= len(count)
+            count -= len(deleted)
 
-        accept = await ctx.send(f'Deleted {limit - count} messages')
+        accept = await ctx.send(f'Deleted {limit - count} messages', delete_after=3)
         await self.send_log(ctx, count, member)
-        await asyncio.sleep(3)
-        await accept.delete()
 
     @command(6)
     async def lockdown(self, ctx, channel: discord.TextChannel=None):
