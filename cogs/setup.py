@@ -173,12 +173,17 @@ class Setup(commands.Cog):
             raise commands.BadArgument('Invalid log name, pick one from below:\nblock_invite, mention_limit, spam_detection, repetitive_message')
 
     @command(10, aliases=['set-guild-whitelist', 'set_guild_whitelist'])
-    async def setguildwhitelist(self, ctx, guild_id: int):
+    async def setguildwhitelist(self, ctx, guild_id: int=None):
         """Adds a server to the whitelist.
 
         Invite detection will not trigger when this guild's invite is sent.
         The current server is always whitelisted.
+
+        Run without arguments to clear whitelist
         """
+        if guild_id is None:
+            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$unset': {'whitelisted_guilds': ""}}, upsert=True)
+
         await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$push': {'whitelisted_guilds': str(guild_id)}})
         await ctx.send(self.bot.accept)
 
@@ -215,8 +220,11 @@ class Setup(commands.Cog):
 
     @command(8, aliases=['set_bot_channel', 'set-bot-channel'])
     async def setbotchannel(self, ctx, *, channel: discord.TextChannel=None):
-        """Sets channel for selfmute and other commands for users, run without argument to allow in every channel"""
-        await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {'in_bot_channel': str(channel.id)}}, upsert=True)
+        """Sets channel for selfmute and other commands for users, run without arguments to allow in every channel"""
+        if channel is None:
+            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$unset': {'in_bot_channel': ""}}, upsert=True)
+
+        await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$push': {'in_bot_channel': str(channel.id)}}, upsert=True)
         await ctx.send(self.bot.accept)
 
 
