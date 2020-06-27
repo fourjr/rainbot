@@ -59,3 +59,12 @@ def format_timedelta(delta):
         fmt = f'{years} years ' + fmt
 
     return fmt.strip()
+
+
+async def in_bot_channel(ctx):
+    guild_info = await ctx.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
+    bot_channel = guild_info.get('bot_channel', None)
+
+    if bot_channel:
+        return ctx.channel.id == int(bot_channel)
+    return True

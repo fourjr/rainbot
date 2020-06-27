@@ -7,7 +7,7 @@ from discord.ext import commands
 
 from ext.command import command, group
 from ext.time import UserFriendlyTime
-from ext.utils import get_perm_level, format_timedelta
+from ext.utils import get_perm_level, format_timedelta, in_bot_channel
 
 
 class MemberOrID(commands.MemberConverter):
@@ -358,6 +358,7 @@ class Commands(commands.Cog):
         await ctx.send(self.bot.accept)
         await self.send_log(ctx, member, reason)
 
+    @commands.check(in_bot_channel)
     @command(0, usage='<duration>')
     async def selfmute(self, ctx, *, time: UserFriendlyTime(default='')):
         """Mutes yourself"""
