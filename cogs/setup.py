@@ -156,12 +156,12 @@ class Setup(commands.Cog):
     async def setdetection(self, ctx, detection_type: lower, value):
         """Sets or toggle the auto moderation types
 
-        Valid types: block_invite, mention_limit, spam_detection
+        Valid types: block_invite, mention_limit, spam_detection, repetitive_message
         """
         if detection_type == 'block_invite':
             await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {'detections.block_invite': commands.core._convert_to_bool(value)}}, upsert=True)
             await ctx.send(self.bot.accept)
-        elif detection_type in ('mention_limit', 'spam_detection'):
+        elif detection_type in ('mention_limit', 'spam_detection', 'repetitive_message'):
             try:
                 if int(value) <= 0:
                     raise ValueError
@@ -170,7 +170,7 @@ class Setup(commands.Cog):
                 raise commands.BadArgument(f'{value} (`value`) is not a valid number above 0') from e
             await ctx.send(self.bot.accept)
         else:
-            raise commands.BadArgument('Invalid log name, pick one from below:\nblock_invite, mention_limit, spam_detection')
+            raise commands.BadArgument('Invalid log name, pick one from below:\nblock_invite, mention_limit, spam_detection, repetitive_message')
 
     @command(10, aliases=['set-guild-whitelist', 'set_guild_whitelist'])
     async def setguildwhitelist(self, ctx, guild_id: int):

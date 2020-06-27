@@ -7,7 +7,7 @@ from discord.ext import commands
 
 from ext.command import command, group
 from ext.time import UserFriendlyTime
-from ext.utils import get_perm_level
+from ext.utils import get_perm_level, format_timedelta
 
 
 class MemberOrID(commands.MemberConverter):
@@ -75,23 +75,11 @@ class Commands(commands.Cog):
     async def user(self, ctx, member: discord.Member):
         """Get a user's info"""
         async def timestamp(created):
-            delta = datetime.utcnow() - created
-            hours, remainder = divmod(int(delta.total_seconds()), 3600)
-            days, hours = divmod(hours, 24)
-            months, days = divmod(days, 30)
-            years, months = divmod(months, 12)
-            fmt = '{hours} hours'
-            if days:
-                fmt = '{days} days ' + fmt
-            if months:
-                fmt = '{months} months ' + fmt
-            if years:
-                fmt = '{years} years ' + fmt
-
+            delta = format_timedelta(datetime.utcnow() - created)
             offset = (await ctx.guild_config()).get('time_offset', 0)
             created += timedelta(hours=offset)
 
-            return f"{fmt.format(hours=hours, days=days, months=months, years=years)} ago ({created.strftime('%H:%M:%S')})"
+            return f"{delta} ago ({created.strftime('%H:%M:%S')})"
 
         created = await timestamp(member.created_at)
         joined = await timestamp(member.joined_at)
@@ -264,7 +252,7 @@ class Commands(commands.Cog):
         if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
             await ctx.send('User has insufficient permissions')
         else:
-            duration = (time.dt - datetime.utcnow()).seconds
+            duration = time.dt - datetime.utcnow()
             reason = time.arg
             await self.bot.mute(member, duration, reason=reason)
             await ctx.send(self.bot.accept)
@@ -281,16 +269,45 @@ class Commands(commands.Cog):
     @command(6, aliases=['clean', 'prune'])
     async def purge(self, ctx, limit: int, *, member: MemberOrID=None):
         """Deletes messages in bulk"""
-        def predicate(m):
-            if member:
-                return m.author.id == member.id
-            return True
+        count = min(2000, limit)
 
-        await ctx.channel.purge(limit=limit + 1, check=predicate)
-        accept = await ctx.send(self.bot.accept)
-        await self.send_log(ctx, limit, member)
+        if member:
+            while count > 0:
+                last_message = -1
+                previous = None
+                async for m in ctx.channel.history(limit=50):
+                    if m.author.id == member.id:
+                        last_message = previous
+                        break
+                    previous = m.id
+
+                if last_message != -1:
+                    try:
+                        deleted = await ctx.channel.purge(limit=count, check=lambda m: m.author.id == member.id, before=discord.Object(last_message))
+                    except discord.NotFound:
+                        pass
+                    else:
+                        count -= len(deleted)
+                else:
+                    break
+        else:
+            await ctx.channel.purge(limit=count)
+
+        accept = await ctx.send(f'Deleted {limit - count} messages')
+        await self.send_log(ctx, count, member)
         await asyncio.sleep(3)
         await accept.delete()
+
+    @command(6)
+    async def lockdown(self, ctx, channel: discord.TextChannel=None):
+        channel = channel or ctx.channel
+
+        if not channel.overwrites_for(ctx.guild.default_role).send_messages:
+            await channel.set_permissions(ctx.guild.default_role, send_messages=None)
+            await ctx.send(f'Un-lockdown {self.bot.accept}')
+        else:
+            await channel.set_permissions(ctx.guild.default_role, send_messages=False)
+            await ctx.send(f'Lockdown {self.bot.accept}')
 
     @command(7)
     async def kick(self, ctx, member: discord.Member, *, reason=None):
@@ -331,6 +348,41 @@ class Commands(commands.Cog):
         await ctx.guild.unban(member, reason=reason)
         await ctx.send(self.bot.accept)
         await self.send_log(ctx, member, reason)
+
+    @command(0, usage='<duration>')
+    async def selfmute(self, ctx, *, time: UserFriendlyTime(default='')):
+        """Mutes yourself"""
+        duration = time.dt - datetime.utcnow()
+
+        if duration < timedelta(minutes=10):
+            return await ctx.send('Selfmute has to be a minumum of 10 minutes.')
+
+        message = await ctx.send(f'Are you sure you want to mute yourself for {format_timedelta(duration)}?\n**Do not ask the moderators to undo this**\n\nReact with :white_check_mark: to accept and :x: to deny.')
+        await message.add_reaction(self.bot.accept[:-1])
+        await message.add_reaction(self.bot.deny[:-1])
+
+        def check(r, u):
+            if r.message.id == message.id and u.id == ctx.author.id:
+                if str(r.emoji.id) in (self.bot.accept[:-1].split(':')[-1], self.bot.deny[:-1].split(':')[-1]):
+                    return True
+
+        try:
+            reaction, _ = await self.bot.wait_for(
+                'reaction_add',
+                check=check,
+                timeout=10
+            )
+        except asyncio.TimeoutError:
+            await ctx.send(self.bot.deny)
+        else:
+            if str(reaction.emoji.id) == self.bot.accept[:-1].split(':')[-1]:
+                await self.bot.mute(ctx.author, duration, reason='Self Mute')
+                await ctx.send(self.bot.accept)
+            else:
+                # deny
+                await ctx.send(self.bot.deny)
+        finally:
+            await message.delete()
 
 
 def setup(bot):

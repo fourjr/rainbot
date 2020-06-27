@@ -55,6 +55,7 @@ class HumanTime:
         self.dt = dt
         self._past = dt < now
 
+
 class Time(HumanTime):
     def __init__(self, argument):
         try:
@@ -65,12 +66,14 @@ class Time(HumanTime):
             self.dt = o.dt
             self._past = False
 
+
 class FutureTime(Time):
     def __init__(self, argument):
         super().__init__(argument)
 
         if self._past:
             raise commands.BadArgument('this time is in the past')
+
 
 class UserFriendlyTime(commands.Converter):
     """That way quotes aren't absolutely necessary."""
@@ -90,7 +93,7 @@ class UserFriendlyTime(commands.Converter):
 
         if not remaining:
             if self.default is None:
-                raise commands.BadArgument('Missing argument after the time.')
+                raise commands.BadArgument('reason is a required parameter that is missing.')
             remaining = self.default
 
         if self.converter is not None:

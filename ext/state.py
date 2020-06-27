@@ -36,7 +36,7 @@ class ConnState(ConnectionState):
 
     def parse_message_delete(self, data):
         raw = RawMessageDeleteEvent(data)
-        found = self._get_message(raw.message_id)
+        found = self.fetch_message(raw.message_id)
         if found is not None:
             self.dispatch('message_delete', found)
             self._messages.remove(found)
@@ -59,7 +59,7 @@ class ConnState(ConnectionState):
 
     def parse_message_update(self, data):
         raw = RawMessageUpdateEvent(data)
-        message = self._get_message(raw.message_id)
+        message = self.fetch_message(raw.message_id)
         if message is not None:
             older_message = copy.copy(message)
             if 'call' in data:

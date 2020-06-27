@@ -35,3 +35,27 @@ def owner():
 
 def random_color():
     return random.randint(0, 0xfffff)
+
+
+def format_timedelta(delta):
+    minutes, seconds = divmod(int(delta.total_seconds()), 60)
+    hours, minutes = divmod(minutes, 60)
+    days, hours = divmod(hours, 24)
+    months, days = divmod(days, 30)
+    years, months = divmod(months, 12)
+
+    fmt = ''
+    if seconds:
+        fmt = f'{seconds} seconds ' + fmt
+    if minutes:
+        fmt = f'{minutes} minutes ' + fmt
+    if hours:
+        fmt = f'{hours} hours ' + fmt
+    if days:
+        fmt = f'{days} days ' + fmt
+    if months:
+        fmt = f'{months} months ' + fmt
+    if years:
+        fmt = f'{years} years ' + fmt
+
+    return fmt.strip()

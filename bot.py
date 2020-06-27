@@ -15,6 +15,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from ext import errors
 from ext.state import ConnState
 from ext.context import RainContext
+from ext.utils import format_timedelta
 
 
 class rainbot(commands.Bot):
@@ -23,6 +24,7 @@ class rainbot(commands.Bot):
 
         self.session = aiohttp.ClientSession(loop=self.loop)
         self.accept = '<:check:684169254618398735>'
+        self.deny = '<:xmark:684169254551158881>'
         self.dev_mode = os.name == 'nt'
 
         # Set up logging
@@ -81,15 +83,19 @@ class rainbot(commands.Bot):
 
     async def on_ready(self):
         self.logger.info('Ready')
+        self.logger.debug('Debug mode ON: Prefix ./')
 
     async def on_command_error(self, ctx, e):
         e = getattr(e, 'original', e)
         ignored = (
             commands.CommandNotFound,
             commands.CheckFailure,
+            commands.BadArgument,
             discord.Forbidden
         )
         if isinstance(e, (commands.UserInputError, errors.BotMissingPermissionsInChannel)):
+            await ctx.invoke(self.get_command('help'), command_or_cog=ctx.command.qualified_name, error=e)
+        elif isinstance(e, commands.BadArgument) and ctx.command.name == 'mute':
             await ctx.invoke(self.get_command('help'), command_or_cog=ctx.command.qualified_name, error=e)
         elif isinstance(e, ignored):
             pass
@@ -102,8 +108,8 @@ class rainbot(commands.Bot):
             for m in d['mutes']:
                 self.loop.create_task(self.unmute(d['guild_id'], m['member'], m['time']))
 
-    async def mute(self, member, duration, reason):
-        """Mutes a ``member`` for ``duration`` seconds"""
+    async def mute(self, member, delta, reason):
+        """Mutes a ``member`` for ``delta`` seconds"""
         guild_info = await self.mongo.rainbot.guilds.find_one({'guild_id': str(member.guild.id)}) or {}
         mute_role = discord.utils.get(member.guild.roles, id=int(guild_info.get('mute_role') or 0))
         if not mute_role:
@@ -137,8 +143,9 @@ class rainbot(commands.Bot):
             current_time += timedelta(hours=offset)
             current_time = current_time.strftime('%H:%M:%S')
 
-            await log_channel.send(f"`{current_time}` Member {member} ({member.id}) has been muted for reason: {reason} for {duration} seconds")
+            await log_channel.send(f"`{current_time}` Member {member} ({member.id}) has been muted for reason: {reason} for {format_timedelta(delta)}")
 
+        duration = delta.total_seconds()
         # log complete, save to DB
         if duration is not None:
             duration += time()
@@ -156,9 +163,7 @@ class rainbot(commands.Bot):
         except AttributeError:
             member = None
 
-        print(guild_id, member_id, duration, reason, member)
         if member:
-            print('ran')
             guild_info = await self.mongo.rainbot.guilds.find_one({'guild_id': str(member.guild.id)}) or {}
             mute_role = discord.utils.get(member.guild.roles, id=int(guild_info.get('mute_role', 0)))
 
