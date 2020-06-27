@@ -358,10 +358,12 @@ class Commands(commands.Cog):
         await ctx.send(self.bot.accept)
         await self.send_log(ctx, member, reason)
 
-    @commands.check(in_bot_channel)
     @command(0, usage='<duration>')
     async def selfmute(self, ctx, *, time: UserFriendlyTime(default='')):
         """Mutes yourself"""
+        if not await in_bot_channel(ctx):
+            return
+
         duration = time.dt - datetime.utcnow()
 
         if duration < timedelta(minutes=10):
