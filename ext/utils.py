@@ -38,6 +38,9 @@ def random_color():
 
 
 def format_timedelta(delta):
+    if not delta:
+        return 'forever'
+
     minutes, seconds = divmod(int(delta.total_seconds()), 60)
     hours, minutes = divmod(minutes, 60)
     days, hours = divmod(hours, 24)
@@ -63,7 +66,7 @@ def format_timedelta(delta):
 
 async def in_bot_channel(ctx):
     guild_info = await ctx.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
-    bot_channel = guild_info.get('in_bot_channel', None)
+    bot_channel = guild_info.get('in_bot_channel', [])
 
     if bot_channel:
         return str(ctx.channel.id) in bot_channel

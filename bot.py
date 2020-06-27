@@ -22,7 +22,6 @@ class rainbot(commands.Bot):
     def __init__(self):
         super().__init__(command_prefix=None)
 
-        self.session = aiohttp.ClientSession(loop=self.loop)
         self.accept = '<:check:684169254618398735>'
         self.deny = '<:xmark:684169254551158881>'
         self.dev_mode = os.name == 'nt'
@@ -79,6 +78,7 @@ class rainbot(commands.Bot):
         return commands.when_mentioned_or(guild_info.get('prefix', '!!'))(self, message)
 
     async def on_connect(self):
+        self.session = aiohttp.ClientSession(loop=self.loop)
         self.logger.info('Connected')
 
     async def on_ready(self):
@@ -94,8 +94,6 @@ class rainbot(commands.Bot):
             discord.Forbidden
         )
         if isinstance(e, (commands.UserInputError, errors.BotMissingPermissionsInChannel)):
-            await ctx.invoke(self.get_command('help'), command_or_cog=ctx.command.qualified_name, error=e)
-        elif isinstance(e, commands.BadArgument) and ctx.command.name == 'mute':
             await ctx.invoke(self.get_command('help'), command_or_cog=ctx.command.qualified_name, error=e)
         elif isinstance(e, ignored):
             pass
@@ -145,12 +143,13 @@ class rainbot(commands.Bot):
 
             await log_channel.send(f"`{current_time}` Member {member} ({member.id}) has been muted for reason: {reason} for {format_timedelta(delta)}")
 
-        duration = delta.total_seconds()
-        # log complete, save to DB
-        if duration is not None:
-            duration += time()
-            await self.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(member.guild.id)}, {'$push': {'mutes': {'member': str(member.id), 'time': duration}}}, upsert=True)
-            self.loop.create_task(self.unmute(member.guild.id, member.id, duration))
+        if delta:
+            duration = delta.total_seconds()
+            # log complete, save to DB
+            if duration is not None:
+                duration += time()
+                await self.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(member.guild.id)}, {'$push': {'mutes': {'member': str(member.id), 'time': duration}}}, upsert=True)
+                self.loop.create_task(self.unmute(member.guild.id, member.id, duration))
 
     async def unmute(self, guild_id, member_id, duration, reason='Auto'):
         await self.wait_until_ready()

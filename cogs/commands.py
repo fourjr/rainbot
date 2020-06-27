@@ -247,18 +247,22 @@ class Commands(commands.Cog):
             await ctx.send(fmt)
 
     @command(6, usage='<member> <duration> <reason>')
-    async def mute(self, ctx, member: discord.Member, *, time: UserFriendlyTime):
+    async def mute(self, ctx, member: discord.Member, *, time: UserFriendlyTime(default='No reason', assume_reason=True)=None):
         """Mutes a user"""
         if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
             await ctx.send('User has insufficient permissions')
         else:
-            duration = time.dt - datetime.utcnow()
-            reason = time.arg
+            duration = None
+            reason = None
+            if time.dt:
+                duration = time.dt - datetime.utcnow()
+            if time.arg:
+                reason = time.arg
             await self.bot.mute(member, duration, reason=reason)
             await ctx.send(self.bot.accept)
 
     @command(6)
-    async def unmute(self, ctx, member: discord.Member, *, reason=None):
+    async def unmute(self, ctx, member: discord.Member, *, reason='No reason'):
         """Unmutes a user"""
         if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
             await ctx.send('User has insufficient permissions')
@@ -362,7 +366,9 @@ class Commands(commands.Cog):
     async def selfmute(self, ctx, *, time: UserFriendlyTime(default='')):
         """Mutes yourself"""
         if not await in_bot_channel(ctx):
-            raise commands.BadArgument('Command has to be run in a bot commands channel.')
+            guild_info = await ctx.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
+            channels = [f'#{self.bot.get_channel(int(x)).name}' for x in guild_info.get('in_bot_channel', [])]
+            raise commands.BadArgument(f'Command has to be run in one of the following channels: {", ".join(channels)}')
 
         duration = time.dt - datetime.utcnow()
 

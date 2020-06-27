@@ -39,6 +39,7 @@ class ShortTime:
         now = datetime.datetime.utcnow()
         self.dt = now + relativedelta(**data)
 
+
 class HumanTime:
     calendar = pdt.Calendar(version=pdt.VERSION_CONTEXT_STYLE)
 
@@ -77,7 +78,7 @@ class FutureTime(Time):
 
 class UserFriendlyTime(commands.Converter):
     """That way quotes aren't absolutely necessary."""
-    def __init__(self, converter=None, *, default=None):
+    def __init__(self, converter=None, *, default=None, assume_reason=False):
         if isinstance(converter, type) and issubclass(converter, commands.Converter):
             converter = converter()
 
@@ -86,6 +87,7 @@ class UserFriendlyTime(commands.Converter):
 
         self.converter = converter
         self.default = default
+        self.assume_reason = assume_reason
 
     async def check_constraints(self, ctx, now, remaining):
         if self.dt < now:
@@ -128,7 +130,13 @@ class UserFriendlyTime(commands.Converter):
 
             elements = calendar.nlp(argument, sourceTime=now)
             if elements is None or len(elements) == 0:
-                raise commands.BadArgument('Invalid time provided, try e.g. "tomorrow" or "3 days".')
+                if self.assume_reason:
+                    # Instead of raising an error, assume arg is self.arg instead of a dt
+                    self.dt = None
+                    self.arg = argument
+                    return self
+                else:
+                    raise commands.BadArgument('Invalid time provided, try e.g. "tomorrow" or "3 days".')
 
             # handle the following cases:
             # "date time" foo
@@ -139,7 +147,13 @@ class UserFriendlyTime(commands.Converter):
             dt, status, begin, end, dt_string = elements[0]
 
             if not status.hasDateOrTime:
-                raise commands.BadArgument('Invalid time provided, try e.g. "tomorrow" or "3 days".')
+                if self.assume_reason:
+                    # Instead of raising an error, assume arg is self.arg instead of a dt
+                    self.dt = None
+                    self.arg = argument
+                    return self
+                else:
+                    raise commands.BadArgument('Invalid time provided, try e.g. "tomorrow" or "3 days".')
 
             if begin not in (0, 1) and end != len(argument):
                 raise commands.BadArgument('Time is either in an inappropriate location, which '
@@ -173,8 +187,6 @@ class UserFriendlyTime(commands.Converter):
 
             return await self.check_constraints(ctx, now, remaining)
         except:
-            import traceback
-            traceback.print_exc()
             raise
 
 def human_timedelta(dt, *, source=None, accuracy=None):
