@@ -362,7 +362,7 @@ class Commands(commands.Cog):
     async def selfmute(self, ctx, *, time: UserFriendlyTime(default='')):
         """Mutes yourself"""
         if not await in_bot_channel(ctx):
-            return
+            raise commands.BadArgument('Command has to be run in a bot commands channel.')
 
         duration = time.dt - datetime.utcnow()
 
