@@ -62,6 +62,9 @@ class Detections(commands.Cog):
                         await self.bot.mute(m.author, timedelta(minutes=10), reason=f'Advertising discord server (<{invite.url}>)')
 
         elif detection_config.get('spam_detection') and len(self.spam_detection.get(str(m.author.id), [])) >= detection_config.get('spam_detection'):
+            await ctx.invoke(warn_cmd, m.author, reason=f'Exceeding spam detection ({detection_config.get("spam_detection")} messages/5s)')
+            await self.bot.mute(m.author, timedelta(minutes=10), reason=f'Exceeding spam detection ({detection_config.get("spam_detection")} messages/5s)')
+
             await m.delete()
             for i in self.spam_detection[str(m.author.id)]:
                 try:
@@ -69,11 +72,10 @@ class Detections(commands.Cog):
                     await msg.delete()
                 except discord.NotFound:
                     pass
-            await ctx.invoke(warn_cmd, m.author, reason=f'Exceeding spam detection ({detection_config.get("spam_detection")} messages/5s)')
-            await self.bot.mute(m.author, timedelta(minutes=10), reason=f'Exceeding spam detection ({detection_config.get("spam_detection")} messages/5s)')
 
         elif detection_config.get('repetitive_message') and self.get_most_common_count(m.author.id) >= detection_config.get("repetitive_message"):
             await ctx.invoke(warn_cmd, m.author, reason=f'Repetitive message detection ({detection_config.get("repetitive_message")} identical messages/1m)')
+            await ctx.invoke(self.bot.get_command('purge'), limit=self.get_most_common_count(m.author.id), member=m.author)
             await self.bot.mute(m.author, timedelta(minutes=10), reason=f'Repetitive message detection ({detection_config.get("repetitive_message")} identical messages/1m)')
 
         self.spam_detection[str(m.author.id)].append(m.id)

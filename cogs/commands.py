@@ -372,7 +372,7 @@ class Commands(commands.Cog):
 
         duration = time.dt - datetime.utcnow()
 
-        if duration < timedelta(minutes=10):
+        if duration < timedelta(minutes=9):
             raise commands.BadArgument(f'Selfmute has to be a minumum of 10 minutes.')
 
         message = await ctx.send(f'Are you sure you want to mute yourself for {format_timedelta(duration)}?\n**Do not ask the moderators to undo this**\n\nReact with :white_check_mark: to accept and :x: to deny.')

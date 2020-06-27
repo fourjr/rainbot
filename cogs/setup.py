@@ -46,6 +46,7 @@ class Setup(commands.Cog):
                 'block_invite': False,
                 'mention_limit': None,
                 'spam_detection': None,
+                'repetitive_message'
             },
             'giveaway': {
                 'channel_id': None,
@@ -55,8 +56,9 @@ class Setup(commands.Cog):
             'perm_levels': {},
             'notes': [],
             'warns': [],
-            'mute_role': None,
             'mutes': [],
+            'in_bot_channel': [],
+            'mute_role': None,
             'prefix': '!!'
         }
 
