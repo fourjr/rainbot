@@ -293,11 +293,12 @@ class Commands(commands.Cog):
                         count -= len(deleted)
                 else:
                     break
-            
+
                 if retries > 20:
                     break
         else:
-            await ctx.channel.purge(limit=count)
+            deleted = await ctx.channel.purge(limit=count)
+            count -= len(count)
 
         accept = await ctx.send(f'Deleted {limit - count} messages')
         await self.send_log(ctx, count, member)
