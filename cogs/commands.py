@@ -270,9 +270,12 @@ class Commands(commands.Cog):
     async def purge(self, ctx, limit: int, *, member: MemberOrID=None):
         """Deletes messages in bulk"""
         count = min(2000, limit)
+        await ctx.message.delete()
 
+        retries = 0
         if member:
             while count > 0:
+                retries += 1
                 last_message = -1
                 previous = None
                 async for m in ctx.channel.history(limit=50):
@@ -290,6 +293,9 @@ class Commands(commands.Cog):
                         count -= len(deleted)
                 else:
                     break
+            
+                if retries > 20:
+                    break
         else:
             await ctx.channel.purge(limit=count)
 
@@ -302,12 +308,16 @@ class Commands(commands.Cog):
     async def lockdown(self, ctx, channel: discord.TextChannel=None):
         channel = channel or ctx.channel
 
-        if not channel.overwrites_for(ctx.guild.default_role).send_messages:
-            await channel.set_permissions(ctx.guild.default_role, send_messages=None)
-            await ctx.send(f'Un-lockdown {self.bot.accept}')
-        else:
-            await channel.set_permissions(ctx.guild.default_role, send_messages=False)
+        overwrite = ctx.channel.overwrites_for(ctx.guild.default_role)
+        if overwrite.send_messages is None or overwrite.send_messages:
+            overwrite.send_messages = False
+            await channel.set_permissions(ctx.guild.default_role, overwrite=overwrite)
             await ctx.send(f'Lockdown {self.bot.accept}')
+        else:
+            # dont change to "not overwrite.send_messages"
+            overwrite.send_messages = None
+            await channel.set_permissions(ctx.guild.default_role, overwrite=overwrite)
+            await ctx.send(f'Un-lockdown {self.bot.accept}')
 
     @command(7)
     async def kick(self, ctx, member: discord.Member, *, reason=None):
