@@ -336,6 +336,7 @@ class Commands(commands.Cog):
 
     @command(6, usage='<duration> <channel>')
     async def slowmode(self, ctx, *, time: UserFriendlyTime(converter=commands.TextChannelConverter, default=False, assume_reason=True)):
+        """Enables slowmode, max 6h"""
         duration = timedelta()
         channel = ctx.channel
         if time.dt:
