@@ -334,16 +334,27 @@ class Commands(commands.Cog):
 
         await self.send_log(ctx, enable, channel)
 
-    @command(6, usage='<duration> <channel>')
+    @command(6, usage='[duration] [channel]')
     async def slowmode(self, ctx, *, time: UserFriendlyTime(converter=commands.TextChannelConverter, default=False, assume_reason=True)):
-        """Enables slowmode, max 6h"""
+        """Enables slowmode, max 6h
+
+        Examples:
+        !!slowmode 2h
+        !!slowmode 2h #general
+        !!slowmode off
+        !!slowmode 0s #general
+        """
         duration = timedelta()
         channel = ctx.channel
         if time.dt:
             duration = time.dt - ctx.message.created_at
         if time.arg:
             if isinstance(time.arg, str):
-                channel = await commands.TextChannelConverter().convert(ctx, time.arg)
+                try:
+                    channel = await commands.TextChannelConverter().convert(ctx, time.arg)
+                except commands.BadArgument:
+                    if time.arg != 'off':
+                        raise
             else:
                 channel = time.arg
 
