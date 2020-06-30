@@ -38,7 +38,9 @@ class Setup(commands.Cog):
                 'member_ban': None,
                 'member_unban': None,
                 'member_softban': None,
-                'message_purge': None
+                'message_purge': None,
+                'channel_lockdown': None,
+                'channel_slowmode': None
             },
             'time_offset': 0,
             'detections': {
@@ -46,7 +48,7 @@ class Setup(commands.Cog):
                 'block_invite': False,
                 'mention_limit': None,
                 'spam_detection': None,
-                'repetitive_message'
+                'repetitive_message': None
             },
             'giveaway': {
                 'channel_id': None,
@@ -109,7 +111,7 @@ class Setup(commands.Cog):
     async def setmodlog(self, ctx, log_name: lower, channel: discord.TextChannel=None):
         """Sets the log channel for various types of logging
 
-        Valid types: all, member_warn, member_mute, member_unmute, member_kick, member_ban, member_unban, member_softban, message_purge
+        Valid types: all, member_warn, member_mute, member_unmute, member_kick, member_ban, member_unban, member_softban, message_purge, channel_lockdown, channel_slowmode
         """
         channel_id = None
         if channel:

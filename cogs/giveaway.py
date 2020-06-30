@@ -72,7 +72,7 @@ class Giveaways(commands.Cog):
 
     async def queue_roll(self, giveaway: discord.Message):
         """Queues up the autoroll."""
-        time = (giveaway.embeds[0].timestamp - datetime.utcnow()).total_seconds()
+        time = (giveaway.embeds[0].timestamp - giveaway.created_at).total_seconds()
         await asyncio.sleep(time)
 
         try:
@@ -138,7 +138,7 @@ class Giveaways(commands.Cog):
         async with ctx.typing():
             latest_giveaway = await self.get_latest_giveaway(ctx, force=True)
             if latest_giveaway:
-                now = datetime.utcnow()
+                now = ctx.message.created_at
                 ended_at = latest_giveaway.embeds[0].timestamp
                 ended = latest_giveaway.embeds[0].color.value == INACTIVE_COLOR
                 if ended:

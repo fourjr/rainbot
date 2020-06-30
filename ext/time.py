@@ -96,19 +96,19 @@ class UserFriendlyTime(commands.Converter):
         if not remaining:
             if self.default is None:
                 raise commands.BadArgument('reason is a required parameter that is missing.')
-            remaining = self.default
-
-        if self.converter is not None:
-            self.arg = await self.converter.convert(ctx, remaining)
+            self.arg = self.default
         else:
-            self.arg = remaining
+            if self.converter is not None:
+                self.arg = await self.converter.convert(ctx, remaining)
+            else:
+                self.arg = remaining
         return self
 
     async def convert(self, ctx, argument):
         try:
             calendar = HumanTime.calendar
             regex = ShortTime.compiled
-            now = datetime.datetime.utcnow()
+            now = ctx.message.created_at
 
             match = regex.match(argument)
             if match is not None and match.group(0):
@@ -188,6 +188,12 @@ class UserFriendlyTime(commands.Converter):
             return await self.check_constraints(ctx, now, remaining)
         except:
             raise
+
+
+class UserFriendlyTimeOrChannel(UserFriendlyTime):
+    def __init__(self):
+        super().__init__(converter=commands.TextChannelConverter, default=False)
+
 
 def human_timedelta(dt, *, source=None, accuracy=None):
     now = source or datetime.datetime.utcnow()

@@ -37,9 +37,12 @@ def random_color():
     return random.randint(0, 0xfffff)
 
 
-def format_timedelta(delta):
+def format_timedelta(delta, *, assume_forever=True):
     if not delta:
-        return 'forever'
+        if assume_forever:
+            return 'forever'
+        else:
+            return '0 seconds'
 
     minutes, seconds = divmod(int(delta.total_seconds()), 60)
     hours, minutes = divmod(minutes, 60)

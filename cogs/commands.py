@@ -1,12 +1,13 @@
 import asyncio
 import re
+import typing
 from datetime import datetime, timedelta
 
 import discord
 from discord.ext import commands
 
 from ext.command import command, group
-from ext.time import UserFriendlyTime
+from ext.time import UserFriendlyTime, UserFriendlyTimeOrChannel
 from ext.utils import get_perm_level, format_timedelta, in_bot_channel
 
 
@@ -36,7 +37,7 @@ class Commands(commands.Cog):
     async def send_log(self, ctx, *args):
         guild_config = await ctx.guild_config()
         offset = guild_config.get('time_offset', 0)
-        current_time = (datetime.utcnow() + timedelta(hours=offset)).strftime('%H:%M:%S')
+        current_time = (ctx.message.created_at + timedelta(hours=offset)).strftime('%H:%M:%S')
         guild_config = {i: int(guild_config.get('modlog', {})[i]) for i in guild_config.get('modlog', {})}
 
         try:
@@ -65,6 +66,13 @@ class Commands(commands.Cog):
             elif ctx.command.qualified_name == 'warn remove':
                 fmt = f'`{current_time}` {ctx.author} has deleted warn #{args[0]}'
                 await ctx.bot.get_channel(guild_config.get('member_warn')).send(fmt)
+            elif ctx.command.name == 'lockdown':
+                fmt = f'`{current_time}` {ctx.author} has {"enabled" if args[0] else "disabled"} lockdown for {args[1].mention}'
+                await ctx.bot.get_channel(guild_config.get('channel_lockdown')).send(fmt)
+            elif ctx.command.name == 'slowmode':
+                fmt = f'`{current_time}` {ctx.author} has enabled slowmode for {args[0].mention} for {args[1]}'
+                await ctx.bot.get_channel(guild_config.get('channel_slowmode')).send(fmt)
+
             else:
                 raise NotImplementedError(f'{ctx.command.name} not implemented for commands/send_log')
         except AttributeError:
@@ -75,7 +83,7 @@ class Commands(commands.Cog):
     async def user(self, ctx, member: discord.Member):
         """Get a user's info"""
         async def timestamp(created):
-            delta = format_timedelta(datetime.utcnow() - created)
+            delta = format_timedelta(ctx.message.created_at - created)
             offset = (await ctx.guild_config()).get('time_offset', 0)
             created += timedelta(hours=offset)
 
@@ -117,7 +125,7 @@ class Commands(commands.Cog):
             notes = list(filter(lambda w: w['member_id'] == str(member.id), guild_notes))
 
             offset = (await ctx.guild_config()).get('time_offset', 0)
-            current_date = (datetime.utcnow() + timedelta(hours=offset)).strftime('%Y-%m-%d')
+            current_date = (ctx.message.created_at + timedelta(hours=offset)).strftime('%Y-%m-%d')
             if len(guild_notes) == 0:
                 case_number = 1
             else:
@@ -192,7 +200,7 @@ class Commands(commands.Cog):
                     await ctx.send('The user has PMs disabled or blocked the bot.')
             finally:
                 offset = (await ctx.guild_config()).get('time_offset', 0)
-                current_date = (datetime.utcnow() + timedelta(hours=offset)).strftime('%Y-%m-%d')
+                current_date = (ctx.message.created_at + timedelta(hours=offset)).strftime('%Y-%m-%d')
                 if len(guild_warns) == 0:
                     case_number = 1
                 else:
@@ -255,7 +263,7 @@ class Commands(commands.Cog):
             duration = None
             reason = None
             if time.dt:
-                duration = time.dt - datetime.utcnow()
+                duration = time.dt - ctx.message.created_at
             if time.arg:
                 reason = time.arg
             await self.bot.mute(member, duration, reason=reason)
@@ -310,17 +318,50 @@ class Commands(commands.Cog):
     @command(6)
     async def lockdown(self, ctx, channel: discord.TextChannel=None):
         channel = channel or ctx.channel
-
         overwrite = ctx.channel.overwrites_for(ctx.guild.default_role)
+
         if overwrite.send_messages is None or overwrite.send_messages:
             overwrite.send_messages = False
             await channel.set_permissions(ctx.guild.default_role, overwrite=overwrite)
             await ctx.send(f'Lockdown {self.bot.accept}')
+            enable = True
         else:
             # dont change to "not overwrite.send_messages"
             overwrite.send_messages = None
             await channel.set_permissions(ctx.guild.default_role, overwrite=overwrite)
             await ctx.send(f'Un-lockdown {self.bot.accept}')
+            enable = False
+
+        await self.send_log(ctx, enable, channel)
+
+    @command(6, usage='<duration> <channel>')
+    async def slowmode(self, ctx, *, time: UserFriendlyTime(converter=commands.TextChannelConverter, default=False, assume_reason=True)):
+        duration = timedelta()
+        channel = ctx.channel
+        if time.dt:
+            duration = time.dt - ctx.message.created_at
+        if time.arg:
+            if isinstance(time.arg, str):
+                channel = await commands.TextChannelConverter().convert(ctx, time.arg)
+                if isinstance(channel, str):
+                    # if conversion fails
+                    if channel != 'off':
+                        raise commands.BadArgument('invalid parameters.')
+            else:
+                channel = time.arg
+
+        seconds = int(duration.total_seconds())
+
+        if seconds > 21600:
+            await ctx.send('Slowmode only supports up to 6h max at the moment')
+        else:
+            fmt = format_timedelta(duration, assume_forever=False)
+            await channel.edit(slowmode_delay=int(duration.total_seconds()))
+            await self.send_log(ctx, channel, fmt)
+            if duration.total_seconds():
+                await ctx.send(f'Enabled `{fmt}` slowmode on {channel.mention}')
+            else:
+                await ctx.send(f'Disabled slowmode on {channel.mention}')
 
     @command(7)
     async def kick(self, ctx, member: discord.Member, *, reason=None):
@@ -361,46 +402,6 @@ class Commands(commands.Cog):
         await ctx.guild.unban(member, reason=reason)
         await ctx.send(self.bot.accept)
         await self.send_log(ctx, member, reason)
-
-    @command(0, usage='<duration>')
-    async def selfmute(self, ctx, *, time: UserFriendlyTime(default='')):
-        """Mutes yourself"""
-        if not await in_bot_channel(ctx):
-            guild_info = await ctx.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
-            channels = [f'#{self.bot.get_channel(int(x)).name}' for x in guild_info.get('in_bot_channel', [])]
-            raise commands.BadArgument(f'Command has to be run in one of the following channels: {", ".join(channels)}')
-
-        duration = time.dt - datetime.utcnow()
-
-        if duration < timedelta(minutes=9):
-            raise commands.BadArgument(f'Selfmute has to be a minumum of 10 minutes.')
-
-        message = await ctx.send(f'Are you sure you want to mute yourself for {format_timedelta(duration)}?\n**Do not ask the moderators to undo this**\n\nReact with :white_check_mark: to accept and :x: to deny.')
-        await message.add_reaction(self.bot.accept[:-1])
-        await message.add_reaction(self.bot.deny[:-1])
-
-        def check(r, u):
-            if r.message.id == message.id and u.id == ctx.author.id:
-                if str(r.emoji.id) in (self.bot.accept[:-1].split(':')[-1], self.bot.deny[:-1].split(':')[-1]):
-                    return True
-
-        try:
-            reaction, _ = await self.bot.wait_for(
-                'reaction_add',
-                check=check,
-                timeout=10
-            )
-        except asyncio.TimeoutError:
-            await ctx.send(self.bot.deny)
-        else:
-            if str(reaction.emoji.id) == self.bot.accept[:-1].split(':')[-1]:
-                await self.bot.mute(ctx.author, duration, reason='Self Mute')
-                await ctx.send(self.bot.accept)
-            else:
-                # deny
-                await ctx.send(self.bot.deny)
-        finally:
-            await message.delete()
 
 
 def setup(bot):
