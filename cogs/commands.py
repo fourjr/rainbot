@@ -344,10 +344,6 @@ class Commands(commands.Cog):
         if time.arg:
             if isinstance(time.arg, str):
                 channel = await commands.TextChannelConverter().convert(ctx, time.arg)
-                if isinstance(channel, str):
-                    # if conversion fails
-                    if channel != 'off':
-                        raise commands.BadArgument('invalid parameters.')
             else:
                 channel = time.arg
 
