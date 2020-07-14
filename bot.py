@@ -106,7 +106,19 @@ class rainbot(commands.Bot):
             for m in d['mutes']:
                 self.loop.create_task(self.unmute(d['guild_id'], m['member'], m['time']))
 
-    async def mute(self, member, delta, reason):
+    async def on_member_join(self, m):
+        """Set up mutes if the member rejoined to bypass a mute"""
+        mutes = (await self.mongo.rainbot.guilds.find_one({'guild_id': str(m.guild.id)}) or {}).get('mutes', [])
+        user_mute = None
+
+        for mute in mutes:
+            if mute['member'] == str(m):
+                user_mute = mute
+
+        if user_mute:
+            self.mute(m, user_mute['time'] - time(), 'Mute evasion', modify_db=False)
+
+    async def mute(self, member, delta, reason, modify_db=True):
         """Mutes a ``member`` for ``delta`` seconds"""
         guild_info = await self.mongo.rainbot.guilds.find_one({'guild_id': str(member.guild.id)}) or {}
         mute_role = discord.utils.get(member.guild.roles, id=int(guild_info.get('mute_role') or 0))
@@ -148,7 +160,8 @@ class rainbot(commands.Bot):
             # log complete, save to DB
             if duration is not None:
                 duration += time()
-                await self.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(member.guild.id)}, {'$push': {'mutes': {'member': str(member.id), 'time': duration}}}, upsert=True)
+                if modify_db:
+                    await self.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(member.guild.id)}, {'$push': {'mutes': {'member': str(member.id), 'time': duration}}}, upsert=True)
                 self.loop.create_task(self.unmute(member.guild.id, member.id, duration))
 
     async def unmute(self, guild_id, member_id, duration, reason='Auto'):
