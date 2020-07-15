@@ -44,6 +44,7 @@ class rainbot(commands.Bot):
         self._connection = ConnState(dispatch=self.dispatch, chunker=self._chunker, handlers=self._handlers,
                                      syncer=self._syncer, http=self.http, loop=self.loop, max_messages=100000)
 
+        # self.loop.run_until_complete(self.cache_mutes())
         self.loop.run_until_complete(self.setup_unmutes())
         try:
             self.run(os.getenv('token'))
@@ -106,13 +107,16 @@ class rainbot(commands.Bot):
             for m in d['mutes']:
                 self.loop.create_task(self.unmute(d['guild_id'], m['member'], m['time']))
 
+    async def cache_mutes(self):
+        self.mutes = await self.mongo.rainbot.guilds.find({'mutes': {'$exists': True, '$ne': []}})
+
     async def on_member_join(self, m):
         """Set up mutes if the member rejoined to bypass a mute"""
         mutes = (await self.mongo.rainbot.guilds.find_one({'guild_id': str(m.guild.id)}) or {}).get('mutes', [])
         user_mute = None
 
         for mute in mutes:
-            if mute['member'] == str(m):
+            if mute['member'] == str(m.id):
                 user_mute = mute
 
         if user_mute:
