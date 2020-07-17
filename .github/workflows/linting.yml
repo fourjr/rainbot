@@ -29,4 +29,4 @@ jobs:
         # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings.
-        flake8 . --count --ignore=E722,E501,E741,E252,E731,W605 --exit-zero --statistics
+        flake8 . --ignore=E722,E501,E741,E252,E731,W605,F722 --count --exit-zero --statistics

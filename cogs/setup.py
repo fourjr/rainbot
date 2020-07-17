@@ -202,21 +202,21 @@ class Setup(commands.Cog):
             if not channel:
                 raise commands.BadArgument('Invalid channel id.')
 
-            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'giveaway.channel_id': value}}, upsert=True)
+            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {'giveaway.channel_id': value}}, upsert=True)
             await ctx.send(self.bot.accept)
         elif giveaway_type == 'emoji_id':
             emoji = discord.utils.get(ctx.guild.emojis, id=int(value))
             if not emoji:
                 raise commands.BadArgument('Invalid emoji id.')
 
-            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'giveaway.emoji_id': value}}, upsert=True)
+            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {'giveaway.emoji_id': value}}, upsert=True)
             await ctx.send(self.bot.accept)
         elif giveaway_type == 'role_id':
             role = ctx.guild.get_role(int(value))
             if not role:
                 raise commands.BadArgument('Invalid role id.')
 
-            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'giveaway.role_id': value}}, upsert=True)
+            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {'giveaway.role_id': value}}, upsert=True)
             await ctx.send(self.bot.accept)
         else:
             raise commands.BadArgument('Invalid giveaway property, pick one from below:\nchannel_id, emoji_id, role_id')
