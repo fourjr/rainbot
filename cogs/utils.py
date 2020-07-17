@@ -242,8 +242,17 @@ class Utility(commands.Cog):
 
     @command(0)
     async def ping(self, ctx):
+        """Pong!"""
         ts = ctx.message.created_at - datetime.utcnow()
         await ctx.send(f'Pong!\nWS Latency: {self.bot.latency * 1000:.2f}ms\nMessage Latency: {ts.total_seconds() * 1000}ms')
+
+    @commands.Cog.listener()
+    async def on_guild_join(self, guild):
+        await self.bot.get_channel(733702521893289985).send(f'Joined {guild.name} ({guild.id}) [{len(guild.members)} members] - Total: {len(self.bot.guilds)}')
+
+    @commands.Cog.listener()
+    async def on_guild_remove(self, guild):
+        await self.bot.get_channel(733702521893289985).send(f'Left {guild.name} ({guild.id}) [{len(guild.members)} members] - Total: {len(self.bot.guilds)}')
 
 
 def setup(bot):

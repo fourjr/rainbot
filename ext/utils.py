@@ -10,6 +10,9 @@ def get_perm_level(member, guild_info):
     if member.guild_permissions.administrator:
         perm_level = 15
         highest_role = 'Administrator'
+    elif member.guild_permissions.manage_guild:
+        perm_level = 10
+        highest_role = 'Manage Server'
     else:
         perm_level = 0
         highest_role = None
