@@ -227,7 +227,7 @@ class Utility(commands.Cog):
     @command(0)
     async def about(self, ctx):
         """About rainbot"""
-        await ctx.send('**What is rainbot?**\nrainbot is an full-fledged custom moderation bot!\nLook at <https://github.com/fourjr/rainbot/wiki/About> for more information.\n\nInvite: <https://discord.com/oauth2/authorize?client_id=372748944448552961&scope=bot&permissions=403040342>')
+        await ctx.send('**What is rainbot?**\nrainbot is an full-fledged custom moderation bot!\nLook at <https://github.com/fourjr/rainbot/wiki/About> for more information.\n\nInvite: <https://discord.com/oauth2/authorize?client_id=372748944448552961&scope=bot&permissions=403040342>\nSupport Server: https://discord.gg/eXrDpGS')
 
     @command(0)
     async def invite(self, ctx):
