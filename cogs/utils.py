@@ -232,7 +232,7 @@ class Utility(commands.Cog):
     @command(0)
     async def invite(self, ctx):
         """Invite rainbot to your own server!"""
-        await ctx.send('https://discord.com/oauth2/authorize?client_id=372748944448552961&scope=bot&permissions=403040342')
+        await ctx.send('<https://discord.com/oauth2/authorize?client_id=372748944448552961&scope=bot&permissions=403040342>')
 
     @command(0)
     async def mylevel(self, ctx):
