@@ -1,18 +1,20 @@
 import inspect
 import io
+import subprocess
 import textwrap
 import traceback
+import os
 from contextlib import redirect_stdout
 
 import discord
 from discord.ext import commands
 
-from ext.utils import owner, get_perm_level
-from ext.command import command, RainCommand, RainGroup
+from ext.command import RainCommand, RainGroup, command
 from ext.paginator import Paginator
+from ext.utils import get_perm_level, owner
 
 
-class Utility:
+class Utility(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
@@ -106,6 +108,20 @@ class Utility:
             await ctx.message.add_reaction('\u2705')
 
     @owner()
+    @command(0, name='exec')
+    async def _exec(self, ctx, *, command):
+        """Executes code in the command line"""
+        cmd = subprocess.run(command, cwd=os.getcwd(), stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+        err = cmd.stderr.decode('utf-8')
+        res = cmd.stdout.decode('utf-8')
+        if len(res) > 1850 or len(err) > 1850:
+            async with self.bot.session.post('https://hastebin.com/documents', data=err or res) as resp:
+                data = await resp.json()
+            await ctx.send(f"Output: <https://hastebin.com/{data['key']}.txt>")
+        else:
+            await ctx.send(f'```{err or res}```')
+
+    @owner()
     @command(0)
     async def sudo(self, ctx, member: discord.Member, *, content):
         """Sends a message on behalf of the user"""
@@ -124,12 +140,15 @@ class Utility:
         return can_run
 
     async def format_cog_help(self, ctx, prefix, cog):
-        em = discord.Embed(title=cog.__class__.__name__, description=cog.__doc__, color=0x7289da)
+        em = discord.Embed(title=cog.__class__.__name__, description=cog.__doc__ or "", color=0x7289da)
         commands = []
         fmt = ''
         # maxlen = 0
 
         for i in inspect.getmembers(cog, predicate=lambda x: isinstance(x, (RainCommand, RainGroup))):
+            if i[1].parent:
+                # Ignore subcommands
+                continue
             if await self.can_run(ctx, i[1]):
                 commands.append(i[1])
 
@@ -179,7 +198,7 @@ class Utility:
     async def help_(self, ctx, *, command_or_cog=None, error=None):
         """Shows the help message"""
         if error:
-            error = f'<:xmark:383917691318042624> `{error}`'
+            error = f'{self.bot.deny} `{error}`'
         prefix = (await ctx.guild_config()).get('prefix', '!!')
         invalid_command = discord.Embed(title='Invalid command or cog name.', color=0xff0000)
 
@@ -206,6 +225,7 @@ class Utility:
 
     @command(0)
     async def about(self, ctx):
+        """About rainbot"""
         await ctx.send('**What is rainbot?**\nrainbot is an invite-only moderation bot that any server can get by applying!\nLook at <https://github.com/fourjr/rainbot/wiki/About> for more information')
 
     @command(0)

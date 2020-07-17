@@ -67,9 +67,9 @@ class ConnState(ConnectionState):
                 message._handle_call(data['call'])
             elif 'content' not in data:
                 # embed only edit
-                message.embeds = [discord.Embed.from_data(d) for d in data['embeds']]
+                message.embeds = [discord.Embed.from_dict(d) for d in data['embeds']]
             else:
-                message._update(channel=message.channel, data=data)
+                message._update(data=data)
 
             self.dispatch('message_edit', older_message, message)
         else:

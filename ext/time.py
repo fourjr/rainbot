@@ -10,6 +10,7 @@ import re
 class plural:
     def __init__(self, value):
         self.value = value
+
     def __format__(self, format_spec):
         v = self.value
         singular, sep, plural = format_spec.partition('|')
@@ -34,9 +35,10 @@ class ShortTime:
         if match is None or not match.group(0):
             raise commands.BadArgument('invalid time provided')
 
-        data = { k: int(v) for k, v in match.groupdict(default=0).items() }
+        data = {k: int(v) for k, v in match.groupdict(default=0).items()}
         now = datetime.datetime.utcnow()
         self.dt = now + relativedelta(**data)
+
 
 class HumanTime:
     calendar = pdt.Calendar(version=pdt.VERSION_CONTEXT_STYLE)
@@ -54,15 +56,17 @@ class HumanTime:
         self.dt = dt
         self._past = dt < now
 
+
 class Time(HumanTime):
     def __init__(self, argument):
         try:
             o = ShortTime(argument)
-        except Exception as e:
+        except:
             super().__init__(argument)
         else:
             self.dt = o.dt
             self._past = False
+
 
 class FutureTime(Time):
     def __init__(self, argument):
@@ -71,9 +75,10 @@ class FutureTime(Time):
         if self._past:
             raise commands.BadArgument('this time is in the past')
 
+
 class UserFriendlyTime(commands.Converter):
     """That way quotes aren't absolutely necessary."""
-    def __init__(self, converter=None, *, default=None):
+    def __init__(self, converter=None, *, default=None, assume_reason=False):
         if isinstance(converter, type) and issubclass(converter, commands.Converter):
             converter = converter()
 
@@ -82,6 +87,7 @@ class UserFriendlyTime(commands.Converter):
 
         self.converter = converter
         self.default = default
+        self.assume_reason = assume_reason
 
     async def check_constraints(self, ctx, now, remaining):
         if self.dt < now:
@@ -89,24 +95,24 @@ class UserFriendlyTime(commands.Converter):
 
         if not remaining:
             if self.default is None:
-                raise commands.BadArgument('Missing argument after the time.')
-            remaining = self.default
-
-        if self.converter is not None:
-            self.arg = await self.converter.convert(ctx, remaining)
+                raise commands.BadArgument('reason is a required parameter that is missing.')
+            self.arg = self.default
         else:
-            self.arg = remaining
+            if self.converter is not None:
+                self.arg = await self.converter.convert(ctx, remaining)
+            else:
+                self.arg = remaining
         return self
 
     async def convert(self, ctx, argument):
         try:
             calendar = HumanTime.calendar
             regex = ShortTime.compiled
-            now = datetime.datetime.utcnow()
+            now = ctx.message.created_at
 
             match = regex.match(argument)
             if match is not None and match.group(0):
-                data = { k: int(v) for k, v in match.groupdict(default=0).items() }
+                data = {k: int(v) for k, v in match.groupdict(default=0).items()}
                 remaining = argument[match.end():].strip()
                 self.dt = now + relativedelta(**data)
                 return await self.check_constraints(ctx, now, remaining)
@@ -124,7 +130,13 @@ class UserFriendlyTime(commands.Converter):
 
             elements = calendar.nlp(argument, sourceTime=now)
             if elements is None or len(elements) == 0:
-                raise commands.BadArgument('Invalid time provided, try e.g. "tomorrow" or "3 days".')
+                if self.assume_reason:
+                    # Instead of raising an error, assume arg is self.arg instead of a dt
+                    self.dt = None
+                    self.arg = argument
+                    return self
+                else:
+                    raise commands.BadArgument('Invalid time provided, try e.g. "tomorrow" or "3 days".')
 
             # handle the following cases:
             # "date time" foo
@@ -135,11 +147,17 @@ class UserFriendlyTime(commands.Converter):
             dt, status, begin, end, dt_string = elements[0]
 
             if not status.hasDateOrTime:
-                raise commands.BadArgument('Invalid time provided, try e.g. "tomorrow" or "3 days".')
+                if self.assume_reason:
+                    # Instead of raising an error, assume arg is self.arg instead of a dt
+                    self.dt = None
+                    self.arg = argument
+                    return self
+                else:
+                    raise commands.BadArgument('Invalid time provided, try e.g. "tomorrow" or "3 days".')
 
             if begin not in (0, 1) and end != len(argument):
-                raise commands.BadArgument('Time is either in an inappropriate location, which ' \
-                                           'must be either at the end or beginning of your input, ' \
+                raise commands.BadArgument('Time is either in an inappropriate location, which '
+                                           'must be either at the end or beginning of your input, '
                                            'or I just flat out did not understand what you meant. Sorry.')
 
             if not status.hasTime:
@@ -150,7 +168,7 @@ class UserFriendlyTime(commands.Converter):
             if status.accuracy == pdt.pdtContext.ACU_HALFDAY:
                 dt = dt.replace(day=now.day + 1)
 
-            self.dt =  dt
+            self.dt = dt
 
             if begin in (0, 1):
                 if begin == 1:
@@ -169,9 +187,13 @@ class UserFriendlyTime(commands.Converter):
 
             return await self.check_constraints(ctx, now, remaining)
         except:
-            import traceback
-            traceback.print_exc()
             raise
+
+
+class UserFriendlyTimeOrChannel(UserFriendlyTime):
+    def __init__(self):
+        super().__init__(converter=commands.TextChannelConverter, default=False)
+
 
 def human_timedelta(dt, *, source=None, accuracy=None):
     now = source or datetime.datetime.utcnow()

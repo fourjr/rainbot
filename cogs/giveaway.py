@@ -5,7 +5,6 @@ import random
 from discord.ext import commands
 from datetime import datetime
 from ext.command import group
-from ext.utils import random_color
 from ext.time import UserFriendlyTime
 
 
@@ -13,7 +12,7 @@ ACTIVE_COLOR = 0x01dc5a
 INACTIVE_COLOR = 0xe8330f
 
 
-class Giveaways:
+class Giveaways(commands.Cog):
 
     def __init__(self, bot):
         self.bot: commands.Bot = bot
@@ -30,17 +29,17 @@ class Giveaways:
 
     async def channel(self, ctx=None, *, guild_id=None):
         guild_id = guild_id or ctx.guild.id
-        guild_config = await self.bot.mongo.config.guilds.find_one({'guild_id': str(guild_id)}) or {}
+        guild_config = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(guild_id)}) or {}
         if guild_config['giveaway']['channel_id']:
             return self.bot.get_channel(int(guild_config['giveaway']['channel_id']))
 
     async def role(self, ctx):
-        guild_config = await self.bot.mongo.config.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
+        guild_config = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
         if guild_config['giveaway']['role_id']:
             return discord.utils.get(ctx.guild.roles, id=int(guild_config['giveaway']['role_id']))
 
     async def emoji(self, ctx):
-        guild_config = await self.bot.mongo.config.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
+        guild_config = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
         if guild_config['giveaway']['emoji_id']:
             return int(guild_config['giveaway']['emoji_id'])
 
@@ -73,8 +72,7 @@ class Giveaways:
 
     async def queue_roll(self, giveaway: discord.Message):
         """Queues up the autoroll."""
-        time = (giveaway.embeds[0].timestamp - datetime.utcnow()).total_seconds()
-        print(giveaway, time)
+        time = (giveaway.embeds[0].timestamp - giveaway.created_at).total_seconds()
         await asyncio.sleep(time)
 
         try:
@@ -112,7 +110,7 @@ class Giveaways:
                 try:
                     winners = max(int(time.arg.split(' ')[0]), 1)
                 except ValueError as e:
-                    raise commands.BadArgument('Converting to "int" failed for parameter "winnners".') from e
+                    raise commands.BadArgument('Converting to "int" failed for parameter "winners".') from e
 
                 description = ' '.join(time.arg.split(' ')[1:])
                 em = discord.Embed(
@@ -140,7 +138,7 @@ class Giveaways:
         async with ctx.typing():
             latest_giveaway = await self.get_latest_giveaway(ctx, force=True)
             if latest_giveaway:
-                now = datetime.utcnow()
+                now = ctx.message.created_at
                 ended_at = latest_giveaway.embeds[0].timestamp
                 ended = latest_giveaway.embeds[0].color.value == INACTIVE_COLOR
                 if ended:

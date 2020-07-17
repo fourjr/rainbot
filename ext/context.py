@@ -9,6 +9,6 @@ class RainContext(Context):
 
     async def guild_config(self):
         if self.guild_config_cache is None:
-            self.guild_config_cache = await self.bot.mongo.config.guilds.find_one({'guild_id': str(self.guild.id)})
+            self.guild_config_cache = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(self.guild.id)}) or {}
 
         return self.guild_config_cache
