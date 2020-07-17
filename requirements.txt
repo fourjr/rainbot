@@ -1,7 +1,6 @@
-discord.py
-motor
-dnspython
-python-dotenv
-parsedatetime
-python-dateutil
-requests
+discord.py~=1.3.4
+motor~=2.1.0
+dnspython~=1.16.0
+python-dotenv~=0.10.3
+parsedatetime~=2.4
+python-dateutil~=2.8.0
