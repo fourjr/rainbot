@@ -50,7 +50,7 @@ class Giveaways(commands.Cog):
         """
         channel = await self.channel(ctx, guild_id=guild_id)
         if channel:
-            message = await channel.history(limit=20).find(lambda m: m.embeds and 'Giveaway' in m.embeds[0].title)
+            message = await channel.history(limit=20).find(lambda m: m.embeds and isinstance(m.embeds, discord.Embed) and 'Giveaway' in m.embeds[0].title)
             if force or (message and message.embeds[0].color.value == ACTIVE_COLOR):
                 return message
 
