@@ -1,14 +1,13 @@
 import asyncio
 import re
-import typing
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import discord
 from discord.ext import commands
 
 from ext.command import command, group
-from ext.time import UserFriendlyTime, UserFriendlyTimeOrChannel
-from ext.utils import get_perm_level, format_timedelta, in_bot_channel
+from ext.time import UserFriendlyTime
+from ext.utils import get_perm_level, format_timedelta
 
 
 class MemberOrID(commands.MemberConverter):

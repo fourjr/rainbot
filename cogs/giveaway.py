@@ -3,7 +3,6 @@ import discord
 import random
 
 from discord.ext import commands
-from datetime import datetime
 from ext.command import group
 from ext.time import UserFriendlyTime
 
@@ -30,17 +29,17 @@ class Giveaways(commands.Cog):
     async def channel(self, ctx=None, *, guild_id=None):
         guild_id = guild_id or ctx.guild.id
         guild_config = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(guild_id)}) or {}
-        if guild_config['giveaway']['channel_id']:
+        if guild_config.get('giveaway', {}).get('channel_id'):
             return self.bot.get_channel(int(guild_config['giveaway']['channel_id']))
 
     async def role(self, ctx):
         guild_config = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
-        if guild_config['giveaway']['role_id']:
+        if guild_config.get('giveaway', {}).get('role_id'):
             return discord.utils.get(ctx.guild.roles, id=int(guild_config['giveaway']['role_id']))
 
     async def emoji(self, ctx):
         guild_config = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
-        if guild_config['giveaway']['emoji_id']:
+        if guild_config.get('giveaway', {}).get('emoji_id'):
             return int(guild_config['giveaway']['emoji_id'])
 
     async def get_latest_giveaway(self, ctx=None, *, force=False, guild_id=None) -> discord.Message:

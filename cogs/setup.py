@@ -59,7 +59,6 @@ class Setup(commands.Cog):
             'notes': [],
             'warns': [],
             'mutes': [],
-            'in_bot_channel': [],
             'mute_role': None,
             'prefix': '!!'
         }
@@ -221,16 +220,6 @@ class Setup(commands.Cog):
             await ctx.send(self.bot.accept)
         else:
             raise commands.BadArgument('Invalid giveaway property, pick one from below:\nchannel_id, emoji_id, role_id')
-
-    @command(8, aliases=['set_bot_channel', 'set-bot-channel'])
-    async def setbotchannel(self, ctx, *, channel: discord.TextChannel=None):
-        """Sets channel for selfmute and other commands for users, run without arguments to allow in every channel"""
-        if channel is None:
-            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$unset': {'in_bot_channel': ""}}, upsert=True)
-
-        await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$push': {'in_bot_channel': str(channel.id)}}, upsert=True)
-        await ctx.send(self.bot.accept)
-
 
     @group(8, name='filter', invoke_without_command=True)
     async def filter_(self, ctx):

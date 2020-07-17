@@ -5,6 +5,7 @@ import textwrap
 import traceback
 import os
 from contextlib import redirect_stdout
+from datetime import datetime
 
 import discord
 from discord.ext import commands
@@ -226,13 +227,23 @@ class Utility(commands.Cog):
     @command(0)
     async def about(self, ctx):
         """About rainbot"""
-        await ctx.send('**What is rainbot?**\nrainbot is an invite-only moderation bot that any server can get by applying!\nLook at <https://github.com/fourjr/rainbot/wiki/About> for more information')
+        await ctx.send('**What is rainbot?**\nrainbot is an full-fledged custom moderation bot!\nLook at <https://github.com/fourjr/rainbot/wiki/About> for more information.\n\nInvite: <https://discord.com/oauth2/authorize?client_id=372748944448552961&scope=bot&permissions=403040342>')
+
+    @command(0)
+    async def invite(self, ctx):
+        """Invite rainbot to your own server!"""
+        await ctx.send('https://discord.com/oauth2/authorize?client_id=372748944448552961&scope=bot&permissions=403040342')
 
     @command(0)
     async def mylevel(self, ctx):
         """Checks your permission level"""
         perm_level = get_perm_level(ctx.author, await ctx.guild_config())
         await ctx.send(f'You are on level {perm_level[0]} ({perm_level[1]})')
+
+    @command(0)
+    async def ping(self, ctx):
+        ts = ctx.message.created_at - datetime.utcnow()
+        await ctx.send(f'Pong!\nWS Latency: {self.bot.latency * 1000:.2f}ms\nMessage Latency: {ts.total_seconds() * 1000}ms')
 
 
 def setup(bot):

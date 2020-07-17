@@ -117,7 +117,6 @@ class UserFriendlyTime(commands.Converter):
                 self.dt = now + relativedelta(**data)
                 return await self.check_constraints(ctx, now, remaining)
 
-
             # apparently nlp does not like "from now"
             # it likes "from x" in other cases though so let me handle the 'now' case
             if argument.endswith('from now'):
@@ -188,11 +187,6 @@ class UserFriendlyTime(commands.Converter):
             return await self.check_constraints(ctx, now, remaining)
         except:
             raise
-
-
-class UserFriendlyTimeOrChannel(UserFriendlyTime):
-    def __init__(self):
-        super().__init__(converter=commands.TextChannelConverter, default=False)
 
 
 def human_timedelta(dt, *, source=None, accuracy=None):
