@@ -46,16 +46,18 @@
                     emoji_id: null
                 },
                 perm_levels: {},
+                warn_punishments: {},
                 notes: [],
                 warns: [],
                 mutes: [],
+                whitelisted_guilds: [],
                 mute_role: null,
                 prefix: "!!"
             }
 
             let error = false;
 
-            for (let x of $("#config").children("input")) {
+            for (let x of $(".countForConfig").children("input")) {
                 if (x.className == "config-gen-ignore" || x.value == "") continue;
                 if (x.id.includes(".")) {
                     let dotIndex = x.id.indexOf(".")
@@ -67,13 +69,19 @@
                             break;
                         }
                     }
-                    let intValue = NaN;
+                    let intValue = -1;
                     if (x.value.length < 8) {
                         // dont convert snowflakes to numbers
                         intValue = parseInt(x.value);
                     }
+                    if (x.className == "convertNone" && x.value == "none") {
+                        intValue = null;
+                    }
+                    if (x.className == "parseComma") {
+                        intValue = x.value.split(/,/g);
+                    }
                     
-                    if (isNaN(intValue)) {
+                    if (intValue == -1) {
                         config[first][second] = x.value;
                     }
                     else {
@@ -81,13 +89,19 @@
                     }
                 }
                 else {
-                    let intValue = NaN;
+                    let intValue = -1;
                     if (x.value.length < 8) {
                         // dont convert snowflakes to numbers
                         intValue = parseInt(x.value);
                     }
+                    if (x.className == "convertNone" && x.value == "none") {
+                        intValue = null;
+                    }
+                    if (x.className == "parseComma") {
+                        intValue = x.value.split(/,/g);
+                    }
                     
-                    if (isNaN(intValue)) {
+                    if (intValue == -1) {
                         config[x.id] = x.value;
                     }
                     else {
@@ -97,11 +111,60 @@
             }
 
             if (!error) {
-                for (let x of $("#permLevel").children("input")) {
+                for (let x of $(".countForConfig").children("select")) {
                     if (x.className == "config-gen-ignore" || x.value == "") continue;
-                    config[x.id] = parseInt(x.value);
+                    if (x.id.includes(".")) {
+                        let dotIndex = x.id.indexOf(".")
+                        let first = x.id.substring(0, dotIndex);
+                        let second = x.id.substring(dotIndex + 1);
+                        if (first == "logs" || first == "modlog" || second.endsWith("_id")) {
+                            error = !checkSnowflake(x.value, x.id);
+                            if (error) {
+                                break;
+                            }
+                        }
+                        let intValue = -1;
+                        if (x.value.length < 8) {
+                            // dont convert snowflakes to numbers
+                            intValue = parseInt(x.value);
+                        }
+                        if (x.className == "convertNone" && x.value == "none") {
+                            intValue = null;
+                        }
+                        if (x.className == "parseComma") {
+                            intValue = x.value.split(/,/g);
+                        }
+                        
+                        if (intValue == -1) {
+                            config[first][second] = x.value;
+                        }
+                        else {
+                            config[first][second] = intValue;
+                        }
+                    }
+                    else {
+                        let intValue = -1;
+                        if (x.value.length < 8) {
+                            // dont convert snowflakes to numbers
+                            intValue = parseInt(x.value);
+                        }
+                        if (x.className == "convertNone" && x.value == "none") {
+                            intValue = null;
+                        }
+                        if (x.className == "parseComma") {
+                            intValue = x.value.split(/,/g);
+                        }
+                        
+                        if (intValue == -1) {
+                            config[x.id] = x.value;
+                        }
+                        else {
+                            config[x.id] = intValue;
+                        }
+                    }
                 }
             }
+
             if (!error) {
                 var xhr = new XMLHttpRequest();
                 xhr.open('POST', 'https://cors-anywhere.herokuapp.com/https://hasteb.in/documents', true);
@@ -130,10 +193,34 @@
             let input = $("<input>");
             input.attr("id", `perm_levels.${id}`);
             input.attr("type", "number");
+            input.attr("min", "0");
 
             $("#permLevel").append(span);
             $("#permLevel").append(input);
             $("#permLevel").append($("<br>"));
+        }
+
+        function createWarnPunishmentDialog() {
+            let id = $("#warnPunishmentLimit").val();
+
+            let span = $("<span>");
+            span.append(document.createTextNode(id + " "));
+
+            let input = $("<select>");
+            // theres definitely more efficient ways of doing this but its 2am and i want to sleep
+            let options = [$("<option>"), $("<option>"), $("<option>")];
+            options[0].append(document.createTextNode("kick"));
+            options[1].append(document.createTextNode("ban"));
+            options[2].append(document.createTextNode("none"));
+            input.append(options[0])
+            input.append(options[1])
+            input.append(options[2])
+            input.attr("id", `warn_punishments.${id}`);
+            input.attr("class", "convertNone");
+
+            $("#warnPunishment").append(span);
+            $("#warnPunishment").append(input);
+            $("#warnPunishment").append($("<br>"));
         }
 
         function checkSnowflake(snowflake, field) {
@@ -156,10 +243,10 @@
 </head>
 <body>
     <h2>rainbot Setup Config File Generator</h2>
-    <form id="config">
+    <form id="config" class="countForConfig">
         <span class="header">Permission Levels</span>
         <br>
-        <span id="permLevel"></span>
+        <span id="permLevel" class="countForConfig"></span>
 
         <span>Role ID</span>
         <input type="text" id="permLevelRoleID" class="config-gen-ignore"></input>
@@ -174,19 +261,19 @@
         <input type="checkbox" id="detections.block_invite"></input>
         <br>
         <span>Whitelisted servers (IDs seperated with commas)</span>
-        <input type="text" id="whitelisted_guilds"></input>
+        <input type="text" id="whitelisted_guilds" class="parseComma"></input>
         <br>
         <span>Max unique mentions per message</span>
-        <input type="number" id="detections.mention_limit"></input>
+        <input type="number" id="detections.mention_limit" min="0"></input>
         <br>
         <span>Max messages by same user per 5 seconds</span>
-        <input type="number" id="detections.spam_detection"></input>
+        <input type="number" id="detections.spam_detection" min="0"></input>
         <br>
         <span>Max identical messages by same user per 60 seconds</span>
-        <input type="number" id="detections.repetitive_message"></input>
+        <input type="number" id="detections.repetitive_message" min="0"></input>
         <br>
         <span>Filters (seperate with comma)</span>
-        <input type="text" id="detections.filters"></input>
+        <input type="text" id="detections.filters" class="parseComma"></input>
         <br>
         <br>
 
@@ -200,6 +287,16 @@
         <br>
         <span>Role ID to tag (enter @here or @everyone or leave blank)</span>
         <input type="text" id="giveaway.role_id"></input>
+        <br>
+        <br>
+
+        <span class="header">Warn Punishments</span>
+        <br>
+        <span id="warnPunishment" class="countForConfig"></span>
+
+        <span>Warn Limit</span>
+        <input type="number" id="warnPunishmentLimit" class="config-gen-ignore"></input>
+        <button type="button" onclick="createWarnPunishmentDialog()">Add</button>
         <br>
         <br>
 
@@ -277,7 +374,7 @@
         <span class="header">Miscellaneous</span>
         <br>
         <span>Time Offset (from UTC+0)</span>
-        <input type="number" id="time_offset"></input>
+        <input type="number" id="time_offset" min="0" max="23"></input>
         <br>
         <br>
 
