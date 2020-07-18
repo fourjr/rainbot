@@ -1,0 +1,287 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>rainbot config generator</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script>
+        function generateConfig() {
+            let config = {
+                logs: {
+                    message_delete: null,
+                    message_edit: null,
+                    member_join: null,
+                    member_remove: null,
+                    member_ban: null,
+                    member_unban: null,
+                    vc_state_change: null,
+                    channel_create: null,
+                    channel_delete: null,
+                    role_create: null,
+                    role_delete: null
+                },
+                modlog: {
+                    member_warn: null,
+                    member_mute: null,
+                    member_unmute: null,
+                    member_kick: null,
+                    member_ban: null,
+                    member_unban: null,
+                    member_softban: null,
+                    message_purge: null,
+                    channel_lockdown: null,
+                    channel_slowmode: null
+                },
+                time_offset: 0,
+                detections: {
+                    filters: [],
+                    block_invite: false,
+                    mention_limit: null,
+                    spam_detection: null,
+                    repetitive_message: null
+                },
+                giveaway: {
+                    channel_id: null,
+                    role_id: null,
+                    emoji_id: null
+                },
+                perm_levels: {},
+                notes: [],
+                warns: [],
+                mutes: [],
+                mute_role: null,
+                prefix: "!!"
+            }
+
+            let error = false;
+
+            for (let x of $("#config").children("input")) {
+                if (x.className == "config-gen-ignore" || x.value == "") continue;
+                if (x.id.includes(".")) {
+                    let dotIndex = x.id.indexOf(".")
+                    let first = x.id.substring(0, dotIndex);
+                    let second = x.id.substring(dotIndex + 1);
+                    if (first == "logs" || first == "modlog" || second.endsWith("_id")) {
+                        error = !checkSnowflake(x.value, x.id);
+                        if (error) {
+                            break;
+                        }
+                    }
+                    let intValue = NaN;
+                    if (x.value.length < 8) {
+                        // dont convert snowflakes to numbers
+                        intValue = parseInt(x.value);
+                    }
+                    
+                    if (isNaN(intValue)) {
+                        config[first][second] = x.value;
+                    }
+                    else {
+                        config[first][second] = intValue;
+                    }
+                }
+                else {
+                    let intValue = NaN;
+                    if (x.value.length < 8) {
+                        // dont convert snowflakes to numbers
+                        intValue = parseInt(x.value);
+                    }
+                    
+                    if (isNaN(intValue)) {
+                        config[x.id] = x.value;
+                    }
+                    else {
+                        config[x.id] = intValue;
+                    }
+                }
+            }
+
+            if (!error) {
+                for (let x of $("#permLevel").children("input")) {
+                    if (x.className == "config-gen-ignore" || x.value == "") continue;
+                    config[x.id] = parseInt(x.value);
+                }
+            }
+            if (!error) {
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', 'https://cors-anywhere.herokuapp.com/https://hasteb.in/documents', true);
+                xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+                xhr.onreadystatechange = function() { // Call a function when the state changes.
+                    if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
+                        let link = `https://hasteb.in/${JSON.parse(this.responseText).key}.json`;
+                        $("#url").attr("href", link);
+                        $("#url").append(document.createTextNode(link))
+                    }
+                }
+
+                xhr.send(JSON.stringify(config, null, 4));
+            }
+        }
+
+        function createPermLevelDialog() {
+            let id = $("#permLevelRoleID").val();
+            if (!checkSnowflake(id, "Permission Level")) {
+                return;
+            }
+
+            let span = $("<span>");
+            span.append(document.createTextNode(id + " "));
+
+            let input = $("<input>");
+            input.attr("id", `perm_levels.${id}`);
+            input.attr("type", "number");
+
+            $("#permLevel").append(span);
+            $("#permLevel").append(input);
+            $("#permLevel").append($("<br>"));
+        }
+
+        function checkSnowflake(snowflake, field) {
+            if(snowflake.length < 17 || isNaN(parseInt(snowflake))) {
+                alert(`Invalid ID in ${field}`)
+                return false;
+            }
+            return true;
+        }
+    </script>
+    <style>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .header {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h2>rainbot Setup Config File Generator</h2>
+    <form id="config">
+        <span class="header">Permission Levels</span>
+        <br>
+        <span id="permLevel"></span>
+
+        <span>Role ID</span>
+        <input type="text" id="permLevelRoleID" class="config-gen-ignore"></input>
+        <button type="button" onclick="createPermLevelDialog()">Add</button>
+        <br>
+        <br>
+
+        <span class="header">Detections</span>
+        <br>
+
+        <span>Block dicord invite links</span>
+        <input type="checkbox" id="detections.block_invite"></input>
+        <br>
+        <span>Whitelisted servers (IDs seperated with commas)</span>
+        <input type="text" id="whitelisted_guilds"></input>
+        <br>
+        <span>Max unique mentions per message</span>
+        <input type="number" id="detections.mention_limit"></input>
+        <br>
+        <span>Max messages by same user per 5 seconds</span>
+        <input type="number" id="detections.spam_detection"></input>
+        <br>
+        <span>Max identical messages by same user per 60 seconds</span>
+        <input type="number" id="detections.repetitive_message"></input>
+        <br>
+        <span>Filters (seperate with comma)</span>
+        <input type="text" id="detections.filters"></input>
+        <br>
+        <br>
+
+        <span class="header">Giveaway</span>
+        <br>
+        <span>Emoji ID for reactions</span>
+        <input type="text" id="giveaway.emoji_id"></input>
+        <br>
+        <span>Channel ID to send to</span>
+        <input type="text" id="giveaway.channel_id"></input>
+        <br>
+        <span>Role ID to tag (enter @here or @everyone or leave blank)</span>
+        <input type="text" id="giveaway.role_id"></input>
+        <br>
+        <br>
+
+        <span class="header">Modlog (Channel ID)</span>
+        <br>
+        <span>Member mute</span>
+        <input type="text" id="modlog.member_mute"></input>
+        <br>
+        <span>Member unmute</span>
+        <input type="text" id="modlog.member_unmute"></input>
+        <br>
+        <span>Member kick</span>
+        <input type="text" id="modlog.member_kick"></input>
+        <br>
+        <span>Member ban</span>
+        <input type="text" id="modlog.member_ban"></input>
+        <br>
+        <span>Member unban</span>
+        <input type="text" id="modlog.member_unban"></input>
+        <br>
+        <span>Member softban</span>
+        <input type="text" id="modlog.member_softban"></input>
+        <br>
+        <span>Member warn</span>
+        <input type="text" id="modlog.member_warn"></input>
+        <br>
+        <span>Message purge</span>
+        <input type="text" id="modlog.message_purge"></input>
+        <br>
+        <span>Channel lockdown</span>
+        <input type="text" id="modlog.channel_lockdown"></input>
+        <br>
+        <span>Channel slowmode</span>
+        <input type="text" id="modlog.channel_slowmode"></input>
+        <br>
+        <br>
+
+        <span class="header">General Log (Channel ID)</span>
+        <br>
+        <span>Message delete</span>
+        <input type="text" id="modlog.message_delete"></input>
+        <br>
+        <span>Message edit</span>
+        <input type="text" id="modlog.message_edit"></input>
+        <br>
+        <span>Member join</span>
+        <input type="text" id="modlog.member_join"></input>
+        <br>
+        <span>Member remove</span>
+        <input type="text" id="modlog.member_remove"></input>
+        <br>
+        <span>Member ban</span>
+        <input type="text" id="modlog.member_ban"></input>
+        <br>
+        <span>Member unban</span>
+        <input type="text" id="modlog.member_unban"></input>
+        <br>
+        <span>VC State Change (connect or leaving voice channels)</span>
+        <input type="text" id="modlog.vc_state_change"></input>
+        <br>
+        <span>Channel create</span>
+        <input type="text" id="modlog.channel_create"></input>
+        <br>
+        <span>Channel delete</span>
+        <input type="text" id="modlog.channel_delete"></input>
+        <br>
+        <span>Role create</span>
+        <input type="text" id="modlog.role_create"></input>
+        <br>
+        <span>Role delete</span>
+        <input type="text" id="modlog.role_delete"></input>
+        <br>
+        <br>
+
+        <span class="header">Miscellaneous</span>
+        <br>
+        <span>Time Offset (from UTC+0)</span>
+        <input type="number" id="time_offset"></input>
+        <br>
+        <br>
+
+        <button type="button" onclick="generateConfig()">Generate Config</button>
+        <a id="url"></span>
+    </form>
+</body>
