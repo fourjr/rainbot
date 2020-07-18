@@ -10,12 +10,15 @@ from ext.time import UserFriendlyTime
 from ext.utils import get_perm_level, format_timedelta
 
 
+MEMBER_ID_REGEX = re.compile(r'<@!?([0-9]+)>$')
+
+
 class MemberOrID(commands.MemberConverter):
     async def convert(self, ctx, argument):
         try:
             result = await super().convert(ctx, argument)
         except commands.BadArgument as e:
-            match = self._get_id_match(argument) or re.match(r'<@!?([0-9]+)>$', argument)
+            match = self._get_id_match(argument) or MEMBER_ID_REGEX.match(argument)
             if match:
                 result = discord.Object(int(match.group(1)))
             else:
@@ -183,16 +186,34 @@ class Commands(commands.Cog):
         if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
             await ctx.send('User has insufficient permissions')
         else:
-            warns = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
-            guild_warns = warns.get('warns', [])
+            guild_info = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
+            guild_warns = guild_info.get('warns', [])
+            warn_punishments = guild_info.get('warn_punishments', {})
             warns = list(filter(lambda w: w['member_id'] == str(member.id), guild_warns))
+
+            cmd = None
+            punish = False
+
             try:
                 num_warns = len(warns) + 1
                 fmt = f'You have been warned in **{ctx.guild.name}**, reason: {reason}. This is warning #{num_warns}.'
-                if num_warns < 5:
-                    fmt += ' On your 3rd warning, you will be kicked.'
-                else:
-                    fmt += ' You have been kicked from the server.'
+
+                if warn_punishments:
+                    punishments = list(filter(lambda x: int(x) == num_warns, warn_punishments.keys()))
+                    if not punishments:
+                        punish = False
+                        above = list(filter(lambda x: int(x) > num_warns, warn_punishments.keys()))
+                        if above:
+                            closest = min(map(int, above))
+                            cmd = warn_punishments[str(closest)]
+                            if cmd == 'ban':
+                                cmd = 'bann'
+                            fmt += f' You will be {cmd}ed on warning {closest}.'
+                    else:
+                        punish = True
+                        cmd = warn_punishments[str(max(map(int, punishments)))]
+                        fmt += f' You have been {cmd}ed from the server.'
+
                 await member.send(fmt)
             except discord.Forbidden:
                 if ctx.author != ctx.guild.me:
@@ -216,9 +237,11 @@ class Commands(commands.Cog):
                     await ctx.send(self.bot.accept)
                 await self.send_log(ctx, member, reason)
 
-                if num_warns >= 3:
-                    ctx.command = self.kick
-                    await ctx.invoke(self.kick, member, reason=reason)
+                # apply punishment
+                if punish:
+                    ctx.command = self.bot.get_command(cmd)
+                    ctx.author = ctx.guild.me
+                    await ctx.invoke(ctx.command, member, reason=f'Exceeded warn limit {len(warns + 1)}')
 
     @warn.command(6, name='remove', aliases=['delete', 'del'])
     async def remove_(self, ctx, case_number: int):
@@ -371,7 +394,7 @@ class Commands(commands.Cog):
                 await ctx.send(f'Disabled slowmode on {channel.mention}')
 
     @command(7)
-    async def kick(self, ctx, member: discord.Member, *, reason=None):
+    async def kick(self, ctx, member: discord.Member, *, reason=None, invoke_response):
         """Kicks a user"""
         if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
             await ctx.send('User has insufficient permissions')

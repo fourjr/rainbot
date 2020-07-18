@@ -35,12 +35,21 @@ class Giveaways(commands.Cog):
     async def role(self, ctx):
         guild_config = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
         if guild_config.get('giveaway', {}).get('role_id'):
-            return discord.utils.get(ctx.guild.roles, id=int(guild_config['giveaway']['role_id']))
+            role_id = guild_config['giveaway']['role_id']
+            if role_id is None:
+                return None
+            elif role_id in ('@everyone', '@here'):
+                return role_id
+            return discord.utils.get(ctx.guild.roles, id=int(role_id))
 
     async def emoji(self, ctx):
         guild_config = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
         if guild_config.get('giveaway', {}).get('emoji_id'):
-            return int(guild_config['giveaway']['emoji_id'])
+            emoji_id = guild_config['giveaway']['emoji_id']
+            try:
+                return f'giveaway:{int(emoji_id)}'
+            except ValueError:
+                return emoji_id
 
     async def get_latest_giveaway(self, ctx=None, *, force=False, guild_id=None) -> discord.Message:
         """Gets the latest giveaway message.
@@ -111,6 +120,11 @@ class Giveaways(commands.Cog):
                 except ValueError as e:
                     raise commands.BadArgument('Converting to "int" failed for parameter "winners".') from e
 
+                # Check if the giveaway exusts
+                guild_config = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
+                if len(guild_config.get('giveaway', {}).keys()) != 3 or not guild_config.get('giveaway', {}).get('channel_id'):
+                    return await ctx.invoke(self.bot.get_command('help'), command_or_cog='setgiveaway', error=commands.BadArgument('Setup giveaways with setgiveaway first.'))
+
                 description = ' '.join(time.arg.split(' ')[1:])
                 em = discord.Embed(
                     title='New Giveaway!',
@@ -121,11 +135,18 @@ class Giveaways(commands.Cog):
                 em.set_footer(text='End Time')
                 role = await self.role(ctx)
                 channel = await self.channel(ctx)
-                emoji_id = await self.emoji(ctx)
-                await role.edit(mentionable=True)
-                message = await channel.send(role.mention, embed=em)
-                await role.edit(mentionable=False)
-                await message.add_reaction(f'giveaway:{emoji_id}')
+                emoji = await self.emoji(ctx)
+
+                if isinstance(role, discord.Role):
+                    await role.edit(mentionable=True)
+                    message = await channel.send(role.mention, embed=em)
+                    await role.edit(mentionable=False)
+                elif isinstance(role, str):
+                    message = await channel.send(role, embed=em)
+                else:
+                    message = await channel.send(embed=em)
+
+                await message.add_reaction(emoji)
                 await ctx.send(f'Created: {message.jump_url}')
                 self.bot.loop.create_task(self.queue_roll(message))
             else:

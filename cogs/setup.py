@@ -6,7 +6,7 @@ from discord.ext import commands
 from discord.ext.commands import Cog
 
 from ext.errors import BotMissingPermissionsInChannel
-from ext.utils import lower
+from ext.utils import lower, EmojiOrUnicode
 from ext.command import command, group
 
 
@@ -56,9 +56,11 @@ class Setup(commands.Cog):
                 'emoji_id': None
             },
             'perm_levels': {},
+            'warn_punishments': {},
             'notes': [],
             'warns': [],
             'mutes': [],
+            'whitelisted_guilds': [],
             'mute_role': None,
             'prefix': '!!'
         }
@@ -77,9 +79,35 @@ class Setup(commands.Cog):
         try:
             await ctx.send(f'```json\n{json.dumps(guild_info, indent=2)}\n```')
         except discord.HTTPException:
-            async with self.bot.session.post('https://hastebin.com/documents', data=json.dumps(guild_info, indent=4)) as resp:
+            async with self.bot.session.post('https://hasteb.in/documents', data=json.dumps(guild_info, indent=4)) as resp:
                 data = await resp.json()
-                await ctx.send(f"Your server's configuration: https://hastebin.com/{data['key']}")
+                await ctx.send(f"Your server's current configuration: https://hasteb.in/{data['key']}")
+
+    @command(10, aliases=['import_config', 'import-config'])
+    async def importconfig(self, ctx, *, url):
+        """Imports a new guild configuration.
+
+        Generate one from https://fourjr.github.io/rainbot/"""
+        if url.startswith('http'):
+            if url.startswith('https://hasteb.in') and 'raw' not in url:
+                url = 'https://hasteb.in/raw/' + url[18:]
+
+            async with self.bot.session.get(url) as resp:
+                data = await resp.json(content_type=None)
+        else:
+            data = url
+        data['guild_id'] = str(ctx.guild.id)
+        await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': data}, upsert=True)
+        await ctx.send(self.bot.accept)
+
+    @command(10, aliases=['reset_config', 'reset-config'])
+    async def resetconfig(self, ctx):
+        """Resets configuration to default"""
+        await ctx.invoke(self.viewconfig)
+        data = copy.copy(self.default)
+        data['guild_id'] = str(ctx.guild.id)
+        await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': data}, upsert=True)
+        await ctx.send('All configuration reset')
 
     @command(10, alises=['set_log', 'set-log'])
     async def setlog(self, ctx, log_name: lower, channel: discord.TextChannel=None):
@@ -190,37 +218,6 @@ class Setup(commands.Cog):
         await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$push': {'whitelisted_guilds': str(guild_id)}})
         await ctx.send(self.bot.accept)
 
-    @command(10, aliases=['set-giveaway', 'set_giveaway'])
-    async def setgiveaway(self, ctx, giveaway_type: lower, value):
-        """
-        Sets the channel, emoji, and role for giveaways
-
-        Valid types: channel_id, emoji_id, role_id
-        """
-        if giveaway_type == 'channel_id':
-            channel = ctx.guild.get_channel(int(value))
-            if not channel:
-                raise commands.BadArgument('Invalid channel id.')
-
-            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {'giveaway.channel_id': value}}, upsert=True)
-            await ctx.send(self.bot.accept)
-        elif giveaway_type == 'emoji_id':
-            emoji = discord.utils.get(ctx.guild.emojis, id=int(value))
-            if not emoji:
-                raise commands.BadArgument('Invalid emoji id.')
-
-            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {'giveaway.emoji_id': value}}, upsert=True)
-            await ctx.send(self.bot.accept)
-        elif giveaway_type == 'role_id':
-            role = ctx.guild.get_role(int(value))
-            if not role:
-                raise commands.BadArgument('Invalid role id.')
-
-            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {'giveaway.role_id': value}}, upsert=True)
-            await ctx.send(self.bot.accept)
-        else:
-            raise commands.BadArgument('Invalid giveaway property, pick one from below:\nchannel_id, emoji_id, role_id')
-
     @group(8, name='filter', invoke_without_command=True)
     async def filter_(self, ctx):
         """Controls the word filter"""
@@ -243,6 +240,43 @@ class Setup(commands.Cog):
         """Lists the full word filter"""
         guild_info = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)})
         await ctx.send(f"Filters: {', '.join([f'`{i}`' for i in guild_info.get('detections', {}).get('filters', [])])}")
+
+    @command(10, aliases=['set-warn-punishment', 'set_warn_punishment'])
+    async def setwarnpunishment(self, ctx, limit: int, punishment=None):
+        """Sets punishment after certain number of warns.
+        Punishments can be "kick", "ban" or "none".
+
+        Example: !!setwarnpunishment 5 kick
+
+        It is highly encouraged to add a final "ban" condition
+        """
+        if punishment not in ('kick', 'ban', 'none'):
+            raise commands.BadArgument('Invalid punishment, pick from `kick`, `ban`, `none`.')
+
+        if punishment == 'none' or punishment is None:
+            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$unset': {f'warn_punishments.{limit}': ''}}, upsert=True)
+        else:
+            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'warn_punishments.{limit}': punishment}}, upsert=True)
+
+        await ctx.send(self.bot.accept)
+
+    @command(10, aliases=['set-giveaway' 'set_giveaway'])
+    async def setgiveaway(self, ctx, emoji: EmojiOrUnicode, channel: discord.TextChannel, role=None):
+        """Sets up giveaways. Role can be @everyone, @here or none"""
+        if role == 'none' or role is None:
+            role_id = None
+        elif role in ('@everyone', '@here'):
+            role_id = role
+        else:
+            role_id = (await commands.RoleConverter().convert(ctx, role)).id
+
+        await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {
+            'giveaway.emoji_id': emoji.id,
+            'giveaway.channel_id': channel.id,
+            'giveaway.role_id': role_id
+        }}, upsert=True)
+
+        await ctx.send(self.bot.accept)
 
 
 def setup(bot):

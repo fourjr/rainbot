@@ -16,6 +16,7 @@ class Detections(commands.Cog):
         self.bot = bot
         self.spam_detection = defaultdict(list)
         self.repetitive_message = defaultdict(Counter)
+        self.INVITE_REGEX = re.compile(r'((http(s|):\/\/|)(discord)(\.(gg|io|me)\/|app\.com\/invite\/)([0-z]+))')
 
     @Cog.listener()
     async def on_message(self, m):
@@ -28,8 +29,7 @@ class Detections(commands.Cog):
 
         detection_config = guild_config.get('detections', {})
         filtered_words = [i for i in detection_config.get('filters', []) if i in m.content.lower()]
-        invite_regex = r'((http(s|):\/\/|)(discord)(\.(gg|io|me)\/|app\.com\/invite\/)([0-z]+))'
-        invite_match = re.findall(invite_regex, m.content)
+        invite_match = self.INVITE_REGEX.findall(m.content)
 
         mentions = []
         for i in m.mentions:
