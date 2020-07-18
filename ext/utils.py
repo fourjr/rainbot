@@ -1,6 +1,5 @@
 import random
 import re
-from dataclasses import dataclass
 
 from discord.ext import commands
 from discord.ext.commands import check
@@ -90,6 +89,6 @@ class EmojiOrUnicode(commands.EmojiConverter):
                     raise commands.BadArgument('Invalid emoji provided')
 
 
-@dataclass
 class UnicodeEmoji:
-    id: str
+    def __init__(self, id):
+        self.id = id
