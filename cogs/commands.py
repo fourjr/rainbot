@@ -202,10 +202,9 @@ class Commands(commands.Cog):
                     punishments = list(filter(lambda x: int(x) == num_warns, warn_punishments.keys()))
                     if not punishments:
                         punish = False
-                        above = list(filter(lambda x: int(x) < num_warns, warn_punishments.keys()))
+                        above = list(filter(lambda x: int(x) > num_warns, warn_punishments.keys()))
                         if above:
-                            punish = True
-                            closest = max(map(int, above))
+                            closest = min(map(int, above))
                             cmd = warn_punishments[str(closest)]
                             if cmd == 'ban':
                                 cmd = 'bann'
@@ -213,6 +212,8 @@ class Commands(commands.Cog):
                     else:
                         punish = True
                         cmd = warn_punishments[str(max(map(int, punishments)))]
+                        if cmd == 'ban':
+                            cmd = 'bann'
                         fmt += f' You have been {cmd}ed from the server.'
 
                 await member.send(fmt)
