@@ -1,6 +1,6 @@
 from discord.ext import commands
 
-from .utils import get_perm_level
+from .utils import get_perm_level, get_command_level
 from ext.errors import Underleveled
 
 
@@ -8,9 +8,10 @@ async def check_perm_level(ctx):
     guild_info = await ctx.guild_config()
 
     perm_level = get_perm_level(ctx.author, guild_info)[0]
+    cmd_level = get_command_level(ctx.command, guild_info)
 
-    if not perm_level >= ctx.command.perm_level:
-        raise Underleveled(f"User's level ({perm_level}) is not enough for the command's required level ({ctx.command.perm_level})")
+    if not perm_level >= cmd_level:
+        raise Underleveled(f"User's level ({perm_level}) is not enough for the command's required level ({cmd_level})")
     return True
 
 

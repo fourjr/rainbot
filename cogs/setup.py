@@ -6,8 +6,8 @@ from discord.ext import commands
 from discord.ext.commands import Cog
 
 from ext.errors import BotMissingPermissionsInChannel
-from ext.utils import lower, EmojiOrUnicode
-from ext.command import command, group
+from ext.utils import get_command_level, lower, EmojiOrUnicode
+from ext.command import command, group, RainGroup
 
 
 class Setup(commands.Cog):
@@ -56,6 +56,7 @@ class Setup(commands.Cog):
                 'emoji_id': None
             },
             'perm_levels': {},
+            'command_levels': {},
             'warn_punishments': {},
             'notes': [],
             'warns': [],
@@ -166,6 +167,41 @@ class Setup(commands.Cog):
             raise commands.BadArgument(f'{perm_level} is below 0')
 
         await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'perm_levels.{role.id}': perm_level}}, upsert=True)
+        await ctx.send(self.bot.accept)
+
+    @command(10, aliases=['set_command_level', 'set-command-level'])
+    async def setcommandlevel(self, ctx, perm_level: int, *, command: lower):
+        """Changes a command's required permission level"""
+        if perm_level < 0:
+            raise commands.BadArgument(f'{perm_level} is below 0')
+
+        cmd = self.bot.get_command(command)
+        if not cmd:
+            raise commands.BadArgument(f'No command with name "{command}" found')
+
+        if isinstance(cmd, RainGroup):
+            raise commands.BadArgument('Cannot override a command group')
+
+        name = cmd.qualified_name.replace(' ', '_')
+        levels = {f'command_levels.{name}': perm_level}
+        
+        if cmd.parent:
+            guild_info = await ctx.guild_config()
+            parent_level = get_command_level(cmd.parent, guild_info)
+            if perm_level < parent_level:
+                levels[f'command_levels.{cmd.parent.name}'] = perm_level
+            elif perm_level > parent_level:
+                cmd_level = get_command_level(cmd, guild_info)
+                all_levels = [get_command_level(c, guild_info) for c in cmd.parent.commands]
+
+                all_levels.remove(cmd_level)
+                all_levels.append(perm_level)
+
+                lowest = min(all_levels)
+                if lowest > parent_level:
+                    levels[f'command_levels.{cmd.parent.name}'] = lowest
+
+        await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': levels}, upsert=True)
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_prefix', 'set-prefix'])
