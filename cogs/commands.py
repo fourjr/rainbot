@@ -190,6 +190,7 @@ class Commands(commands.Cog):
             guild_warns = guild_info.get('warns', [])
             warn_punishments = guild_info.get('warn_punishments', {})
             warns = list(filter(lambda w: w['member_id'] == str(member.id), guild_warns))
+            print(warn_punishments)
 
             cmd = None
             punish = False
@@ -202,9 +203,10 @@ class Commands(commands.Cog):
                     punishments = list(filter(lambda x: int(x) == num_warns, warn_punishments.keys()))
                     if not punishments:
                         punish = False
-                        above = list(filter(lambda x: int(x) > num_warns, warn_punishments.keys()))
+                        above = list(filter(lambda x: int(x) < num_warns, warn_punishments.keys()))
                         if above:
-                            closest = min(map(int, above))
+                            punish = True
+                            closest = max(map(int, above))
                             cmd = warn_punishments[str(closest)]
                             if cmd == 'ban':
                                 cmd = 'bann'
@@ -239,9 +241,11 @@ class Commands(commands.Cog):
 
                 # apply punishment
                 if punish:
+                    if cmd == 'bann':
+                        cmd = 'ban'
                     ctx.command = self.bot.get_command(cmd)
                     ctx.author = ctx.guild.me
-                    await ctx.invoke(ctx.command, member, reason=f'Exceeded warn limit {len(warns + 1)}')
+                    await ctx.invoke(ctx.command, member, reason=f'Exceeded warn limit {num_warns}')
 
     @warn.command(6, name='remove', aliases=['delete', 'del'])
     async def remove_(self, ctx, case_number: int):
