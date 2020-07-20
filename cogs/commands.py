@@ -397,7 +397,7 @@ class Commands(commands.Cog):
                 await ctx.send(f'Disabled slowmode on {channel.mention}')
 
     @command(7)
-    async def kick(self, ctx, member: discord.Member, *, reason=None, invoke_response):
+    async def kick(self, ctx, member: discord.Member, *, reason=None):
         """Kicks a user"""
         if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
             await ctx.send('User has insufficient permissions')
