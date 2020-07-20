@@ -39,7 +39,7 @@ class Logging(commands.Cog):
             elif mode == 'member_join':
                 await log.send(f"`{current_time}` {payload} ({payload.id}) has joined.")
             elif mode == 'member_remove':
-                await log.send(f"`{current_time}` {payload} ({payload.id}) has been removed.")
+                await log.send(f"`{current_time}` {payload} ({payload.id}) has left the server.")
             elif mode == 'message_edit':
                 await log.send(f"`{current_time}` {payload.author} ({payload.author.id}): Message ({payload.id}) has been edited in **#{payload.channel.name}** ({payload.channel.id})\nB:```\n{payload.content}\n```\nA:\n```{extra.content}\n```")
             elif mode == 'member_leave_vc':
