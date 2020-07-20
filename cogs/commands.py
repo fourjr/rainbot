@@ -190,7 +190,6 @@ class Commands(commands.Cog):
             guild_warns = guild_info.get('warns', [])
             warn_punishments = guild_info.get('warn_punishments', {})
             warns = list(filter(lambda w: w['member_id'] == str(member.id), guild_warns))
-            print(warn_punishments)
 
             cmd = None
             punish = False
