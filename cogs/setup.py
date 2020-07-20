@@ -184,7 +184,7 @@ class Setup(commands.Cog):
 
         name = cmd.qualified_name.replace(' ', '_')
         levels = {f'command_levels.{name}': perm_level}
-        
+
         if cmd.parent:
             guild_info = await ctx.guild_config()
             parent_level = get_command_level(cmd.parent, guild_info)

@@ -32,6 +32,7 @@ def get_perm_level(member, guild_info):
 
     return (perm_level, highest_role)
 
+
 def get_command_level(cmd, guild_info):
     name = cmd.qualified_name.replace(' ', '_')
     perm_level = guild_info.get('command_levels', {}).get(name)
@@ -39,6 +40,7 @@ def get_command_level(cmd, guild_info):
         perm_level = cmd.perm_level
 
     return perm_level
+
 
 def lower(argument):
     return str(argument).lower()
