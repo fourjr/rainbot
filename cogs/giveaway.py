@@ -146,7 +146,7 @@ class Giveaways(commands.Cog):
                 # Check if the giveaway exusts
                 guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
                 if len(guild_config.giveaway.keys()) != 3 or not guild_config.giveaway.channel_id:
-                    return await ctx.invoke(self.bot.get_command('help'), command_or_cog='setgiveaway', error=commands.BadArgument('Setup giveaways with setgiveaway first.'))
+                    return await ctx.invoke(self.bot.get_command('help'), command_or_cog='setgiveaway', error=Exception('Setup giveaways with setgiveaway first.'))
 
                 description = ' '.join(time.arg.split(' ')[1:])
                 em = discord.Embed(

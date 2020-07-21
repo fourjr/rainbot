@@ -6,6 +6,7 @@ import discord
 from discord.ext import commands
 
 from ext.command import command, group
+from ext.database import DBDict
 from ext.time import UserFriendlyTime
 from ext.utils import get_perm_level, format_timedelta
 
@@ -43,45 +44,48 @@ class Moderation(commands.Cog):
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         offset = guild_config.time_offset
         current_time = (ctx.message.created_at + timedelta(hours=offset)).strftime('%H:%M:%S')
-        guild_config = {i: int(guild_config.modlog[i]) for i in guild_config.modlog}
+
+        modlogs = DBDict({i: int(guild_config.modlog[i]) for i in guild_config.modlog})
 
         try:
             if ctx.command.name == 'purge':
                 fmt = f'`{current_time}` {ctx.author} purged {args[0]} messages in **#{ctx.channel.name}**'
                 if args[1]:
                     fmt += f', from {args[1]}'
-                await ctx.bot.get_channel(guild_config.message_purge).send(fmt)
+                await ctx.bot.get_channel(modlogs.message_purge).send(fmt)
             elif ctx.command.name == 'kick':
+                print('pasdsda')
                 fmt = f'`{current_time}` {ctx.author} kicked {args[0]} ({args[0].id}), reason: {args[1]}'
-                await ctx.bot.get_channel(guild_config.member_kick).send(fmt)
+                await ctx.bot.get_channel(modlogs.member_kick).send(fmt)
             elif ctx.command.name == 'softban':
                 fmt = f'`{current_time}` {ctx.author} softbanned {args[0]} ({args[0].id}), reason: {args[1]}'
-                await ctx.bot.get_channel(guild_config.member_softban).send(fmt)
+                await ctx.bot.get_channel(modlogs.member_softban).send(fmt)
             elif ctx.command.name == 'ban':
                 name = getattr(args[0], 'name', '(no name)')
                 fmt = f'`{current_time}` {ctx.author} banned {name} ({args[0].id}), reason: {args[1]}'
-                await ctx.bot.get_channel(guild_config.member_ban).send(fmt)
+                await ctx.bot.get_channel(modlogs.member_ban).send(fmt)
             elif ctx.command.name == 'unban':
                 name = getattr(args[0], 'name', '(no name)')
                 fmt = f'`{current_time}` {ctx.author} unbanned {name} ({args[0].id}), reason: {args[1]}'
-                await ctx.bot.get_channel(guild_config.member_unban).send(fmt)
+                await ctx.bot.get_channel(modlogs.member_unban).send(fmt)
             elif ctx.command.qualified_name == 'warn add':
                 fmt = f'`{current_time}` {ctx.author} warned {args[0]} ({args[0].id}), reason: {args[1]}'
-                await ctx.bot.get_channel(guild_config.member_warn).send(fmt)
+                await ctx.bot.get_channel(modlogs.member_warn).send(fmt)
             elif ctx.command.qualified_name == 'warn remove':
                 fmt = f'`{current_time}` {ctx.author} has deleted warn #{args[0]}'
-                await ctx.bot.get_channel(guild_config.member_warn).send(fmt)
+                await ctx.bot.get_channel(modlogs.member_warn).send(fmt)
             elif ctx.command.name == 'lockdown':
                 fmt = f'`{current_time}` {ctx.author} has {"enabled" if args[0] else "disabled"} lockdown for {args[1].mention}'
-                await ctx.bot.get_channel(guild_config.channel_lockdown).send(fmt)
+                await ctx.bot.get_channel(modlogs.channel_lockdown).send(fmt)
             elif ctx.command.name == 'slowmode':
                 fmt = f'`{current_time}` {ctx.author} has enabled slowmode for {args[0].mention} for {args[1]}'
-                await ctx.bot.get_channel(guild_config.channel_slowmode).send(fmt)
+                await ctx.bot.get_channel(modlogs.channel_slowmode).send(fmt)
 
             else:
                 raise NotImplementedError(f'{ctx.command.name} not implemented for commands/send_log')
         except AttributeError:
             # channel not found [None.send()]
+            print('asdsd')
             pass
 
     @command(5)

@@ -39,7 +39,7 @@ class rainbot(commands.Bot):
         self.mongo = AsyncIOMotorClient(os.getenv('mongo'))
         self.db = DatabaseManager(self, self.mongo)
 
-        self.owners = map(int, os.getenv('owners', '').split(','))
+        self.owners = list(map(int, os.getenv('owners', '').split(',')))
 
         self.remove_command('help')
         self.load_extensions()
@@ -95,12 +95,13 @@ class rainbot(commands.Bot):
         ignored = (
             commands.CommandNotFound,
             commands.CheckFailure,
-            commands.BadArgument,
-            discord.Forbidden
+            commands.BadArgument
         )
         if isinstance(e, (commands.UserInputError, errors.BotMissingPermissionsInChannel)):
             await ctx.invoke(self.get_command('help'), command_or_cog=ctx.command.qualified_name, error=e)
-        elif isinstance(e, ignored):
+        elif isinstance(e, (discord.Forbidden)):
+            await ctx.invoke(self.get_command('help'), command_or_cog=ctx.command.qualified_name, error=Exception('Bot has insufficient permissions'))
+        elif isinstance(e, ignored) and not self.dev_mode:
             pass
         else:
             self.logger.exception(f'Error while executing {ctx.command} ({ctx.message.content})', exc_info=(type(e), e, e.__traceback__))
