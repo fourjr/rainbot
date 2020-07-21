@@ -48,7 +48,6 @@ def lower(argument):
 
 def owner():
     def predicate(ctx):
-        print(ctx.bot.owners)
         return ctx.author.id in ctx.bot.owners
     return check(predicate)
 

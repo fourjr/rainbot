@@ -54,7 +54,6 @@ class Moderation(commands.Cog):
                     fmt += f', from {args[1]}'
                 await ctx.bot.get_channel(modlogs.message_purge).send(fmt)
             elif ctx.command.name == 'kick':
-                print('pasdsda')
                 fmt = f'`{current_time}` {ctx.author} kicked {args[0]} ({args[0].id}), reason: {args[1]}'
                 await ctx.bot.get_channel(modlogs.member_kick).send(fmt)
             elif ctx.command.name == 'softban':
@@ -85,7 +84,6 @@ class Moderation(commands.Cog):
                 raise NotImplementedError(f'{ctx.command.name} not implemented for commands/send_log')
         except AttributeError:
             # channel not found [None.send()]
-            print('asdsd')
             pass
 
     @command(5)
