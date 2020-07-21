@@ -3,7 +3,8 @@ import discord
 import random
 
 from discord.ext import commands
-from ext.command import group
+from ext.command import command, group
+from ext.utils import EmojiOrUnicode
 from ext.time import UserFriendlyTime
 
 
@@ -12,10 +13,12 @@ INACTIVE_COLOR = 0xe8330f
 
 
 class Giveaways(commands.Cog):
+    """Sets up giveaways!"""
 
     def __init__(self, bot):
-        self.bot: commands.Bot = bot
+        self.bot = bot
         bot.loop.create_task(self.__ainit__())
+        self.order = 3
 
     async def __ainit__(self):
         """Setup constants"""
@@ -28,14 +31,14 @@ class Giveaways(commands.Cog):
 
     async def channel(self, ctx=None, *, guild_id=None):
         guild_id = guild_id or ctx.guild.id
-        guild_config = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(guild_id)}) or {}
-        if guild_config.get('giveaway', {}).get('channel_id'):
+        guild_config = await self.bot.db.get_guild_config(guild_id)
+        if guild_config['giveaway']['channel_id']:
             return self.bot.get_channel(int(guild_config['giveaway']['channel_id']))
 
     async def role(self, ctx):
-        guild_config = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
-        if guild_config.get('giveaway', {}).get('role_id'):
-            role_id = guild_config['giveaway']['role_id']
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        if guild_config.giveaway.role_id:
+            role_id = guild_config.giveaway.role_id
             if role_id is None:
                 return None
             elif role_id in ('@everyone', '@here'):
@@ -43,9 +46,9 @@ class Giveaways(commands.Cog):
             return discord.utils.get(ctx.guild.roles, id=int(role_id))
 
     async def emoji(self, ctx):
-        guild_config = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
-        if guild_config.get('giveaway', {}).get('emoji_id'):
-            emoji_id = guild_config['giveaway']['emoji_id']
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        if guild_config.giveaway.emoji_id:
+            emoji_id = guild_config.giveaway.emoji_id
             try:
                 return f'giveaway:{int(emoji_id)}'
             except ValueError:
@@ -101,6 +104,26 @@ class Giveaways(commands.Cog):
         new_embed.color = INACTIVE_COLOR
         await giveaway.edit(embed=new_embed)
 
+    @command(10, aliases=['set-giveaway' 'set_giveaway'])
+    async def setgiveaway(self, ctx, emoji: EmojiOrUnicode, channel: discord.TextChannel, role=None):
+        """Sets up giveaways.
+
+        Role can be @everyone, @here or none"""
+        if role == 'none' or role is None:
+            role_id = None
+        elif role in ('@everyone', '@here'):
+            role_id = role
+        else:
+            role_id = (await commands.RoleConverter().convert(ctx, role)).id
+
+        await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {
+            'giveaway.emoji_id': emoji.id,
+            'giveaway.channel_id': channel.id,
+            'giveaway.role_id': role_id
+        }})
+
+        await ctx.send(self.bot.accept)
+
     @group(6, invoke_without_command=True, aliases=['give'])
     async def giveaway(self, ctx):
         """Setup giveaways!"""
@@ -121,8 +144,8 @@ class Giveaways(commands.Cog):
                     raise commands.BadArgument('Converting to "int" failed for parameter "winners".') from e
 
                 # Check if the giveaway exusts
-                guild_config = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
-                if len(guild_config.get('giveaway', {}).keys()) != 3 or not guild_config.get('giveaway', {}).get('channel_id'):
+                guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+                if len(guild_config.giveaway.keys()) != 3 or not guild_config.giveaway.channel_id:
                     return await ctx.invoke(self.bot.get_command('help'), command_or_cog='setgiveaway', error=commands.BadArgument('Setup giveaways with setgiveaway first.'))
 
                 description = ' '.join(time.arg.split(' ')[1:])

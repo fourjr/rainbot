@@ -9,7 +9,7 @@ UNICODE_EMOJI_REGEX = re.compile(r'(?:\U0001f1e6[\U0001f1e8-\U0001f1ec\U0001f1ee
 # https://gist.github.com/Vexs/a8fd95377ca862ca13fe6d0f0e42737e
 
 
-def get_perm_level(member, guild_info):
+def get_perm_level(member, guild_config):
     # User is not in server
     if not getattr(member, 'guild_permissions', None):
         return (0, None)
@@ -25,17 +25,17 @@ def get_perm_level(member, guild_info):
         highest_role = None
 
         for i in reversed(member.roles):
-            if str(i.id) in guild_info.get('perm_levels', {}).keys():
-                if guild_info['perm_levels'][str(i.id)] > perm_level:
-                    perm_level = guild_info['perm_levels'][str(i.id)]
+            if str(i.id) in guild_config.perm_levels.keys():
+                if guild_config.perm_levels[str(i.id)] > perm_level:
+                    perm_level = guild_config.perm_levels[str(i.id)]
                     highest_role = i
 
     return (perm_level, highest_role)
 
 
-def get_command_level(cmd, guild_info):
+def get_command_level(cmd, guild_config):
     name = cmd.qualified_name.replace(' ', '_')
-    perm_level = guild_info.get('command_levels', {}).get(name)
+    perm_level = guild_config.command_levels.get(name)
     if not perm_level:
         perm_level = cmd.perm_level
 
@@ -48,7 +48,7 @@ def lower(argument):
 
 def owner():
     def predicate(ctx):
-        return ctx.author.id in [180314310298304512, 281821029490229251, 369848495546433537]
+        return ctx.author.id in ctx.bot.owners
     return check(predicate)
 
 

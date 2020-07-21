@@ -6,7 +6,7 @@ from discord.ext import commands
 from discord.ext.commands import Cog
 
 from ext.errors import BotMissingPermissionsInChannel
-from ext.utils import get_command_level, lower, EmojiOrUnicode
+from ext.utils import get_command_level, lower
 from ext.command import command, group, RainGroup
 
 
@@ -15,72 +15,21 @@ class Setup(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.default = {
-            'guild_id': None,
-            'logs': {
-                'message_delete': None,
-                'message_edit': None,
-                'member_join': None,
-                'member_remove': None,
-                'member_ban': None,
-                'member_unban': None,
-                'vc_state_change': None,
-                'channel_create': None,
-                'channel_delete': None,
-                'role_create': None,
-                'role_delete': None
-            },
-            'modlog': {
-                'member_warn': None,
-                'member_mute': None,
-                'member_unmute': None,
-                'member_kick': None,
-                'member_ban': None,
-                'member_unban': None,
-                'member_softban': None,
-                'message_purge': None,
-                'channel_lockdown': None,
-                'channel_slowmode': None
-            },
-            'time_offset': 0,
-            'detections': {
-                'filters': [],
-                'block_invite': False,
-                'mention_limit': None,
-                'spam_detection': None,
-                'repetitive_message': None
-            },
-            'giveaway': {
-                'channel_id': None,
-                'role_id': None,
-                'emoji_id': None
-            },
-            'perm_levels': {},
-            'command_levels': {},
-            'warn_punishments': {},
-            'notes': [],
-            'warns': [],
-            'mutes': [],
-            'whitelisted_guilds': [],
-            'mute_role': None,
-            'prefix': '!!'
-        }
+        self.order = 2
 
     @Cog.listener()
     async def on_guild_join(self, guild):
-        default = copy.copy(self.default)
-        default['guild_id'] = str(guild.id)
-        await self.bot.mongo.rainbot.guilds.insert_one(default)
+        await self.bot.db.create_new_config(guild.id)
 
     @command(6, aliases=['view_config', 'view-config'])
     async def viewconfig(self, ctx):
         """View the current guild configuration"""
-        guild_info = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {'_id': None}
-        del guild_info['_id']
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        del guild_config['_id']
         try:
-            await ctx.send(f'```json\n{json.dumps(guild_info, indent=2)}\n```')
+            await ctx.send(f'```json\n{json.dumps(guild_config, indent=2)}\n```')
         except discord.HTTPException:
-            async with self.bot.session.post('https://hasteb.in/documents', data=json.dumps(guild_info, indent=4)) as resp:
+            async with self.bot.session.post('https://hasteb.in/documents', data=json.dumps(guild_config, indent=4)) as resp:
                 data = await resp.json()
                 await ctx.send(f"Your server's current configuration: https://hasteb.in/{data['key']}")
 
@@ -98,7 +47,7 @@ class Setup(commands.Cog):
         else:
             data = url
         data['guild_id'] = str(ctx.guild.id)
-        await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': data}, upsert=True)
+        await self.bot.db.update_guild_config(ctx.guild.id, {'$set': data})
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['reset_config', 'reset-config'])
@@ -107,7 +56,7 @@ class Setup(commands.Cog):
         await ctx.invoke(self.viewconfig)
         data = copy.copy(self.default)
         data['guild_id'] = str(ctx.guild.id)
-        await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': data}, upsert=True)
+        await self.bot.db.update_guild_config(ctx.guild.id, {'$set': data})
         await ctx.send('All configuration reset')
 
     @command(10, alises=['set_log', 'set-log'])
@@ -127,12 +76,12 @@ class Setup(commands.Cog):
 
         if log_name == 'all':
             for i in valid_logs:
-                await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'logs.{i}': channel_id}}, upsert=True)
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'logs.{i}': channel_id}})
         else:
             if log_name not in valid_logs:
                 raise commands.BadArgument('Invalid log name, pick one from below:\n' + ', '.join(valid_logs))
 
-            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'logs.{log_name}': channel_id}}, upsert=True)
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'logs.{log_name}': channel_id}})
         await ctx.send(self.bot.accept)
 
     @command(10, alises=['set_modlog', 'set-modlog'])
@@ -152,12 +101,12 @@ class Setup(commands.Cog):
         valid_logs = self.default['modlog'].keys()
         if log_name == 'all':
             for i in valid_logs:
-                await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'modlog.{i}': channel_id}}, upsert=True)
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'modlog.{i}': channel_id}})
         else:
             if log_name not in valid_logs:
                 raise commands.BadArgument('Invalid log name, pick one from below:\n' + ', '.join(valid_logs))
 
-            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'modlog.{log_name}': channel_id}}, upsert=True)
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'modlog.{log_name}': channel_id}})
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_perm_level', 'set-perm-level'])
@@ -166,7 +115,10 @@ class Setup(commands.Cog):
         if perm_level < 0:
             raise commands.BadArgument(f'{perm_level} is below 0')
 
-        await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'perm_levels.{role.id}': perm_level}}, upsert=True)
+        if perm_level == 0:
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$unset': {f'perm_levels.{role.id}': ''}})
+        else:
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'perm_levels.{role.id}': perm_level}})
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_command_level', 'set-command-level'])
@@ -186,13 +138,13 @@ class Setup(commands.Cog):
         levels = {f'command_levels.{name}': perm_level}
 
         if cmd.parent:
-            guild_info = await ctx.guild_config()
-            parent_level = get_command_level(cmd.parent, guild_info)
+            guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+            parent_level = get_command_level(cmd.parent, guild_config)
             if perm_level < parent_level:
                 levels[f'command_levels.{cmd.parent.name}'] = perm_level
             elif perm_level > parent_level:
-                cmd_level = get_command_level(cmd, guild_info)
-                all_levels = [get_command_level(c, guild_info) for c in cmd.parent.commands]
+                cmd_level = get_command_level(cmd, guild_config)
+                all_levels = [get_command_level(c, guild_config) for c in cmd.parent.commands]
 
                 all_levels.remove(cmd_level)
                 all_levels.append(perm_level)
@@ -201,13 +153,13 @@ class Setup(commands.Cog):
                 if lowest > parent_level:
                     levels[f'command_levels.{cmd.parent.name}'] = lowest
 
-        await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': levels}, upsert=True)
+        await self.bot.db.update_guild_config(ctx.guild.id, {'$set': levels})
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_prefix', 'set-prefix'])
     async def setprefix(self, ctx, new_prefix):
         """Sets the guild prefix"""
-        await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {'prefix': new_prefix}}, upsert=True)
+        await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'prefix': new_prefix}})
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_offset', 'set-offset'])
@@ -216,7 +168,7 @@ class Setup(commands.Cog):
         if not -12 < offset < 14:
             raise commands.BadArgument(f'{offset} has to be between -12 and 14.')
 
-        await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {'time_offset': offset}}, upsert=True)
+        await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'time_offset': offset}})
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_detection', 'set-detection'])
@@ -226,13 +178,13 @@ class Setup(commands.Cog):
         Valid types: block_invite, mention_limit, spam_detection, repetitive_message
         """
         if detection_type == 'block_invite':
-            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {'detections.block_invite': commands.core._convert_to_bool(value)}}, upsert=True)
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'detections.block_invite': commands.core._convert_to_bool(value)}})
             await ctx.send(self.bot.accept)
         elif detection_type in ('mention_limit', 'spam_detection', 'repetitive_message'):
             try:
                 if int(value) <= 0:
                     raise ValueError
-                await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'detections.{detection_type}': int(value)}}, upsert=True)
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'detections.{detection_type}': int(value)}})
             except ValueError as e:
                 raise commands.BadArgument(f'{value} (`value`) is not a valid number above 0') from e
             await ctx.send(self.bot.accept)
@@ -249,9 +201,9 @@ class Setup(commands.Cog):
         Run without arguments to clear whitelist
         """
         if guild_id is None:
-            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$unset': {'whitelisted_guilds': ""}}, upsert=True)
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$unset': {'whitelisted_guilds': ''}})
 
-        await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$push': {'whitelisted_guilds': str(guild_id)}})
+        await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {'whitelisted_guilds': str(guild_id)}})
         await ctx.send(self.bot.accept)
 
     @group(8, name='filter', invoke_without_command=True)
@@ -262,20 +214,20 @@ class Setup(commands.Cog):
     @filter_.command(8)
     async def add(self, ctx, *, word: lower):
         """Add blacklisted words into the word filter"""
-        await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$push': {'detections.filters': word}}, upsert=True)
+        await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {'detections.filters': word}})
         await ctx.send(self.bot.accept)
 
     @filter_.command(8)
     async def remove(self, ctx, *, word: lower):
         """Removes blacklisted words from the word filter"""
-        await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$pull': {'detections.filters': word}}, upsert=True)
+        await self.bot.db.update_guild_config(ctx.guild.id, {'$pull': {'detections.filters': word}})
         await ctx.send(self.bot.accept)
 
     @filter_.command(8, name='list')
     async def list_(self, ctx):
         """Lists the full word filter"""
-        guild_info = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)})
-        await ctx.send(f"Filters: {', '.join([f'`{i}`' for i in guild_info.get('detections', {}).get('filters', [])])}")
+        guild_config = await self.db.get_guild_config(ctx.guild.id)
+        await ctx.send(f"Filters: {', '.join([f'`{i}`' for i in guild_config.detections.filters])}")
 
     @command(10, aliases=['set-warn-punishment', 'set_warn_punishment'])
     async def setwarnpunishment(self, ctx, limit: int, punishment=None):
@@ -290,27 +242,9 @@ class Setup(commands.Cog):
             raise commands.BadArgument('Invalid punishment, pick from `kick`, `ban`, `none`.')
 
         if punishment == 'none' or punishment is None:
-            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$unset': {f'warn_punishments.{limit}': ''}}, upsert=True)
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$unset': {f'warn_punishments.{limit}': ''}})
         else:
-            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {f'warn_punishments.{limit}': punishment}}, upsert=True)
-
-        await ctx.send(self.bot.accept)
-
-    @command(10, aliases=['set-giveaway' 'set_giveaway'])
-    async def setgiveaway(self, ctx, emoji: EmojiOrUnicode, channel: discord.TextChannel, role=None):
-        """Sets up giveaways. Role can be @everyone, @here or none"""
-        if role == 'none' or role is None:
-            role_id = None
-        elif role in ('@everyone', '@here'):
-            role_id = role
-        else:
-            role_id = (await commands.RoleConverter().convert(ctx, role)).id
-
-        await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$set': {
-            'giveaway.emoji_id': emoji.id,
-            'giveaway.channel_id': channel.id,
-            'giveaway.role_id': role_id
-        }}, upsert=True)
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'warn_punishments.{limit}': punishment}})
 
         await ctx.send(self.bot.accept)
 
