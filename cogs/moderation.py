@@ -33,7 +33,7 @@ class Moderation(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.order = 2
+        self.order = 1
 
     async def cog_error(self, ctx, error):
         """Handles discord.Forbidden"""
