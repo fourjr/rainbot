@@ -16,7 +16,7 @@ class Setup(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.order = 2
+        self.order = 1
 
     @Cog.listener()
     async def on_guild_join(self, guild):
@@ -131,7 +131,10 @@ class Setup(commands.Cog):
         - !!setcommandlevel 8 warn add
         """
         if isinstance(perm_level, int) and (perm_level < 0 or perm_level > 15):
-            raise commands.BadArgument(f'{perm_level} is an invalid level, valid levels: 0-15')
+            raise commands.BadArgument(f'{perm_level} is an invalid level, valid levels: 0-15 or reset')
+
+        if isinstance(perm_level, str) and perm_level != 'reset':
+            raise commands.BadArgument(f'{perm_level} is an invalid level, valid levels: 0-15 or reset')
 
         cmd = self.bot.get_command(command)
         if not cmd:
