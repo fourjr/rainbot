@@ -124,9 +124,14 @@ class Setup(commands.Cog):
 
     @command(10, aliases=['set_command_level', 'set-command-level'])
     async def setcommandlevel(self, ctx, perm_level: typing.Union[int, str], *, command: lower):
-        """Changes a command's required permission level"""
-        if isinstance(perm_level, int) and perm_level < 0:
-            raise commands.BadArgument(f'{perm_level} is below 0')
+        """Changes a command's required permission level
+
+        Examples:
+        - !!setcommandlevel reset ban
+        - !!setcommandlevel 8 warn add
+        """
+        if isinstance(perm_level, int) and (perm_level < 0 or perm_level > 15):
+            raise commands.BadArgument(f'{perm_level} is an invalid level, valid levels: 0-15')
 
         cmd = self.bot.get_command(command)
         if not cmd:
