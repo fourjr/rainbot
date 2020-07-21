@@ -12,7 +12,7 @@ from discord.ext import commands
 
 from ext.command import RainCommand, RainGroup, command
 from ext.paginator import Paginator
-from ext.utils import get_perm_level, owner
+from ext.utils import get_perm_level, get_command_level, owner
 
 
 class Utility(commands.Cog):
@@ -174,13 +174,16 @@ class Utility(commands.Cog):
             return em
 
     async def format_command_help(self, ctx, prefix, cmd):
+        guild_info = await ctx.guild_config()
+        cmd_level = get_command_level(cmd, guild_info)
+
         if isinstance(cmd, RainCommand):
             if await self.can_run(ctx, cmd) and cmd.enabled:
-                em = discord.Embed(title=prefix + cmd.signature, description=f'{cmd.help}\n\nPermission level: {cmd.perm_level}', color=0x7289da)
+                em = discord.Embed(title=prefix + cmd.signature, description=f'{cmd.help}\n\nPermission level: {cmd_level}', color=0x7289da)
                 return em
 
         elif isinstance(cmd, RainGroup):
-            em = discord.Embed(title=prefix + cmd.signature, description=f'{cmd.help}\n\nPermission level: {cmd.perm_level}', color=0x7289da)
+            em = discord.Embed(title=prefix + cmd.signature, description=f'{cmd.help}\n\nPermission level: {cmd_level}', color=0x7289da)
             subcommands = ''
             # maxlen = 0
             commands = []
