@@ -144,7 +144,7 @@ class Setup(commands.Cog):
 
         if perm_level == 'reset':
             perm_level = cmd.perm_level
-        
+
         levels = {f'command_levels.{name}': perm_level}
         action = "unset" if perm_level == cmd.perm_level else "set"
 
