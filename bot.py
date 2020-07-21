@@ -79,7 +79,7 @@ class rainbot(commands.Bot):
     async def get_prefix(self, message):
         if self.dev_mode:
             return './'
-        guild_config = await self.db.get_guild_config(message.guild_id)
+        guild_config = await self.db.get_guild_config(message.guild.id)
         return commands.when_mentioned_or(guild_config.prefix)(self, message)
 
     async def on_connect(self):
