@@ -16,8 +16,11 @@ from ext.utils import get_perm_level, get_command_level, owner
 
 
 class Utility(commands.Cog):
+    """General utility commands"""
+
     def __init__(self, bot):
         self.bot = bot
+        self.order = 4
 
     @owner()
     @command(0, name='eval')
@@ -153,29 +156,22 @@ class Utility(commands.Cog):
             if await self.can_run(ctx, i[1]):
                 commands.append(i[1])
 
-        # for i in commands:
-        #     cmdlen = len(f'`{prefix}{i.name}`')
-        #     if cmdlen > maxlen:
-        #         maxlen = cmdlen
-
         for i in commands:
-            # cmdlen = len(f'`{prefix}{i.name}`')
-            # proposed_fmt = fmt + f"`{prefix}{i.name}` {' ' * (maxlen - cmdlen)}{i.short_doc}\n"
             proposed_fmt = fmt + f"`{prefix}{i.name}` {i.short_doc}\n"
             if len(proposed_fmt) > 1024:
-                em.add_field(name=u'\u200b', value=fmt)
+                em.add_field(name='Commands', value=fmt)
                 proposed_fmt = proposed_fmt[len(fmt)]
             fmt = proposed_fmt
 
         if fmt:
-            em.add_field(name=u'\u200b', value=fmt)
+            em.add_field(name='Commands', value=fmt)
 
         if em.fields:
             return em
 
     async def format_command_help(self, ctx, prefix, cmd):
-        guild_info = await ctx.guild_config()
-        cmd_level = get_command_level(cmd, guild_info)
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        cmd_level = get_command_level(cmd, guild_config)
 
         if isinstance(cmd, RainCommand):
             if await self.can_run(ctx, cmd) and cmd.enabled:
@@ -185,7 +181,6 @@ class Utility(commands.Cog):
         elif isinstance(cmd, RainGroup):
             em = discord.Embed(title=prefix + cmd.signature, description=f'{cmd.help}\n\nPermission level: {cmd_level}', color=0x7289da)
             subcommands = ''
-            # maxlen = 0
             commands = []
 
             for i in cmd.commands:
@@ -203,7 +198,7 @@ class Utility(commands.Cog):
         """Shows the help message"""
         if error:
             error = f'{self.bot.deny} `{error}`'
-        prefix = (await ctx.guild_config()).get('prefix', '!!')
+        prefix = (await self.bot.db.get_guild_config(ctx.guild.id)).prefix
         invalid_command = discord.Embed(title='Invalid command or cog name.', color=0xff0000)
 
         if command_or_cog:
@@ -220,7 +215,7 @@ class Utility(commands.Cog):
                 await ctx.send(content=error, embed=em or invalid_command)
         else:
             ems = []
-            for i in self.bot.cogs.values():
+            for i in sorted(self.bot.cogs.values(), key=lambda x: getattr(self.bot.cogs[x], 'order', 100)):
                 em = await self.format_cog_help(ctx, prefix, i)
                 if em:
                     ems.append(em)
@@ -240,22 +235,26 @@ class Utility(commands.Cog):
     @command(0)
     async def mylevel(self, ctx):
         """Checks your permission level"""
-        perm_level = get_perm_level(ctx.author, await ctx.guild_config())
+        perm_level = get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))
         await ctx.send(f'You are on level {perm_level[0]} ({perm_level[1]})')
 
     @command(0)
     async def ping(self, ctx):
         """Pong!"""
-        ts = ctx.message.created_at - datetime.utcnow()
+        ts = datetime.utcnow() - ctx.message.created_at
         await ctx.send(f'Pong!\nWS Latency: {self.bot.latency * 1000:.2f}ms\nMessage Latency: {ts.total_seconds() * 1000}ms')
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild):
-        await self.bot.get_channel(733702521893289985).send(f'Joined {guild.name} ({guild.id}) [{len(guild.members)} members] - Total: {len(self.bot.guilds)}')
+        channel = await self.bot.get_channel(733702521893289985)
+        if channel:
+            await channel.send(f'Joined {guild.name} ({guild.id}) [{len(guild.members)} members] - Total: {len(self.bot.guilds)}')
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild):
-        await self.bot.get_channel(733702521893289985).send(f'Left {guild.name} ({guild.id}) [{len(guild.members)} members] - Total: {len(self.bot.guilds)}')
+        channel = await self.bot.get_channel(733702521893289985)
+        if channel:
+            await channel.send(f'Left {guild.name} ({guild.id}) [{len(guild.members)} members] - Total: {len(self.bot.guilds)}')
 
 
 def setup(bot):

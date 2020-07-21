@@ -6,6 +6,7 @@ import discord
 from discord.ext import commands
 
 from ext.command import command, group
+from ext.database import DBDict
 from ext.time import UserFriendlyTime
 from ext.utils import get_perm_level, format_timedelta
 
@@ -27,9 +28,12 @@ class MemberOrID(commands.MemberConverter):
         return result
 
 
-class Commands(commands.Cog):
+class Moderation(commands.Cog):
+    """Basic moderation commands"""
+
     def __init__(self, bot):
         self.bot = bot
+        self.order = 2
 
     async def cog_error(self, ctx, error):
         """Handles discord.Forbidden"""
@@ -37,43 +41,44 @@ class Commands(commands.Cog):
             await ctx.send(f'I do not have the required permissions needed to run `{ctx.command.name}`.')
 
     async def send_log(self, ctx, *args):
-        guild_config = await ctx.guild_config()
-        offset = guild_config.get('time_offset', 0)
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        offset = guild_config.time_offset
         current_time = (ctx.message.created_at + timedelta(hours=offset)).strftime('%H:%M:%S')
-        guild_config = {i: int(guild_config.get('modlog', {})[i]) for i in guild_config.get('modlog', {})}
+
+        modlogs = DBDict({i: int(guild_config.modlog[i]) for i in guild_config.modlog})
 
         try:
             if ctx.command.name == 'purge':
                 fmt = f'`{current_time}` {ctx.author} purged {args[0]} messages in **#{ctx.channel.name}**'
                 if args[1]:
                     fmt += f', from {args[1]}'
-                await ctx.bot.get_channel(guild_config.get('message_purge')).send(fmt)
+                await ctx.bot.get_channel(modlogs.message_purge).send(fmt)
             elif ctx.command.name == 'kick':
                 fmt = f'`{current_time}` {ctx.author} kicked {args[0]} ({args[0].id}), reason: {args[1]}'
-                await ctx.bot.get_channel(guild_config.get('member_kick')).send(fmt)
+                await ctx.bot.get_channel(modlogs.member_kick).send(fmt)
             elif ctx.command.name == 'softban':
                 fmt = f'`{current_time}` {ctx.author} softbanned {args[0]} ({args[0].id}), reason: {args[1]}'
-                await ctx.bot.get_channel(guild_config.get('member_softban')).send(fmt)
+                await ctx.bot.get_channel(modlogs.member_softban).send(fmt)
             elif ctx.command.name == 'ban':
                 name = getattr(args[0], 'name', '(no name)')
                 fmt = f'`{current_time}` {ctx.author} banned {name} ({args[0].id}), reason: {args[1]}'
-                await ctx.bot.get_channel(guild_config.get('member_ban')).send(fmt)
+                await ctx.bot.get_channel(modlogs.member_ban).send(fmt)
             elif ctx.command.name == 'unban':
                 name = getattr(args[0], 'name', '(no name)')
                 fmt = f'`{current_time}` {ctx.author} unbanned {name} ({args[0].id}), reason: {args[1]}'
-                await ctx.bot.get_channel(guild_config.get('member_unban')).send(fmt)
+                await ctx.bot.get_channel(modlogs.member_unban).send(fmt)
             elif ctx.command.qualified_name == 'warn add':
                 fmt = f'`{current_time}` {ctx.author} warned {args[0]} ({args[0].id}), reason: {args[1]}'
-                await ctx.bot.get_channel(guild_config.get('member_warn')).send(fmt)
+                await ctx.bot.get_channel(modlogs.member_warn).send(fmt)
             elif ctx.command.qualified_name == 'warn remove':
                 fmt = f'`{current_time}` {ctx.author} has deleted warn #{args[0]}'
-                await ctx.bot.get_channel(guild_config.get('member_warn')).send(fmt)
+                await ctx.bot.get_channel(modlogs.member_warn).send(fmt)
             elif ctx.command.name == 'lockdown':
                 fmt = f'`{current_time}` {ctx.author} has {"enabled" if args[0] else "disabled"} lockdown for {args[1].mention}'
-                await ctx.bot.get_channel(guild_config.get('channel_lockdown')).send(fmt)
+                await ctx.bot.get_channel(modlogs.channel_lockdown).send(fmt)
             elif ctx.command.name == 'slowmode':
                 fmt = f'`{current_time}` {ctx.author} has enabled slowmode for {args[0].mention} for {args[1]}'
-                await ctx.bot.get_channel(guild_config.get('channel_slowmode')).send(fmt)
+                await ctx.bot.get_channel(modlogs.channel_slowmode).send(fmt)
 
             else:
                 raise NotImplementedError(f'{ctx.command.name} not implemented for commands/send_log')
@@ -86,8 +91,8 @@ class Commands(commands.Cog):
         """Get a user's info"""
         async def timestamp(created):
             delta = format_timedelta(ctx.message.created_at - created)
-            offset = (await ctx.guild_config()).get('time_offset', 0)
-            created += timedelta(hours=offset)
+            guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+            created += timedelta(hours=guild_config.time_offset)
 
             return f"{delta} ago ({created.strftime('%H:%M:%S')})"
 
@@ -119,19 +124,18 @@ class Commands(commands.Cog):
     @note.command(6)
     async def add(self, ctx, member: MemberOrID, *, note):
         """Add a note"""
-        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
+        if get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0] >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]:
             await ctx.send('User has insufficient permissions')
         else:
-            notes = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
-            guild_notes = notes.get('notes', [])
-            notes = list(filter(lambda w: w['member_id'] == str(member.id), guild_notes))
+            guild_data = await self.bot.db.get_guild_config(ctx.guild.id)
+            notes = guild_data.notes
 
-            offset = (await ctx.guild_config()).get('time_offset', 0)
-            current_date = (ctx.message.created_at + timedelta(hours=offset)).strftime('%Y-%m-%d')
-            if len(guild_notes) == 0:
+            guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+            current_date = (ctx.message.created_at + timedelta(hours=guild_config.time_offset)).strftime('%Y-%m-%d')
+            if len(notes) == 0:
                 case_number = 1
             else:
-                case_number = guild_notes[-1]['case_number'] + 1
+                case_number = notes[-1]['case_number'] + 1
 
             push = {
                 'case_number': case_number,
@@ -140,26 +144,26 @@ class Commands(commands.Cog):
                 'moderator_id': str(ctx.author.id),
                 'note': note
             }
-            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$push': {'notes': push}}, upsert=True)
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {'notes': push}})
             await ctx.send(self.bot.accept)
 
     @note.command(6, aliases=['delete', 'del'])
     async def remove(self, ctx, case_number: int):
         """Remove a note"""
-        notes = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
-        notes = notes.get('notes', [])
+        guild_data = await self.bot.db.get_guild_config(ctx.guild.id)
+        notes = guild_data.notes
         note = list(filter(lambda w: w['case_number'] == case_number, notes))
         if len(note) == 0:
             await ctx.send(f'Note #{case_number} does not exist.')
         else:
-            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$pull': {'notes': note[0]}})
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$pull': {'notes': note[0]}})
             await ctx.send(self.bot.accept)
 
     @note.command(6, name='list', aliases=['view'])
     async def _list(self, ctx, member: MemberOrID):
         """View the notes of a user"""
-        notes = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
-        notes = notes.get('notes', [])
+        guild_data = await self.bot.db.get_guild_config(ctx.guild.id)
+        notes = guild_data.notes
         notes = list(filter(lambda w: w['member_id'] == str(member.id), notes))
         name = getattr(member, 'name', str(member.id))
         if name != str(member.id):
@@ -183,12 +187,12 @@ class Commands(commands.Cog):
     @warn.command(6, name='add')
     async def add_(self, ctx, member: MemberOrID, *, reason):
         """Warn a user"""
-        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
+        if get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0] >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]:
             await ctx.send('User has insufficient permissions')
         else:
-            guild_info = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
-            guild_warns = guild_info.get('warns', [])
-            warn_punishments = guild_info.get('warn_punishments', {})
+            guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+            guild_warns = guild_config.warns
+            warn_punishments = guild_config.warn_punishments
             warns = list(filter(lambda w: w['member_id'] == str(member.id), guild_warns))
 
             cmd = None
@@ -212,6 +216,8 @@ class Commands(commands.Cog):
                     else:
                         punish = True
                         cmd = warn_punishments[str(max(map(int, punishments)))]
+                        if cmd == 'ban':
+                            cmd = 'bann'
                         fmt += f' You have been {cmd}ed from the server.'
 
                 await member.send(fmt)
@@ -219,8 +225,8 @@ class Commands(commands.Cog):
                 if ctx.author != ctx.guild.me:
                     await ctx.send('The user has PMs disabled or blocked the bot.')
             finally:
-                offset = (await ctx.guild_config()).get('time_offset', 0)
-                current_date = (ctx.message.created_at + timedelta(hours=offset)).strftime('%Y-%m-%d')
+                guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+                current_date = (ctx.message.created_at + timedelta(hours=guild_config.time_offset)).strftime('%Y-%m-%d')
                 if len(guild_warns) == 0:
                     case_number = 1
                 else:
@@ -232,35 +238,37 @@ class Commands(commands.Cog):
                     'moderator_id': str(ctx.author.id),
                     'reason': reason
                 }
-                await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$push': {'warns': push}}, upsert=True)
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {'warns': push}})
                 if ctx.author != ctx.guild.me:
                     await ctx.send(self.bot.accept)
                 await self.send_log(ctx, member, reason)
 
                 # apply punishment
                 if punish:
+                    if cmd == 'bann':
+                        cmd = 'ban'
                     ctx.command = self.bot.get_command(cmd)
                     ctx.author = ctx.guild.me
-                    await ctx.invoke(ctx.command, member, reason=f'Exceeded warn limit {len(warns + 1)}')
+                    await ctx.invoke(ctx.command, member, reason=f'Exceeded warn limit {num_warns}')
 
     @warn.command(6, name='remove', aliases=['delete', 'del'])
     async def remove_(self, ctx, case_number: int):
         """Remove a warn"""
-        warns = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
-        warns = warns.get('warns', [])
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        warns = guild_config.warns
         warn = list(filter(lambda w: w['case_number'] == case_number, warns))
         if len(warn) == 0:
             await ctx.send(f'Warn #{case_number} does not exist.')
         else:
-            await self.bot.mongo.rainbot.guilds.find_one_and_update({'guild_id': str(ctx.guild.id)}, {'$pull': {'warns': warn[0]}})
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$pull': {'warns': warn[0]}})
             await ctx.send(self.bot.accept)
             await self.send_log(ctx, case_number)
 
     @warn.command(6, name='list', aliases=['view'])
     async def list_(self, ctx, member: MemberOrID):
         """View the warns of a user"""
-        warns = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(ctx.guild.id)}) or {}
-        warns = warns.get('warns', [])
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        warns = guild_config.warns
         warns = list(filter(lambda w: w['member_id'] == str(member.id), warns))
         name = getattr(member, 'name', str(member.id))
         if name != str(member.id):
@@ -279,7 +287,7 @@ class Commands(commands.Cog):
     @command(6, usage='<member> <duration> <reason>')
     async def mute(self, ctx, member: discord.Member, *, time: UserFriendlyTime(default='No reason', assume_reason=True)=None):
         """Mutes a user"""
-        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
+        if get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0] >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]:
             await ctx.send('User has insufficient permissions')
         else:
             duration = None
@@ -294,7 +302,7 @@ class Commands(commands.Cog):
     @command(6)
     async def unmute(self, ctx, member: discord.Member, *, reason='No reason'):
         """Unmutes a user"""
-        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
+        if get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0] >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]:
             await ctx.send('User has insufficient permissions')
         else:
             await self.bot.unmute(ctx.guild.id, member.id, None, reason=reason)
@@ -394,9 +402,9 @@ class Commands(commands.Cog):
                 await ctx.send(f'Disabled slowmode on {channel.mention}')
 
     @command(7)
-    async def kick(self, ctx, member: discord.Member, *, reason=None, invoke_response):
+    async def kick(self, ctx, member: discord.Member, *, reason=None):
         """Kicks a user"""
-        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
+        if get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0] >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]:
             await ctx.send('User has insufficient permissions')
         else:
             await member.kick(reason=reason)
@@ -407,7 +415,7 @@ class Commands(commands.Cog):
     @command(7)
     async def softban(self, ctx, member: discord.Member, *, reason=None):
         """Swings the banhammer"""
-        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
+        if get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0] >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]:
             await ctx.send('User has insufficient permissions')
         else:
             await member.ban(reason=reason)
@@ -419,7 +427,7 @@ class Commands(commands.Cog):
     @command(7)
     async def ban(self, ctx, member: MemberOrID, *, reason=None):
         """Swings the banhammer"""
-        if get_perm_level(member, await ctx.guild_config())[0] >= get_perm_level(ctx.author, await ctx.guild_config())[0]:
+        if get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0] >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]:
             await ctx.send('User has insufficient permissions')
         else:
             await ctx.guild.ban(member, reason=reason)
@@ -435,4 +443,4 @@ class Commands(commands.Cog):
 
 
 def setup(bot):
-    bot.add_cog(Commands(bot))
+    bot.add_cog(Moderation(bot))

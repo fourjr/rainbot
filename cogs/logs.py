@@ -10,9 +10,9 @@ class Logging(commands.Cog):
         self.bot = bot
 
     async def check_enabled(self, guild_id, item):
-        data = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(guild_id)}) or {}
+        data = await self.bot.db.get_guild_config(guild_id)
         try:
-            return self.bot.get_channel(int(data.get('logs', {}).get(item, 0)))
+            return self.bot.get_channel(int(data.logs.get(item, 0)))
         except (ValueError, TypeError):
             return data.get(item, False)
 
@@ -26,9 +26,8 @@ class Logging(commands.Cog):
             except AttributeError:
                 guild_id = payload.data.get('guild_id')
 
-        offset = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(guild_id)}) or {}
-        offset = offset.get('time_offset', 0)
-        current_time += timedelta(hours=offset)
+        guild_config = await self.bot.db.get_guild_config(guild_id)
+        current_time += timedelta(hours=guild_config.time_offset)
         current_time = current_time.strftime('%H:%M:%S')
 
         if raw:
@@ -39,7 +38,7 @@ class Logging(commands.Cog):
             elif mode == 'member_join':
                 await log.send(f"`{current_time}` {payload} ({payload.id}) has joined.")
             elif mode == 'member_remove':
-                await log.send(f"`{current_time}` {payload} ({payload.id}) has been removed.")
+                await log.send(f"`{current_time}` {payload} ({payload.id}) has left the server.")
             elif mode == 'message_edit':
                 await log.send(f"`{current_time}` {payload.author} ({payload.author.id}): Message ({payload.id}) has been edited in **#{payload.channel.name}** ({payload.channel.id})\nB:```\n{payload.content}\n```\nA:\n```{extra.content}\n```")
             elif mode == 'member_leave_vc':
@@ -59,7 +58,7 @@ class Logging(commands.Cog):
 
     @Cog.listener()
     async def on_message_delete(self, message):
-        if not message.guild or message.author.bot:
+        if not message.guild or message.author.bot or self.bot.dev_mode:
             return
         log_channel = await self.check_enabled(message.guild.id, 'message_delete')
         if not log_channel:
@@ -69,13 +68,13 @@ class Logging(commands.Cog):
     @Cog.listener()
     async def on_raw_message_delete(self, payload):
         log_channel = await self.check_enabled(payload.guild_id, 'message_delete')
-        if not payload.guild_id or not log_channel:
+        if not payload.guild_id or not log_channel or self.bot.dev_mode:
             return
         await self.send_log(log_channel, payload, True, 'deleted')
 
     @Cog.listener()
     async def on_message_edit(self, before, after):
-        if not before.guild or before.author.bot or before.content == after.content:
+        if not before.guild or before.author.bot or before.content == after.content or self.bot.dev_mode:
             return
         log_channel = await self.check_enabled(before.guild.id, 'message_edit')
         if not log_channel:
@@ -85,7 +84,7 @@ class Logging(commands.Cog):
     @Cog.listener()
     async def on_raw_message_edit(self, payload):
         log_channel = await self.check_enabled(payload.data.get('guild_id'), 'message_edit')
-        if not payload.data.get('guild_id') or not log_channel:
+        if not payload.data.get('guild_id') or not log_channel or self.bot.dev_mode:
             return
 
         try:
@@ -96,13 +95,13 @@ class Logging(commands.Cog):
     @Cog.listener()
     async def on_raw_message_individual_delete(self, payload):
         log_channel = await self.check_enabled(payload.guild_id, 'message_delete')
-        if not payload.guild_id or not log_channel:
+        if not payload.guild_id or not log_channel or self.bot.dev_mode:
             return
         await self.send_log(log_channel, payload, True, 'deleted')
 
     @Cog.listener()
     async def on_member_join(self, member):
-        if not member.guild or member.bot:
+        if not member.guild or member.bot or self.bot.dev_mode:
             return
         log_channel = await self.check_enabled(member.guild.id, 'member_join')
         if not log_channel:
@@ -111,7 +110,7 @@ class Logging(commands.Cog):
 
     @Cog.listener()
     async def on_member_remove(self, member):
-        if not member.guild or member.bot:
+        if not member.guild or member.bot or self.bot.dev_mode:
             return
         log_channel = await self.check_enabled(member.guild.id, 'member_remove')
         if not log_channel:
@@ -120,7 +119,7 @@ class Logging(commands.Cog):
 
     @Cog.listener()
     async def on_voice_state_update(self, member, before, after):
-        if member.bot:
+        if member.bot or self.bot.dev_mode:
             return
         log_channel = await self.check_enabled(member.guild.id, 'vc_state_change')
         if before.channel != after.channel:
@@ -137,13 +136,15 @@ class Logging(commands.Cog):
 
     @Cog.listener()
     async def on_guild_channel_create(self, channel):
+        if self.bot.dev_mode:
+            return
         log_channel = await self.check_enabled(channel.guild.id, 'channel_create')
         if log_channel:
             await self.send_log(log_channel, channel, False, mode='channel_role_create', extra='Channel')
 
         # Setup mute role perms
-        guild_config = await self.bot.mongo.rainbot.guilds.find_one({'guild_id': str(channel.guild.id)})
-        if guild_config.get('mute_role'):
+        guild_config = await self.bot.db.get_guild_config(channel.guild.id)
+        if guild_config.mute_role:
             role = discord.utils.get(channel.guild.roles, id=int(guild_config['mute_role']))
             if isinstance(channel, (discord.TextChannel, discord.VoiceChannel, discord.CategoryChannel)):
                 try:
@@ -153,18 +154,24 @@ class Logging(commands.Cog):
 
     @Cog.listener()
     async def on_guild_channel_delete(self, channel):
+        if self.bot.dev_mode:
+            return
         log_channel = await self.check_enabled(channel.guild.id, 'channel_delete')
         if log_channel:
             await self.send_log(log_channel, channel, False, mode='channel_role_delete', extra='Channel')
 
     @Cog.listener()
     async def on_guild_role_create(self, role):
+        if self.bot.dev_mode:
+            return
         log_channel = await self.check_enabled(role.guild.id, 'role_create')
         if log_channel:
             await self.send_log(log_channel, role, False, mode='channel_role_create', extra='Role')
 
     @Cog.listener()
     async def on_guild_role_delete(self, role):
+        if self.bot.dev_mode:
+            return
         log_channel = await self.check_enabled(role.guild.id, 'role_delete')
         if log_channel:
             await self.send_log(log_channel, role, False, mode='channel_role_delete', extra='Role')
