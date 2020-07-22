@@ -87,16 +87,20 @@ class DatabaseManager:
 
 
 class DBDict(dict):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._default = kwargs.get('default', DEFAULT)
+
     def __getitem__(self, key):
         try:
             item = super().__getitem__(key)
         except KeyError:
-            item = DEFAULT[key]
+            item = self._default[key]
 
         if isinstance(item, dict):
-            return DBDict(item)
+            return DBDict(item, default=self._default[key])
         elif isinstance(item, list):
-            return DBList(item)
+            return DBList(item, default=self._default[key])
 
         return item
 
@@ -111,15 +115,20 @@ class DBDict(dict):
 
 
 class DBList(list):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._default = kwargs.get('default', DEFAULT)
+
     def __getitem__(self, key):
         try:
             item = super().__getitem__(key)
         except KeyError:
-            item = DEFAULT[key]
+            item = self._default[key]
 
         if isinstance(item, dict):
-            return DBDict(item)
+            return DBDict(item, default=self._default[key])
         elif isinstance(item, list):
-            return DBList(item)
+            return DBList(item, default=self._default[key])
 
         return item
+
