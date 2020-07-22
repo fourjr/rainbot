@@ -108,9 +108,9 @@ class DBDict(dict):
             item = self._default[key]
 
         if isinstance(item, dict):
-            return DBDict(item, default=self._default[key])
+            return DBDict(item, default=tryget(self._default, key))
         elif isinstance(item, list):
-            return DBList(item, default=self._default[key])
+            return DBList(item, default=tryget(self._default, key))
 
         return item
 
@@ -123,21 +123,34 @@ class DBDict(dict):
             except KeyError:
                 raise e
 
+    def __copy__(self):
+        return DBDict(copy.copy(dict(self)))
+
 
 class DBList(list):
     def __init__(self, *args, **kwargs):
         self._default = kwargs.pop('default', DEFAULT)
         super().__init__(*args, **kwargs)
 
-    def __getitem__(self, key):
+    def __getitem__(self, index):
         try:
-            item = super().__getitem__(key)
+            item = super().__getitem__(index)
         except KeyError:
-            item = self._default[key]
+            item = self._default[index]
 
         if isinstance(item, dict):
-            return DBDict(item, default=self._default[key])
+            return DBDict(item, default=tryget(self._default, index))
         elif isinstance(item, list):
-            return DBList(item, default=self._default[key])
+            return DBList(item, default=tryget(self._default, index))
 
         return item
+
+    def __copy__(self):
+        return DBList(copy.copy(list(self)))
+
+
+def tryget(obj, index):
+    try:
+        return obj[index]
+    except (KeyError, IndexError):
+        return None

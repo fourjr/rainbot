@@ -256,20 +256,20 @@ class Moderation(commands.Cog):
                         cmd = 'ban'
                     ctx.command = self.bot.get_command(cmd)
                     ctx.author = ctx.guild.me
-                    await ctx.invoke(ctx.command, member, reason=f'Exceeded warn limit {num_warns}')
+                    await ctx.invoke(ctx.command, member, reason=f'Hit warn limit {num_warns}')
 
     @warn.command(6, name='remove', aliases=['delete', 'del'])
     async def remove_(self, ctx, case_number: int):
         """Remove a warn"""
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         warns = guild_config.warns
-        warn = list(filter(lambda w: w['case_number'] == case_number, warns))
+        warn = list(filter(lambda w: w['case_number'] == case_number, warns))[0]
         warn_reason = warn['reason']
 
         if len(warn) == 0:
             await ctx.send(f'Warn #{case_number} does not exist.')
         else:
-            await self.bot.db.update_guild_config(ctx.guild.id, {'$pull': {'warns': warn[0]}})
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$pull': {'warns': warn}})
             await ctx.send(self.bot.accept)
             await self.send_log(ctx, case_number, warn_reason)
 
