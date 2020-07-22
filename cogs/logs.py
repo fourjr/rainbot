@@ -8,6 +8,20 @@ from discord.ext.commands import Cog
 class Logging(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.bot.loop.create_task(self.fill_message_cache())
+
+    async def fill_message_cache(self):
+        await self.bot.wait_until_ready()
+
+        after = datetime.now()
+        after -= timedelta(minutes=15)
+
+        for i in self.bot.get_all_channels():
+            if isinstance(i, discord.TextChannel):
+                try:
+                    self.bot._connection._messages += await i.history(limit=30, after=after).flatten()
+                except discord.Forbidden:
+                    pass
 
     async def check_enabled(self, guild_id, item):
         data = await self.bot.db.get_guild_config(guild_id)

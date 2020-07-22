@@ -148,8 +148,8 @@ class Utility(commands.Cog):
             for fn in res.splitlines():
                 if fn.split('/')[0] == 'cogs':
                     cog_name = '.'.join(fn.split('/'))
-                    await self.bot.unload_extension(cog_name)
-                    await self.bot.load_extension(cog_name)
+                    await self.bot.unload_extension(cog_name[:-3])
+                    await self.bot.load_extension(cog_name[:-3])
                     fmt += f'Reloaded {cog_name}\n'
 
             await ctx.send(fmt + '```')
@@ -267,13 +267,13 @@ class Utility(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild):
-        channel = await self.bot.get_channel(733702521893289985)
+        channel = self.bot.get_channel(733702521893289985)
         if channel:
             await channel.send(f'Joined {guild.name} ({guild.id}) [{len(guild.members)} members] - Total: {len(self.bot.guilds)}')
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild):
-        channel = await self.bot.get_channel(733702521893289985)
+        channel = self.bot.get_channel(733702521893289985)
         if channel:
             await channel.send(f'Left {guild.name} ({guild.id}) [{len(guild.members)} members] - Total: {len(self.bot.guilds)}')
 
