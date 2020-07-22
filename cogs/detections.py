@@ -22,7 +22,7 @@ class Detections(commands.Cog):
         if not m.guild or m.type != discord.MessageType.default or m.author.bot or self.bot.dev_mode:
             return
 
-        guild_config = await self.bot.db.get_
+        guild_config = await self.bot.db.get_guild_config(m.guild.id)
         if get_perm_level(m.author, guild_config)[0] >= 5:
             return
 

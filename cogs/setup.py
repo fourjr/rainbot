@@ -8,6 +8,7 @@ from discord.ext.commands import Cog
 from ext.errors import BotMissingPermissionsInChannel
 from ext.utils import get_command_level, lower
 from ext.command import command, group, RainGroup
+from ext.database import DEFAULT
 
 
 class Setup(commands.Cog):
@@ -54,7 +55,7 @@ class Setup(commands.Cog):
     async def resetconfig(self, ctx):
         """Resets configuration to default"""
         await ctx.invoke(self.viewconfig)
-        data = copy.copy(self.default)
+        data = copy.copy(DEFAULT)
         data['guild_id'] = str(ctx.guild.id)
         await self.bot.db.update_guild_config(ctx.guild.id, {'$set': data})
         await ctx.send('All configuration reset')
@@ -65,7 +66,7 @@ class Setup(commands.Cog):
 
         Valid types: all, message_delete, message_edit, member_join, member_remove, member_ban, member_unban, vc_state_change, channel_create, channel_delete, role_create, role_delete
         """
-        valid_logs = self.default['logs'].keys()
+        valid_logs = DEFAULT['logs'].keys()
         channel_id = None
         if channel:
             try:
@@ -98,7 +99,7 @@ class Setup(commands.Cog):
                 raise BotMissingPermissionsInChannel(['send_messages'], channel)
             channel_id = str(channel.id)
 
-        valid_logs = self.default['modlog'].keys()
+        valid_logs = DEFAULT['modlog'].keys()
         if log_name == 'all':
             for i in valid_logs:
                 await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'modlog.{i}': channel_id}})
