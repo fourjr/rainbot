@@ -13,6 +13,7 @@ class Tags(commands.Cog):
 
     @group(6, invoke_without_command=True)
     async def tag(self, ctx):
+        """Controls tags in your server"""
         await ctx.invoke(self.bot.get_command('help'), command_or_cog='tag')
 
     @tag.command(6)
@@ -37,6 +38,7 @@ class Tags(commands.Cog):
 
     @tag.command(6)
     async def remove(self, ctx, name):
+        """Removes a tag"""
         await self.bot.db.update_guild_config(ctx.guild.id, {'$unset': {f'tags.{name}': ''}})
 
         await ctx.send(self.bot.accept)
