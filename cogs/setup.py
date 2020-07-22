@@ -1,5 +1,6 @@
 import copy
 import json
+import typing
 
 import discord
 from discord.ext import commands
@@ -16,7 +17,7 @@ class Setup(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.order = 2
+        self.order = 1
 
     @Cog.listener()
     async def on_guild_join(self, guild):
@@ -123,10 +124,18 @@ class Setup(commands.Cog):
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_command_level', 'set-command-level'])
-    async def setcommandlevel(self, ctx, perm_level: int, *, command: lower):
-        """Changes a command's required permission level"""
-        if perm_level < 0:
-            raise commands.BadArgument(f'{perm_level} is below 0')
+    async def setcommandlevel(self, ctx, perm_level: typing.Union[int, str], *, command: lower):
+        """Changes a command's required permission level
+
+        Examples:
+        - !!setcommandlevel reset ban
+        - !!setcommandlevel 8 warn add
+        """
+        if isinstance(perm_level, int) and (perm_level < 0 or perm_level > 15):
+            raise commands.BadArgument(f'{perm_level} is an invalid level, valid levels: 0-15 or reset')
+
+        if isinstance(perm_level, str) and perm_level != 'reset':
+            raise commands.BadArgument(f'{perm_level} is an invalid level, valid levels: 0-15 or reset')
 
         cmd = self.bot.get_command(command)
         if not cmd:
@@ -136,7 +145,12 @@ class Setup(commands.Cog):
             raise commands.BadArgument('Cannot override a command group')
 
         name = cmd.qualified_name.replace(' ', '_')
+
+        if perm_level == 'reset':
+            perm_level = cmd.perm_level
+
         levels = {f'command_levels.{name}': perm_level}
+        action = "unset" if perm_level == cmd.perm_level else "set"
 
         if cmd.parent:
             guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
@@ -154,7 +168,8 @@ class Setup(commands.Cog):
                 if lowest > parent_level:
                     levels[f'command_levels.{cmd.parent.name}'] = lowest
 
-        await self.bot.db.update_guild_config(ctx.guild.id, {'$set': levels})
+            await self.bot.db.update_guild_config(ctx.guild.id, {f'${action}': levels})
+
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_prefix', 'set-prefix'])

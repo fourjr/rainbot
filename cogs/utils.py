@@ -215,7 +215,7 @@ class Utility(commands.Cog):
                 await ctx.send(content=error, embed=em or invalid_command)
         else:
             ems = []
-            for i in sorted(self.bot.cogs.values(), key=lambda x: getattr(self.bot.cogs[x], 'order', 100)):
+            for i in sorted(self.bot.cogs.values(), key=lambda x: getattr(x, 'order', 100)):
                 em = await self.format_cog_help(ctx, prefix, i)
                 if em:
                     ems.append(em)
