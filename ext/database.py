@@ -95,7 +95,7 @@ class DBDict(dict):
 
         if isinstance(item, dict):
             return DBDict(item)
-        
+
         return item
 
 
