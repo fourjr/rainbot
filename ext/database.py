@@ -140,4 +140,3 @@ class DBList(list):
             return DBList(item, default=self._default[key])
 
         return item
-

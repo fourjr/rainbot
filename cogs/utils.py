@@ -127,11 +127,32 @@ class Utility(commands.Cog):
 
     @owner()
     @command(0)
-    async def sudo(self, ctx, member: discord.Member, *, content):
-        """Sends a message on behalf of the user"""
-        ctx.message.author = member
-        ctx.message.content = content
-        await self.bot.process_commands(ctx.message)
+    async def update(self, ctx):
+        """Updates the bot"""
+        # command fetches from git, gets a list of updated file in stdout, merges updated into local
+        cmd = subprocess.run('git fetch && git diff --name-only ..origin && git merge FETCH_HEAD -q', cwd=os.getcwd(), stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+        res = cmd.stdout.decode('utf-8')
+
+        if res == '':
+            await ctx.send('Already up to date.')
+        else:
+            # Something other than a cog is modified
+            for fn in res.splitlines():
+                if fn.split('/')[0] != 'cogs':
+                    await ctx.send('Bot restarting...')
+                    subprocess.Popen('sudo systemctl restart rainbot', cwd=os.getcwd(), shell=True)
+                    return
+
+            # Only cogs are modified, so just reload all of the modified cogs
+            fmt = '```\n'
+            for fn in res.splitlines():
+                if fn.split('/')[0] == 'cogs':
+                    cog_name = '.'.join(fn.split('/'))
+                    await self.bot.unload_extension(cog_name)
+                    await self.bot.load_extension(cog_name)
+                    fmt += f'Reloaded {cog_name}\n'
+
+            await ctx.send(fmt + '```')
 
     async def can_run(self, ctx, cmd):
         ctx.command = cmd
@@ -242,7 +263,7 @@ class Utility(commands.Cog):
     async def ping(self, ctx):
         """Pong!"""
         ts = datetime.utcnow() - ctx.message.created_at
-        await ctx.send(f'Pong!\nWS Latency: {self.bot.latency * 1000:.2f}ms\nMessage Latency: {ts.total_seconds() * 1000}ms')
+        await ctx.send(f'Pong!\nWS Latency: {self.bot.latency * 1000:.2f}ms\nMessage Latency: {ts.total_seconds() * 1000:.2f}ms')
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild):

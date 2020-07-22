@@ -68,10 +68,10 @@ class Moderation(commands.Cog):
                 fmt = f'`{current_time}` {ctx.author} unbanned {name} ({args[0].id}), reason: {args[1]}'
                 await ctx.bot.get_channel(modlogs.member_unban).send(fmt)
             elif ctx.command.qualified_name == 'warn add':
-                fmt = f'`{current_time}` {ctx.author} warned {args[0]} ({args[0].id}), reason: {args[1]}'
+                fmt = f'`{current_time}` {ctx.author} warned #{args[2]} {args[0]} ({args[0].id}), reason: {args[1]}'
                 await ctx.bot.get_channel(modlogs.member_warn).send(fmt)
             elif ctx.command.qualified_name == 'warn remove':
-                fmt = f'`{current_time}` {ctx.author} has deleted warn #{args[0]}'
+                fmt = f'`{current_time}` {ctx.author} has deleted warn #{args[0]} - {args[1]}'
                 await ctx.bot.get_channel(modlogs.member_warn).send(fmt)
             elif ctx.command.name == 'lockdown':
                 fmt = f'`{current_time}` {ctx.author} has {"enabled" if args[0] else "disabled"} lockdown for {args[1].mention}'
@@ -179,14 +179,21 @@ class Moderation(commands.Cog):
 
             await ctx.send(fmt)
 
-    @group(6, invoke_without_command=True)
-    async def warn(self, ctx):
+    @group(6, invoke_without_command=True, usage='')
+    async def warn(self, ctx, member=None, *, reason=None):
         """Manage warns"""
-        await ctx.invoke(self.bot.get_command('help'), command_or_cog='warn')
+        try:
+            member = MemberOrID().convert(ctx, member)
+        except commands.BadArgument:
+            await ctx.invoke(self.bot.get_command('help'), command_or_cog='warn')
+        else:
+            await ctx.invoke(self.add_, member, reason)
 
     @warn.command(6, name='add')
     async def add_(self, ctx, member: MemberOrID, *, reason):
-        """Warn a user"""
+        """Warn a user
+
+        Can also be used as `warn <member> [reason]`"""
         if get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0] >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]:
             await ctx.send('User has insufficient permissions')
         else:
@@ -241,7 +248,7 @@ class Moderation(commands.Cog):
                 await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {'warns': push}})
                 if ctx.author != ctx.guild.me:
                     await ctx.send(self.bot.accept)
-                await self.send_log(ctx, member, reason)
+                await self.send_log(ctx, member, reason, case_number)
 
                 # apply punishment
                 if punish:
@@ -257,12 +264,14 @@ class Moderation(commands.Cog):
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         warns = guild_config.warns
         warn = list(filter(lambda w: w['case_number'] == case_number, warns))
+        warn_reason = warn['reason']
+
         if len(warn) == 0:
             await ctx.send(f'Warn #{case_number} does not exist.')
         else:
             await self.bot.db.update_guild_config(ctx.guild.id, {'$pull': {'warns': warn[0]}})
             await ctx.send(self.bot.accept)
-            await self.send_log(ctx, case_number)
+            await self.send_log(ctx, case_number, warn_reason)
 
     @warn.command(6, name='list', aliases=['view'])
     async def list_(self, ctx, member: MemberOrID):
