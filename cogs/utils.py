@@ -148,8 +148,8 @@ class Utility(commands.Cog):
             for fn in res.splitlines():
                 if fn.split('/')[0] == 'cogs':
                     cog_name = '.'.join(fn.split('/'))
-                    await self.bot.unload_extension(cog_name[:-3])
-                    await self.bot.load_extension(cog_name[:-3])
+                    self.bot.unload_extension(cog_name[:-3])
+                    self.bot.load_extension(cog_name[:-3])
                     fmt += f'Reloaded {cog_name}\n'
 
             await ctx.send(fmt + '```')
