@@ -269,7 +269,7 @@ class Setup(commands.Cog):
     @filter_.command(8, name='list')
     async def list_(self, ctx):
         """Lists the full word filter"""
-        guild_config = await self.db.get_guild_config(ctx.guild.id)
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         await ctx.send(f"Filters: {', '.join([f'`{i}`' for i in guild_config.detections.filters])}")
 
     @command(10, aliases=['set-warn-punishment', 'set_warn_punishment'])
