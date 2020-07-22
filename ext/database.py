@@ -51,6 +51,7 @@ DEFAULT = {
     'notes': [],
     'warns': [],
     'mutes': [],
+    'tags': {},
     'whitelisted_guilds': [],
     'ignored_channels': {
         'filter': [],
@@ -97,8 +98,8 @@ class DatabaseManager:
 
 class DBDict(dict):
     def __init__(self, *args, **kwargs):
+        self._default = kwargs.pop('default', DEFAULT)
         super().__init__(*args, **kwargs)
-        self._default = kwargs.get('default', DEFAULT)
 
     def __getitem__(self, key):
         try:
@@ -125,8 +126,8 @@ class DBDict(dict):
 
 class DBList(list):
     def __init__(self, *args, **kwargs):
+        self._default = kwargs.pop('default', DEFAULT)
         super().__init__(*args, **kwargs)
-        self._default = kwargs.get('default', DEFAULT)
 
     def __getitem__(self, key):
         try:

@@ -1,5 +1,6 @@
 import random
 import re
+import string
 
 from discord.ext import commands
 from discord.ext.commands import check
@@ -101,3 +102,28 @@ class EmojiOrUnicode(commands.EmojiConverter):
 class UnicodeEmoji:
     def __init__(self, id):
         self.id = id
+
+
+class SafeFormat(object):
+    def __init__(self, **kw):
+        self.__dict = kw
+
+    def __getitem__(self, name):
+        return self.__dict.get(name, SafeString('{%s}' % name))
+
+
+class SafeString(str):
+    def __getattr__(self, name):
+        try:
+            super().__getattr__(name)
+        except AttributeError:
+            return SafeString('%s.%s}' % (self[:-1], name))
+
+
+def apply_vars(self, tag, message):
+    return string.Formatter().vformat(tag, [], SafeFormat(
+        invoked=message,
+        guild=message.guild,
+        channel=message.channel,
+        bot=self.bot.user,
+    ))
