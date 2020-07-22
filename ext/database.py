@@ -89,7 +89,7 @@ class DatabaseManager:
 class DBDict(dict):
     def __getitem__(self, key):
         try:
-            item = super().__getitem__(key) 
+            item = super().__getitem__(key)
         except KeyError:
             item = DEFAULT[key]
 
@@ -97,7 +97,6 @@ class DBDict(dict):
             return DBDict(item)
 
         return item
-
 
     def __getattribute__(self, name):
         try:
