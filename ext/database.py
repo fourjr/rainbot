@@ -35,6 +35,7 @@ DEFAULT = {
     'detections': {
         'filters': [],
         'block_invite': False,
+        'english_only': False,
         'mention_limit': None,
         'spam_detection': None,
         'repetitive_message': None
@@ -54,6 +55,7 @@ DEFAULT = {
     'ignored_channels': {
         'filter': [],
         'block_invite': [],
+        'english_only': [],
         'mention_limit': [],
         'spam_detection': [],
         'repetitive_message': []

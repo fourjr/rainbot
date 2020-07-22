@@ -191,10 +191,10 @@ class Setup(commands.Cog):
     async def setdetection(self, ctx, detection_type: lower, value):
         """Sets or toggle the auto moderation types
 
-        Valid types: block_invite, mention_limit, spam_detection, repetitive_message
+        Valid types: block_invite, english_only, mention_limit, spam_detection, repetitive_message
         """
-        if detection_type == 'block_invite':
-            await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'detections.block_invite': commands.core._convert_to_bool(value)}})
+        if detection_type in ('block_invite', 'english_only'):
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'detections.{detection_type}': commands.core._convert_to_bool(value)}})
             await ctx.send(self.bot.accept)
         elif detection_type in ('mention_limit', 'spam_detection', 'repetitive_message'):
             try:
@@ -205,7 +205,7 @@ class Setup(commands.Cog):
                 raise commands.BadArgument(f'{value} (`value`) is not a valid number above 0') from e
             await ctx.send(self.bot.accept)
         else:
-            raise commands.BadArgument('Invalid detection, pick one from below:\nblock_invite, mention_limit, spam_detection, repetitive_message')
+            raise commands.BadArgument('Invalid detection, pick one from below:\nblock_invite, english_only, mention_limit, spam_detection, repetitive_message')
 
     @command(10, aliases=['set-guild-whitelist', 'set_guild_whitelist'])
     async def setguildwhitelist(self, ctx, guild_id: int=None):
@@ -227,7 +227,7 @@ class Setup(commands.Cog):
     async def setdetectionignore(self, ctx, detection_type: lower, channel: discord.TextChannel=None):
         """Ignores detections in specified channels
 
-        Valid detections: all, filter, block_invite, mention_limit, spam_detection, repetitive_message
+        Valid detections: all, filter, block_invite,english_only,  mention_limit, spam_detection, repetitive_message
         Run without specifying channel to clear ignored channels
         """
         valid_detections = list(DEFAULT['ignored_channels'].keys())
