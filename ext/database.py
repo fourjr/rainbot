@@ -89,12 +89,15 @@ class DatabaseManager:
 class DBDict(dict):
     def __getitem__(self, key):
         try:
-            return super().__getitem__(key)
+            item = super().__getitem__(key) 
         except KeyError:
-            if isinstance(DEFAULT[key], dict):
-                return DBDict(DEFAULT[key])
+            item = DEFAULT[key]
 
-            return DEFAULT[key]
+        if isinstance(item, dict):
+            return DBDict(item)
+        
+        return item
+
 
     def __getattribute__(self, name):
         try:
