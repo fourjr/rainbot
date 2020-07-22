@@ -95,11 +95,31 @@ class DBDict(dict):
 
         if isinstance(item, dict):
             return DBDict(item)
+        elif isinstance(item, list):
+            return DBList(item)
 
         return item
 
-    def __getattribute__(self, name):
+    def __getattr__(self, name):
         try:
             return super().__getattribute__(name)
-        except AttributeError:
-            return self[name]
+        except AttributeError as e:
+            try:
+                return self[name]
+            except KeyError:
+                raise e
+
+
+class DBList(list):
+    def __getitem__(self, key):
+        try:
+            item = super().__getitem__(key)
+        except KeyError:
+            item = DEFAULT[key]
+
+        if isinstance(item, dict):
+            return DBDict(item)
+        elif isinstance(item, list):
+            return DBList(item)
+
+        return item
