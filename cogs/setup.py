@@ -26,7 +26,7 @@ class Setup(commands.Cog):
     @command(6, aliases=['view_config', 'view-config'])
     async def viewconfig(self, ctx):
         """View the current guild configuration"""
-        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        guild_config = copy.copy(await self.bot.db.get_guild_config(ctx.guild.id))
         del guild_config['_id']
         try:
             await ctx.send(f'```json\n{json.dumps(guild_config, indent=2)}\n```')
@@ -205,7 +205,7 @@ class Setup(commands.Cog):
                 raise commands.BadArgument(f'{value} (`value`) is not a valid number above 0') from e
             await ctx.send(self.bot.accept)
         else:
-            raise commands.BadArgument('Invalid log name, pick one from below:\nblock_invite, mention_limit, spam_detection, repetitive_message')
+            raise commands.BadArgument('Invalid detection, pick one from below:\nblock_invite, mention_limit, spam_detection, repetitive_message')
 
     @command(10, aliases=['set-guild-whitelist', 'set_guild_whitelist'])
     async def setguildwhitelist(self, ctx, guild_id: int=None):
@@ -217,9 +217,36 @@ class Setup(commands.Cog):
         Run without arguments to clear whitelist
         """
         if guild_id is None:
-            await self.bot.db.update_guild_config(ctx.guild.id, {'$unset': {'whitelisted_guilds': ''}})
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'whitelisted_guilds': []}})
+        else:
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {'whitelisted_guilds': str(guild_id)}})
 
-        await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {'whitelisted_guilds': str(guild_id)}})
+        await ctx.send(self.bot.accept)
+
+    @command(10, aliases=['set-detection-ignore', 'set_detection_ignore'])
+    async def setdetectionignore(self, ctx, detection_type: lower, channel: discord.TextChannel=None):
+        """Ignores detections in specified channels
+
+        Valid detections: all, filter, block_invite, mention_limit, spam_detection, repetitive_message
+        Run without specifying channel to clear ignored channels
+        """
+        valid_detections = list(DEFAULT['ignored_channels'].keys())
+
+        if detection_type not in valid_detections + ["all"]:
+            raise commands.BadArgument('Invalid detection, pick one from below:\n all, ' + ', '.join(valid_detections))
+
+        if detection_type == 'all':
+            for i in valid_detections:
+                if channel is None:
+                    await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'ignored_channels.{i}': []}})
+                else:
+                    await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {f'ignored_channels.{i}': str(channel.id)}})
+        else:
+            if channel is None:
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'ignored_channels.{detection_type}': []}})
+            else:
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {f'ignored_channels.{detection_type}': str(channel.id)}})
+
         await ctx.send(self.bot.accept)
 
     @group(8, name='filter', invoke_without_command=True)

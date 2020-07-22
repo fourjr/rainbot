@@ -51,6 +51,13 @@ DEFAULT = {
     'warns': [],
     'mutes': [],
     'whitelisted_guilds': [],
+    'ignored_channels': {
+        'filter': [],
+        'block_invite': [],
+        'mention_limit': [],
+        'spam_detection': [],
+        'repetitive_message': []
+    },
     'mute_role': None,
     'prefix': '!!'
 }

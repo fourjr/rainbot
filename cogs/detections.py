@@ -27,6 +27,7 @@ class Detections(commands.Cog):
             return
 
         detection_config = guild_config.detections
+        ignored_channels = guild_config.ignored_channels
         filtered_words = [i for i in detection_config.filters if i in m.content.lower()]
         invite_match = self.INVITE_REGEX.findall(m.content)
 
@@ -40,15 +41,15 @@ class Detections(commands.Cog):
         ctx.author = m.guild.me
         ctx.command = warn_cmd
 
-        if detection_config.mention_limit and len(mentions) >= detection_config.mention_limit:
+        if detection_config.mention_limit and len(mentions) >= detection_config.mention_limit and str(m.channel.id) not in ignored_channels.mention_limit:
             await m.delete()
             await ctx.invoke(warn_cmd, m.author, reason=f'Mass mentions ({len(m.mentions)})')
             await self.bot.mute(m.author, timedelta(minutes=10), reason=f'Mass mentions ({len(m.mentions)})')
 
-        elif len(filtered_words) != 0:
+        elif len(filtered_words) != 0 and str(m.channel.id) not in ignored_channels.filter:
             await m.delete()
 
-        elif detection_config.block_invite and invite_match:
+        elif detection_config.block_invite and invite_match and str(m.channel.id) not in ignored_channels.block_invite:
             for i in invite_match:
                 try:
                     invite = await self.bot.fetch_invite(i[-1])
@@ -60,7 +61,7 @@ class Detections(commands.Cog):
                         await ctx.invoke(warn_cmd, m.author, reason=f'Advertising discord server (<{invite.url}>)')
                         await self.bot.mute(m.author, timedelta(minutes=10), reason=f'Advertising discord server (<{invite.url}>)')
 
-        elif detection_config.spam_detection and len(self.spam_detection.get(str(m.author.id), [])) >= detection_config.spam_detection:
+        elif detection_config.spam_detection and len(self.spam_detection.get(str(m.author.id), [])) >= detection_config.spam_detection and str(m.channel.id) not in ignored_channels.spam_detection:
             await ctx.invoke(warn_cmd, m.author, reason=f'Exceeding spam detection ({detection_config.spam_detection} messages/5s)')
             await self.bot.mute(m.author, timedelta(minutes=10), reason=f'Exceeding spam detection ({detection_config.spam_detection} messages/5s)')
 
@@ -72,24 +73,26 @@ class Detections(commands.Cog):
                 except discord.NotFound:
                     pass
 
-        elif detection_config.repetitive_message and self.get_most_common_count(m.author.id) >= detection_config.repetitive_message:
+        elif detection_config.repetitive_message and self.get_most_common_count(m.author.id) >= detection_config.repetitive_message and str(m.channel.id) not in ignored_channels.repetitive_message:
             await ctx.invoke(warn_cmd, m.author, reason=f'Repetitive message detection ({detection_config.repetitive_message} identical messages/1m)')
             await ctx.invoke(self.bot.get_command('purge'), limit=self.get_most_common_count(m.author.id), member=m.author)
             await self.bot.mute(m.author, timedelta(minutes=10), reason=f'Repetitive message detection ({detection_config.repetitive_message} identical messages/1m)')
 
-        self.spam_detection[str(m.author.id)].append(m.id)
-        await asyncio.sleep(5)
-        self.spam_detection[str(m.author.id)].remove(m.id)
+        if str(m.channel.id) not in ignored_channels.spam_detection:
+            self.spam_detection[str(m.author.id)].append(m.id)
+            await asyncio.sleep(5)
+            self.spam_detection[str(m.author.id)].remove(m.id)
 
-        if not self.spam_detection[str(m.author.id)]:
-            del self.spam_detection[str(m.author.id)]
+            if not self.spam_detection[str(m.author.id)]:
+                del self.spam_detection[str(m.author.id)]
 
-        self.repetitive_message[str(m.author.id)][m.content] += 1
-        await asyncio.sleep(60)
-        self.repetitive_message[str(m.author.id)][m.content] -= 1
+        if str(m.channel.id) not in ignored_channels.repetitive_message:
+            self.repetitive_message[str(m.author.id)][m.content] += 1
+            await asyncio.sleep(60)
+            self.repetitive_message[str(m.author.id)][m.content] -= 1
 
-        if not self.repetitive_message[str(m.author.id)].values():
-            del self.repetitive_message[str(m.author.id)]
+            if not self.repetitive_message[str(m.author.id)].values():
+                del self.repetitive_message[str(m.author.id)]
 
     def get_most_common_count(self, id):
         most_common = self.repetitive_message.get(str(id), Counter()).most_common(1)
