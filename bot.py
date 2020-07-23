@@ -10,7 +10,6 @@ from time import time
 import aiohttp
 from discord.ext import commands
 from dotenv import load_dotenv
-from motor.motor_asyncio import AsyncIOMotorClient
 
 from ext import errors
 from ext.database import DatabaseManager
@@ -36,8 +35,7 @@ class rainbot(commands.Bot):
         handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
         self.logger.addHandler(handler)
 
-        self.mongo = AsyncIOMotorClient(os.getenv('mongo'))
-        self.db = DatabaseManager(self.mongo)
+        self.db = DatabaseManager(os.getenv('mongo'))
 
         self.owners = list(map(int, os.getenv('owners', '').split(',')))
 
@@ -107,13 +105,13 @@ class rainbot(commands.Bot):
             self.logger.exception(f'Error while executing {ctx.command} ({ctx.message.content})', exc_info=(type(e), e, e.__traceback__))
 
     async def setup_unmutes(self):
-        data = self.mongo.rainbot.guilds.find({'mutes': {'$exists': True, '$ne': []}})
+        data = self.db.coll.find({'mutes': {'$exists': True, '$ne': []}})
         async for d in data:
             for m in d['mutes']:
                 self.loop.create_task(self.unmute(d['guild_id'], m['member'], m['time']))
 
     async def cache_mutes(self):
-        self.mutes = await self.mongo.rainbot.guilds.find({'mutes': {'$exists': True, '$ne': []}})
+        self.mutes = await self.db.coll.find({'mutes': {'$exists': True, '$ne': []}})
 
     async def on_member_join(self, m):
         """Set up mutes if the member rejoined to bypass a mute"""

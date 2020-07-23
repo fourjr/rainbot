@@ -1,7 +1,7 @@
 import copy
 
+from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
-
 
 DEFAULT = {
     'guild_id': None,
@@ -67,13 +67,14 @@ DEFAULT = {
 
 
 class DatabaseManager:
-    def __init__(self, mongo):
-        self.db = mongo.rainbot.guilds
+    def __init__(self, mongo_uri):
+        self.mongo = AsyncIOMotorClient(mongo_uri)
+        self.coll = self.mongo.rainbot.guilds
         self.guilds_data = {}
 
     async def get_guild_config(self, guild_id):
         if guild_id not in self.guilds_data:
-            data = await self.db.find_one({'guild_id': str(guild_id)})
+            data = await self.coll.find_one({'guild_id': str(guild_id)})
             if not data:
                 data = await self.create_new_config(guild_id)
             self.guilds_data[guild_id] = DBDict(data)
@@ -81,7 +82,7 @@ class DatabaseManager:
         return self.guilds_data[guild_id]
 
     async def update_guild_config(self, guild_id, update):
-        self.guilds_data[guild_id] = DBDict(await self.db.find_one_and_update({'guild_id': str(guild_id)}, update, upsert=True, return_document=ReturnDocument.AFTER))
+        self.guilds_data[guild_id] = DBDict(await self.coll.find_one_and_update({'guild_id': str(guild_id)}, update, upsert=True, return_document=ReturnDocument.AFTER))
 
         return self.guilds_data[guild_id]
 
@@ -90,7 +91,7 @@ class DatabaseManager:
         data['guild_id'] = str(guild_id)
         self.guilds_data[guild_id] = DBDict(data)
 
-        await self.db.insert_one(data)
+        await self.coll.insert_one(data)
 
         return self.guilds_data[guild_id]
 
