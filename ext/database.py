@@ -89,11 +89,9 @@ class DatabaseManager:
     async def create_new_config(self, guild_id):
         data = copy.copy(DEFAULT)
         data['guild_id'] = str(guild_id)
-        self.guilds_data[guild_id] = DBDict(data)
-
         await self.coll.insert_one(data)
 
-        return self.guilds_data[guild_id]
+        return data
 
 
 class DBDict(dict):
