@@ -25,10 +25,12 @@ def get_perm_level(member, guild_config):
         perm_level = 0
         highest_role = None
 
+        perm_levels = [int(i.role_id) for i in guild_config.perm_levels]
         for i in reversed(member.roles):
-            if str(i.id) in guild_config.perm_levels.keys():
-                if guild_config.perm_levels[str(i.id)] > perm_level:
-                    perm_level = guild_config.perm_levels[str(i.id)]
+            if i.id in perm_levels:
+                new_perm_level = guild_config.perm_levels.get_kv('role_id', str(i.id)).level
+                if new_perm_level > perm_level:
+                    perm_level = new_perm_level
                     highest_role = i
 
     return (perm_level, highest_role)
@@ -36,8 +38,10 @@ def get_perm_level(member, guild_config):
 
 def get_command_level(cmd, guild_config):
     name = cmd.qualified_name.replace(' ', '_')
-    perm_level = guild_config.command_levels.get(name)
-    if not perm_level:
+
+    try:
+        perm_level = guild_config.command_levels.get_kv('command', name).level
+    except IndexError:
         perm_level = cmd.perm_level
 
     return perm_level

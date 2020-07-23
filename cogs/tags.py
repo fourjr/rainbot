@@ -33,13 +33,13 @@ class Tags(commands.Cog):
         if name in [i.qualified_name for i in self.bot.commands]:
             await ctx.send('Name is already a pre-existing bot command')
         else:
-            await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'tags.{name}': value}})
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {'tags': {'name': name, 'value': value}}})
             await ctx.send(self.bot.accept)
 
     @tag.command(6)
     async def remove(self, ctx, name):
         """Removes a tag"""
-        await self.bot.db.update_guild_config(ctx.guild.id, {'$unset': {f'tags.{name}': ''}})
+        await self.bot.db.update_guild_config(ctx.guild.id, {'$pull': {'tags': {'name': name}}})
 
         await ctx.send(self.bot.accept)
 
@@ -47,7 +47,7 @@ class Tags(commands.Cog):
     async def list_(self, ctx):
         """Lists all tags"""
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-        tags = guild_config.tags.keys()
+        tags = [i.name for i in guild_config.tags]
 
         if tags:
             await ctx.send('Tags: ' + ', '.join(tags))
@@ -59,9 +59,11 @@ class Tags(commands.Cog):
         if not message.author.bot and message.guild:
             ctx = await self.bot.get_context(message)
             guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-            if ctx.invoked_with in guild_config.tags:
-                tag = guild_config.tags[ctx.invoked_with]
-                await ctx.send(**self.format_message(tag, message))
+            tags = [i.name for i in guild_config.tags]
+
+            if ctx.invoked_with in tags:
+                tag = guild_config.tags.get_kv('name', ctx.invoked_with)
+                await ctx.send(**self.format_message(tag.value, message))
 
     def apply_vars_dict(self, tag, message):
         for k, v in tag.items():

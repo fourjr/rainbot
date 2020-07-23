@@ -13,7 +13,7 @@ class Logging(commands.Cog):
     async def fill_message_cache(self):
         await self.bot.wait_until_ready()
 
-        after = datetime.now()
+        after = datetime.utcnow()
         after -= timedelta(minutes=15)
 
         for i in self.bot.get_all_channels():
