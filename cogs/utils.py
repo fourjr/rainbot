@@ -144,15 +144,15 @@ class Utility(commands.Cog):
                     return
 
             # Only cogs are modified, so just reload all of the modified cogs
-            fmt = '```\n'
+            fmt = ''
             for fn in res.splitlines():
                 if fn.split('/')[0] == 'cogs':
                     cog_name = '.'.join(fn.split('/'))
                     self.bot.unload_extension(cog_name[:-3])
                     self.bot.load_extension(cog_name[:-3])
-                    fmt += f'Reloaded {cog_name}\n'
+                    fmt += f'Reloaded {cog_name[:-3]}\n'
 
-            await ctx.send(fmt + '```')
+            await ctx.send(fmt)
 
     async def can_run(self, ctx, cmd):
         ctx.command = cmd

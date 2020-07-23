@@ -13,15 +13,19 @@ class Logging(commands.Cog):
     async def fill_message_cache(self):
         await self.bot.wait_until_ready()
 
-        after = datetime.now()
-        after -= timedelta(minutes=15)
+        after = datetime.utcnow()
+        after -= timedelta(minutes=30)
 
         for i in self.bot.get_all_channels():
             if isinstance(i, discord.TextChannel):
                 try:
-                    self.bot._connection._messages += await i.history(limit=30, after=after).flatten()
+                    messages = await i.history(limit=30, after=after).flatten()
                 except discord.Forbidden:
                     pass
+                else:
+                    if not messages:
+                        messages = await i.history(limit=5).flatten()  # get 5 messages if no messages are recent
+                    self.bot._connection._messages += messages
 
     async def check_enabled(self, guild_id, item):
         data = await self.bot.db.get_guild_config(guild_id)

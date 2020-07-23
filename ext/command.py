@@ -21,9 +21,8 @@ class RainCommand(commands.Command):
 
     def __init__(self, callback, **kwargs):
         super().__init__(callback, **kwargs)
-        self.perm_level = kwargs.get('perm_level')
-        if self.perm_level:
-            self.checks.append(check_perm_level)
+        self.perm_level = kwargs.get('perm_level', 0)
+        self.checks.append(check_perm_level)
 
     @property
     def signature(self):

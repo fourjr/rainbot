@@ -45,13 +45,13 @@ DEFAULT = {
         'role_id': None,
         'emoji_id': None
     },
-    'perm_levels': {},
-    'command_levels': {},
-    'warn_punishments': {},
+    'perm_levels': [],
+    'command_levels': [],
+    'warn_punishments': [],
     'notes': [],
     'warns': [],
     'mutes': [],
-    'tags': {},
+    'tags': [],
     'whitelisted_guilds': [],
     'ignored_channels': {
         'filter': [],
@@ -146,6 +146,21 @@ class DBList(list):
 
     def __copy__(self):
         return DBList(copy.copy(list(self)))
+
+    def __iter__(self):
+        for i in super().__iter__():
+            if isinstance(i, dict):
+                i = DBDict(i)
+            if isinstance(i, list):
+                i = DBList(i)
+            yield i
+
+    def get_kv(self, key, value):
+        for i in self:
+            if i[key] == value:
+                return i
+
+        raise IndexError(f'Key {key} with {value} not found')
 
 
 def tryget(obj, index):

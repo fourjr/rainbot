@@ -183,11 +183,12 @@ class Moderation(commands.Cog):
     async def warn(self, ctx, member=None, *, reason=None):
         """Manage warns"""
         try:
-            member = MemberOrID().convert(ctx, member)
+            member = await MemberOrID().convert(ctx, member)
         except commands.BadArgument:
             await ctx.invoke(self.bot.get_command('help'), command_or_cog='warn')
         else:
-            await ctx.invoke(self.add_, member, reason)
+            ctx.command = self.add_
+            await ctx.invoke(self.add_, member=member, reason=reason)
 
     @warn.command(6, name='add')
     async def add_(self, ctx, member: MemberOrID, *, reason):
@@ -200,6 +201,7 @@ class Moderation(commands.Cog):
             guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
             guild_warns = guild_config.warns
             warn_punishments = guild_config.warn_punishments
+            warn_punishment_limits = [i.warn_number for i in warn_punishments]
             warns = list(filter(lambda w: w['member_id'] == str(member.id), guild_warns))
 
             cmd = None
@@ -210,19 +212,19 @@ class Moderation(commands.Cog):
                 fmt = f'You have been warned in **{ctx.guild.name}**, reason: {reason}. This is warning #{num_warns}.'
 
                 if warn_punishments:
-                    punishments = list(filter(lambda x: int(x) == num_warns, warn_punishments.keys()))
+                    punishments = list(filter(lambda x: int(x) == num_warns, warn_punishment_limits))
                     if not punishments:
                         punish = False
-                        above = list(filter(lambda x: int(x) > num_warns, warn_punishments.keys()))
+                        above = list(filter(lambda x: int(x) > num_warns, warn_punishment_limits))
                         if above:
                             closest = min(map(int, above))
-                            cmd = warn_punishments[str(closest)]
+                            cmd = warn_punishments.get_kv('warn_number', closest).punishment
                             if cmd == 'ban':
                                 cmd = 'bann'
                             fmt += f' You will be {cmd}ed on warning {closest}.'
                     else:
                         punish = True
-                        cmd = warn_punishments[str(max(map(int, punishments)))]
+                        cmd = warn_punishments.get_kv('warn_number', max(map(int, punishments))).punishment
                         if cmd == 'ban':
                             cmd = 'bann'
                         fmt += f' You have been {cmd}ed from the server.'

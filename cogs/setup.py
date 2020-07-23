@@ -118,9 +118,9 @@ class Setup(commands.Cog):
             raise commands.BadArgument(f'{perm_level} is below 0')
 
         if perm_level == 0:
-            await self.bot.db.update_guild_config(ctx.guild.id, {'$unset': {f'perm_levels.{role.id}': ''}})
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$pull': {'perm_levels': {'role_id': str(role.id)}}})
         else:
-            await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'perm_levels.{role.id}': perm_level}})
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {'perm_levels': {'role_id': str(role.id), 'level': perm_level}}})
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_command_level', 'set-command-level'])
@@ -149,14 +149,14 @@ class Setup(commands.Cog):
         if perm_level == 'reset':
             perm_level = cmd.perm_level
 
-        levels = {f'command_levels.{name}': perm_level}
-        action = "unset" if perm_level == cmd.perm_level else "set"
+        levels = [{'command': name, 'level': perm_level}]
+        action = "pull" if perm_level == cmd.perm_level else "push"
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
 
         if cmd.parent:
-            guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
             parent_level = get_command_level(cmd.parent, guild_config)
             if perm_level < parent_level:
-                levels[f'command_levels.{cmd.parent.name}'] = perm_level
+                levels.append({'command': cmd.parent.name.replace(' ', '_'), 'level': perm_level})
             elif perm_level > parent_level:
                 cmd_level = get_command_level(cmd, guild_config)
                 all_levels = [get_command_level(c, guild_config) for c in cmd.parent.commands]
@@ -166,9 +166,16 @@ class Setup(commands.Cog):
 
                 lowest = min(all_levels)
                 if lowest > parent_level:
-                    levels[f'command_levels.{cmd.parent.name}'] = lowest
+                    levels.append({'command': cmd.parent.name.replace(' ', '_'), 'level': lowest})
 
-            await self.bot.db.update_guild_config(ctx.guild.id, {f'${action}': levels})
+        if action == 'push':
+            levels = {'$each': levels}
+        elif action == 'pull':
+            for i in levels:
+                i['level'] = get_command_level(self.bot.get_command(i['command']), guild_config)
+            levels = {'$in': levels}
+
+        await self.bot.db.update_guild_config(ctx.guild.id, {f'${action}': {'command_levels': levels}})
 
         await ctx.send(self.bot.accept)
 
@@ -285,9 +292,9 @@ class Setup(commands.Cog):
             raise commands.BadArgument('Invalid punishment, pick from `kick`, `ban`, `none`.')
 
         if punishment == 'none' or punishment is None:
-            await self.bot.db.update_guild_config(ctx.guild.id, {'$unset': {f'warn_punishments.{limit}': ''}})
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$pull': {'warn_punishments': {'warn_number': limit}}})
         else:
-            await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'warn_punishments.{limit}': punishment}})
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {'warn_punishments': {'warn_number': limit, 'punishment': punishment}}})
 
         await ctx.send(self.bot.accept)
 
