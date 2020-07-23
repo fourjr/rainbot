@@ -37,7 +37,7 @@ class rainbot(commands.Bot):
         self.logger.addHandler(handler)
 
         self.mongo = AsyncIOMotorClient(os.getenv('mongo'))
-        self.db = DatabaseManager(self, self.mongo)
+        self.db = DatabaseManager(self.mongo)
 
         self.owners = list(map(int, os.getenv('owners', '').split(',')))
 

@@ -67,8 +67,7 @@ DEFAULT = {
 
 
 class DatabaseManager:
-    def __init__(self, bot, mongo):
-        self.bot = bot
+    def __init__(self, mongo):
         self.db = mongo.rainbot.guilds
         self.guilds_data = {}
 
@@ -91,7 +90,7 @@ class DatabaseManager:
         data['guild_id'] = str(guild_id)
         self.guilds_data[guild_id] = DBDict(data)
 
-        await self.bot.mongo.rainbot.guilds.insert_one(data)
+        await self.db.insert_one(data)
 
         return self.guilds_data[guild_id]
 
