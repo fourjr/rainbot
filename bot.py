@@ -117,7 +117,7 @@ class rainbot(commands.Bot):
         """Set up mutes if the member rejoined to bypass a mute"""
         if not self.dev_mode:
             guild_config = await self.db.get_guild_config(m.guild.id)
-            mutes = guild_config.keys()
+            mutes = guild_config.mutes
             user_mute = None
 
             for mute in mutes:
