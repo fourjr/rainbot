@@ -161,9 +161,7 @@ class Giveaways(commands.Cog):
                 emoji = await self.emoji(ctx)
 
                 if isinstance(role, discord.Role):
-                    await role.edit(mentionable=True)
                     message = await channel.send(role.mention, embed=em)
-                    await role.edit(mentionable=False)
                 elif isinstance(role, str):
                     message = await channel.send(role, embed=em)
                 else:
