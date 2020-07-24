@@ -218,7 +218,8 @@ class Utility(commands.Cog):
     async def help_(self, ctx, *, command_or_cog=None, error=None):
         """Shows the help message"""
         if error:
-            error = f'{self.bot.deny} `{await commands.clean_content(escape_markdown=True).convert(ctx, str(error))}'
+            error = await commands.clean_content(escape_markdown=True).convert(ctx, str(error))
+            error = f'{self.bot.deny} `{error}'
         prefix = (await self.bot.db.get_guild_config(ctx.guild.id)).prefix
         invalid_command = discord.Embed(title='Invalid command or cog name.', color=0xff0000)
 
