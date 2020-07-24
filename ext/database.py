@@ -43,7 +43,8 @@ DEFAULT = {
     'giveaway': {
         'channel_id': None,
         'role_id': None,
-        'emoji_id': None
+        'emoji_id': None,
+        'message_id': None
     },
     'perm_levels': [],
     'command_levels': [],
