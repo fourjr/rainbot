@@ -51,11 +51,11 @@ class rainbot(commands.Bot):
         try:
             self.run(os.getenv('token'))
         except discord.LoginFailure:
-            print('Invalid token')
+            self.logger.error('Invalid token')
         except KeyboardInterrupt:
             pass
         except Exception:
-            print('Fatal exception')
+            self.logger.error('Fatal exception')
             traceback.print_exc(file=sys.stderr)
 
     def load_extensions(self):

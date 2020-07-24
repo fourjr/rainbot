@@ -95,9 +95,7 @@ class Giveaways(commands.Cog):
     async def end_giveaway(self, giveaway):
         try:
             winners = await self.roll_winner(giveaway)
-        except (RuntimeError, ValueError) as e:
-            import traceback
-            traceback.print_exc()
+        except (RuntimeError, ValueError):
             winners = None
             await giveaway.channel.send('Not enough participants :(')
         else:
