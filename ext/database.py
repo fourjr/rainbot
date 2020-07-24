@@ -75,9 +75,10 @@ class DatabaseManager:
     async def get_guild_config(self, guild_id):
         if guild_id not in self.guilds_data:
             data = await self.coll.find_one({'guild_id': str(guild_id)})
-            if not data:
-                data = await self.create_new_config(guild_id)
-            self.guilds_data[guild_id] = DBDict(data)
+            if data:
+                self.guilds_data[guild_id] = DBDict(data)
+            else:
+                await self.create_new_config(guild_id)
 
         return self.guilds_data[guild_id]
 
@@ -90,8 +91,8 @@ class DatabaseManager:
         data = copy.copy(DEFAULT)
         data['guild_id'] = str(guild_id)
         await self.coll.insert_one(data)
-
-        return data
+        self.guilds_data[guild_id] = DBDict(data)
+        return self.guilds_data[guild_id]
 
 
 class DBDict(dict):
