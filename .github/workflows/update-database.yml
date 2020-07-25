@@ -37,7 +37,7 @@ jobs:
         
         cd clone
         
-        ls -l
+        find . | sed -e "s/[^-][^\/]*\//  |/g" -e "s/|\([^ ]\)/|-\1/"
 
     - id: diff
       run:
