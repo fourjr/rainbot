@@ -72,10 +72,17 @@ class DatabaseManager:
     def __init__(self, mongo_uri, *, loop=None):
         self.mongo = AsyncIOMotorClient(mongo_uri)
         self.coll = self.mongo.rainbot.guilds
+        self.users = self.mongo.rainbot.users
         self.guilds_data = {}
+        self.users_data = {}
 
         self.loop = loop or asyncio.get_event_loop()
         self.loop.create_task(self.change_listener())
+
+    async def change_listener(self):
+        async with self.coll.watch() as change_stream:
+            async for change in change_stream:
+                self.guilds_data[int(change['fullDocument']['guild_id'])] = DBDict(change['fullDocument'])
 
     async def get_guild_config(self, guild_id):
         if guild_id not in self.guilds_data:
@@ -89,7 +96,6 @@ class DatabaseManager:
 
     async def update_guild_config(self, guild_id, update):
         self.guilds_data[guild_id] = DBDict(await self.coll.find_one_and_update({'guild_id': str(guild_id)}, update, upsert=True, return_document=ReturnDocument.AFTER))
-
         return self.guilds_data[guild_id]
 
     async def create_new_config(self, guild_id):
@@ -99,10 +105,14 @@ class DatabaseManager:
         self.guilds_data[guild_id] = DBDict(data)
         return self.guilds_data[guild_id]
 
-    async def change_listener(self):
-        async with self.coll.watch() as change_stream:
-            async for change in change_stream:
-                self.guilds_data[int(change['fullDocument']['guild_id'])] = DBDict(change['fullDocument'])
+    async def get_user(self, user_id):
+        data = await self.users.find_one({'user_id': str(user_id)})
+        self.users_data[user_id] = DBDict(data)
+        return self.users_data[user_id]
+
+    async def update_user(self, user_id, update):
+        self.users_data[user_id] = DBDict(await self.users.find_one_and_update({'user_id': str(user_id)}, update, upsert=True, return_document=ReturnDocument.AFTER))
+        return self.users_data[user_id]
 
 
 class DBDict(dict):
