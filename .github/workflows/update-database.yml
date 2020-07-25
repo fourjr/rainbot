@@ -31,6 +31,6 @@ jobs:
         if [ -n "$DIFF" ];
         then
           git add $DESTINATION
-          git commit --message "Update $DESTINATION (https://github.com/$REPO/commit/$GITHUB_SHA))"
+          git commit --message "Update $DESTINATION (https://github.com/$REPO/commit/$GITHUB_SHA)"
           git push origin master
         fi
