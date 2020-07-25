@@ -36,6 +36,11 @@ jobs:
         cp "$SOURCE" "clone/$DESTINATION"
         
         cd clone
-        git add .
+
+    - id: diff
+      run: echo -n "::set-output name=diff::" && git diff $DESTINATION
+    - if: steps.diff.outputs.diff != ''
+      run: |
+        git add $DESTINATION
         git commit --message "$DESTINATION https://github.com/$REPO/commit/$GITHUB_SHA)"
         git push origin master
