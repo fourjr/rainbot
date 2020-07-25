@@ -34,11 +34,6 @@ jobs:
         git clone "https://$API_TOKEN_GITHUB@github.com/$REPO.git" "clone"
         
         cp "$GITHUB_WORKSPACE/$SOURCE" "clone/$DESTINATION"
-        
-        
-        cd clone
-        find . | sed -e "s/[^-][^\/]*\//  |/g" -e "s/|\([^ ]\)/|-\1/"
-
     - id: diff
       env:
         DESTINATION: core/database.py
@@ -52,5 +47,5 @@ jobs:
       run: |
           cd clone
           git add $DESTINATION
-          git commit --message "$DESTINATION https://github.com/$REPO/commit/$GITHUB_SHA)"
+          git commit --message "Update $DESTINATION (https://github.com/$REPO/commit/$GITHUB_SHA))"
           git push origin master
