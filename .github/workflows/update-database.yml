@@ -34,18 +34,12 @@ jobs:
         git clone "https://$API_TOKEN_GITHUB@github.com/$REPO.git" "clone"
         
         cp "$GITHUB_WORKSPACE/$SOURCE" "clone/$DESTINATION"
-    - id: diff
-      env:
-        DESTINATION: core/database.py
-      run: |
+
         cd clone
-        echo -n "::set-output name=diff::"
-        git diff "$DESTINATION"
-    - if: steps.diff.outputs.diff != ''
-      env:
-        DESTINATION: core/database.py
-      run: |
-          cd clone
+        
+        DIFF = $(git diff "$DESTINATION")
+        if [$DIFF != '']
+        then
           git add $DESTINATION
           git commit --message "Update $DESTINATION (https://github.com/$REPO/commit/$GITHUB_SHA))"
           git push origin master
