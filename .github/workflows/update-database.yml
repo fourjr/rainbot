@@ -22,6 +22,7 @@ jobs:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
 
+    - id: diff
     - name: Push directory to another repository
       env:
         API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
@@ -39,12 +40,12 @@ jobs:
         
         ls -l
 
-    - id: diff
-      run: | 
         echo -n "::set-output name=diff::"
         git diff "$DESTINATION"
     - if: steps.diff.outputs.diff != ''
+      env:
+        DESTINATION: core/database.py
       run: |
-        git add $DESTINATION
-        git commit --message "$DESTINATION https://github.com/$REPO/commit/$GITHUB_SHA)"
-        git push origin master
+          git add $DESTINATION
+          git commit --message "$DESTINATION https://github.com/$REPO/commit/$GITHUB_SHA)"
+          git push origin master
