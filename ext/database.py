@@ -4,6 +4,7 @@ import copy
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
 
+
 DEFAULT = {
     'guild_id': None,
     'logs': {
