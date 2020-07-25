@@ -37,7 +37,7 @@ jobs:
 
         cd clone
         
-        DIFF = $(git diff "$DESTINATION")
+        let diff=$(git diff "$DESTINATION")
         if [$DIFF != '']
         then
           git add $DESTINATION
