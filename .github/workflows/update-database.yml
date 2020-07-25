@@ -35,18 +35,20 @@ jobs:
         
         cp "$GITHUB_WORKSPACE/$SOURCE" "clone/$DESTINATION"
         
-        cd clone
         
+        cd clone
         find . | sed -e "s/[^-][^\/]*\//  |/g" -e "s/|\([^ ]\)/|-\1/"
 
     - id: diff
       run:
+        cd clone
         echo -n "::set-output name=diff::"
         git diff "$DESTINATION"
     - if: steps.diff.outputs.diff != ''
       env:
         DESTINATION: core/database.py
       run: |
+          cd clone
           git add $DESTINATION
           git commit --message "$DESTINATION https://github.com/$REPO/commit/$GITHUB_SHA)"
           git push origin master
