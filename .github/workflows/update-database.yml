@@ -36,9 +36,13 @@ jobs:
         cp "$SOURCE" "clone/$DESTINATION"
         
         cd clone
+        
+        ls -l
 
     - id: diff
-      run: echo -n "::set-output name=diff::" && git diff $DESTINATION
+      run: | 
+        echo -n "::set-output name=diff::"
+        git diff "$DESTINATION"
     - if: steps.diff.outputs.diff != ''
       run: |
         git add $DESTINATION
