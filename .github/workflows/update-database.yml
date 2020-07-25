@@ -39,7 +39,7 @@ jobs:
         
         DIFF=$(git diff "$DESTINATION")
         echo $DIFF
-        if [ -z "$DIFF" ];
+        if [ -n "$DIFF" ];
         then
           git add $DESTINATION
           git commit --message "Update $DESTINATION (https://github.com/$REPO/commit/$GITHUB_SHA))"
