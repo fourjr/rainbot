@@ -94,6 +94,7 @@ class DatabaseManager:
 
         return self.guilds_data[guild_id]
 
+    # Guilds
     async def update_guild_config(self, guild_id, update):
         self.guilds_data[guild_id] = DBDict(await self.coll.find_one_and_update({'guild_id': str(guild_id)}, update, upsert=True, return_document=ReturnDocument.AFTER))
         return self.guilds_data[guild_id]
@@ -105,6 +106,7 @@ class DatabaseManager:
         self.guilds_data[guild_id] = DBDict(data)
         return self.guilds_data[guild_id]
 
+    # Users
     async def get_user(self, user_id):
         data = await self.users.find_one({'user_id': str(user_id)})
         self.users_data[user_id] = DBDict(data)
