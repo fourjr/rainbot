@@ -37,8 +37,8 @@ jobs:
 
         cd clone
         
-        let diff=$(git diff "$DESTINATION")
-        if [$DIFF != '']
+        let DIFF=$(git diff "$DESTINATION")
+        if [-z $DIFF]
         then
           git add $DESTINATION
           git commit --message "Update $DESTINATION (https://github.com/$REPO/commit/$GITHUB_SHA))"
