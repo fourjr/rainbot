@@ -16,7 +16,7 @@ class Detections(commands.Cog):
         self.spam_detection = defaultdict(list)
         self.repetitive_message = defaultdict(Counter)
         self.INVITE_REGEX = re.compile(r'((http(s|):\/\/|)(discord)(\.(gg|io|me)\/|app\.com\/invite\/)([0-z]+))')
-        self.ENGLISH_REGEX = re.compile(r'[ -~]|(?:' + UNICODE_EMOJI + r')|(?:\U00002018|\U00002019)')
+        self.ENGLISH_REGEX = re.compile(r'[ -~]|(?:' + UNICODE_EMOJI + r')|(?:\U00002018|\U00002019|\U0000000A)')
 
     @Cog.listener()
     async def on_message(self, m):
