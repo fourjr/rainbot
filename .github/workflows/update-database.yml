@@ -38,7 +38,8 @@ jobs:
         cd clone
         
         DIFF=$(git diff "$DESTINATION")
-        if [ -z $DIFF ];
+        echo $DIFF
+        if [ -z "$DIFF" ];
         then
           git add $DESTINATION
           git commit --message "Update $DESTINATION (https://github.com/$REPO/commit/$GITHUB_SHA))"
