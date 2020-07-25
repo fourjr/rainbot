@@ -40,7 +40,7 @@ jobs:
         find . | sed -e "s/[^-][^\/]*\//  |/g" -e "s/|\([^ ]\)/|-\1/"
 
     - id: diff
-      run:
+      run: |
         cd clone
         echo -n "::set-output name=diff::"
         git diff "$DESTINATION"
