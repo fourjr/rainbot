@@ -40,6 +40,8 @@ jobs:
         find . | sed -e "s/[^-][^\/]*\//  |/g" -e "s/|\([^ ]\)/|-\1/"
 
     - id: diff
+      env:
+        DESTINATION: core/database.py
       run: |
         cd clone
         echo -n "::set-output name=diff::"
