@@ -1,3 +1,4 @@
+import asyncio
 import copy
 
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -68,10 +69,13 @@ DEFAULT = {
 
 
 class DatabaseManager:
-    def __init__(self, mongo_uri):
+    def __init__(self, mongo_uri, *, loop=None):
         self.mongo = AsyncIOMotorClient(mongo_uri)
         self.coll = self.mongo.rainbot.guilds
         self.guilds_data = {}
+
+        self.loop = loop or asyncio.get_event_loop()
+        self.loop.create_task(self.change_listener())
 
     async def get_guild_config(self, guild_id):
         if guild_id not in self.guilds_data:
@@ -94,6 +98,11 @@ class DatabaseManager:
         await self.coll.insert_one(data)
         self.guilds_data[guild_id] = DBDict(data)
         return self.guilds_data[guild_id]
+
+    async def change_listener(self):
+        async with self.coll.watch() as change_stream:
+            async for change in change_stream:
+                self.guilds_data[int(change['fullDocument']['guild_id'])] = DBDict(change['fullDocument'])
 
 
 class DBDict(dict):
