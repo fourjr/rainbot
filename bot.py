@@ -35,7 +35,7 @@ class rainbot(commands.Bot):
         handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
         self.logger.addHandler(handler)
 
-        self.db = DatabaseManager(os.getenv('mongo'))
+        self.db = DatabaseManager(os.getenv('mongo'), loop=self.loop)
 
         self.owners = list(map(int, os.getenv('owners', '').split(',')))
 
