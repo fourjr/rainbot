@@ -1,0 +1,36 @@
+name: Update Database Classes
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Clone Repository
+    - uses: actions/checkout@v2
+
+    - name: Update rainboard
+      env:
+        API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
+        REPO: fourjr/rainboard
+        SOURCE: ext/database.py
+        DESTINATION: core/database.py
+      run: |
+        git config --global user.email "action@github.com"
+        git config --global user.name "$GITHUB_ACTOR"
+        git clone "https://$API_TOKEN_GITHUB@github.com/$REPO.git" "clone"
+        
+        cp "$GITHUB_WORKSPACE/$SOURCE" "clone/$DESTINATION"
+
+        cd clone
+        
+        DIFF=$(git diff "$DESTINATION")
+        if [ -n "$DIFF" ];
+        then
+          git add $DESTINATION
+          git commit --message "Update $DESTINATION (https://github.com/$REPO/commit/$GITHUB_SHA)"
+          git push origin master
+        fi

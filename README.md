@@ -2,7 +2,7 @@
 
 rainbot is a moderation bot that has robust automod and logging features.
 
-Invite: <https://discord.com/oauth2/authorize?client_id=372748944448552961&scope=bot&permissions=2013621494>    
+Invite: <https://discord.com/oauth2/authorize?client_id=372748944448552961&scope=bot&permissions=2013785334>    
 Support Server: <https://discord.gg/eXrDpGS>
 
 # Features

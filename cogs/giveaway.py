@@ -19,6 +19,7 @@ class Giveaways(commands.Cog):
         self.bot = bot
         bot.loop.create_task(self.__ainit__())
         self.order = 3
+        self.queue = {}
 
     async def __ainit__(self):
         """Setup constants"""
@@ -27,7 +28,7 @@ class Giveaways(commands.Cog):
             latest_giveaway = await self.get_latest_giveaway(guild_id=i.id)
 
             if latest_giveaway:
-                self.bot.loop.create_task(self.queue_roll(latest_giveaway))
+                self.queue[latest_giveaway.id] = self.bot.loop.create_task(self.queue_roll(latest_giveaway))
 
     async def channel(self, ctx=None, *, guild_id=None):
         guild_id = guild_id or ctx.guild.id
@@ -59,11 +60,14 @@ class Giveaways(commands.Cog):
 
         If force is False, it returns None if there is no current active giveaway
         """
-        channel = await self.channel(ctx, guild_id=guild_id)
-        if channel:
-            message = await channel.history(limit=20).find(lambda m: m.embeds and isinstance(m.embeds, discord.Embed) and 'Giveaway' in m.embeds[0].title)
-            if force or (message and message.embeds[0].color.value == ACTIVE_COLOR):
-                return message
+        guild_config = await self.bot.db.get_guild_config(guild_id or ctx.guild.id)
+        if guild_config.giveaway.message_id:
+            channel = await self.channel(ctx, guild_id=guild_id)
+            try:
+                return await channel.fetch_message(guild_config.giveaway.message_id)
+            except discord.NotFound:
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'giveaway.message_id': None}})
+                return None
 
     async def roll_winner(self, ctx, nwinners=None) -> str:
         """Rolls winner(s) and returns a list of discord.Member
@@ -74,7 +78,7 @@ class Giveaways(commands.Cog):
 
         nwinners = nwinners or int(latest_giveaway.embeds[0].description.split(' ')[0][2:])
         emoji_id = await self.emoji(ctx)
-        participants = await next(r for r in latest_giveaway.reactions if getattr(r.emoji, 'id', None) == emoji_id).users().filter(
+        participants = await next(r for r in latest_giveaway.reactions if getattr(r.emoji, 'id', r.emoji) == emoji_id).users().filter(
             lambda m: not m.bot and isinstance(m, discord.Member)
         ).flatten()
 
@@ -86,9 +90,12 @@ class Giveaways(commands.Cog):
         time = (giveaway.embeds[0].timestamp - giveaway.created_at).total_seconds()
         await asyncio.sleep(time)
 
+        await self.end_giveaway(giveaway)
+
+    async def end_giveaway(self, giveaway):
         try:
             winners = await self.roll_winner(giveaway)
-        except ValueError:
+        except (RuntimeError, ValueError):
             winners = None
             await giveaway.channel.send('Not enough participants :(')
         else:
@@ -103,6 +110,7 @@ class Giveaways(commands.Cog):
 
         new_embed.color = INACTIVE_COLOR
         await giveaway.edit(embed=new_embed)
+        await self.bot.db.update_guild_config(giveaway.guild.id, {'$set': {'giveaway.message_id': None}})
 
     @command(10, aliases=['set-giveaway' 'set_giveaway'])
     async def setgiveaway(self, ctx, emoji: EmojiOrUnicode, channel: discord.TextChannel, role=None):
@@ -145,9 +153,11 @@ class Giveaways(commands.Cog):
 
                 # Check if the giveaway exusts
                 guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-                if len(guild_config.giveaway.keys()) != 3 or not guild_config.giveaway.channel_id:
+                if not guild_config.giveaway.channel_id:
                     return await ctx.invoke(self.bot.get_command('help'), command_or_cog='setgiveaway', error=Exception('Setup giveaways with setgiveaway first.'))
 
+                if not time.arg:
+                    raise commands.BadArgument('Converting to "str" failed for parameter "description".')
                 description = ' '.join(time.arg.split(' ')[1:])
                 em = discord.Embed(
                     title='New Giveaway!',
@@ -168,6 +178,9 @@ class Giveaways(commands.Cog):
                     message = await channel.send(embed=em)
 
                 await message.add_reaction(emoji)
+
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'giveaway.message_id': str(message.id)}})
+
                 await ctx.send(f'Created: {message.jump_url}')
                 self.bot.loop.create_task(self.queue_roll(message))
             else:
@@ -195,7 +208,7 @@ class Giveaways(commands.Cog):
                 )
 
                 emoji_id = await self.emoji(ctx)
-                participants = await next(r for r in latest_giveaway.reactions if getattr(r.emoji, 'id', None) == emoji_id).users().filter(lambda m: not m.bot).flatten()
+                participants = await next(r for r in latest_giveaway.reactions if getattr(r.emoji, 'id', r.emoji) == emoji_id).users().filter(lambda m: not m.bot).flatten()
                 new_members = {i for i in ctx.guild.members if i.joined_at > latest_giveaway.created_at and i.joined_at < ended_at and i in participants}
                 new_accounts = {i for i in new_members if i.created_at > latest_giveaway.created_at}
 
@@ -210,13 +223,25 @@ class Giveaways(commands.Cog):
             else:
                 await ctx.send('No giveaway found')
 
-    @giveaway.command(8)
-    async def edit(self, ctx, *, description):
+    @giveaway.command(8, aliases=['edit-description'])
+    async def edit_description(self, ctx, *, description):
         """Edit the description of the latest giveaway"""
         latest_giveaway = await self.get_latest_giveaway(ctx)
         if latest_giveaway:
             new_embed = latest_giveaway.embeds[0]
             new_embed.description = new_embed.description.split('\n')[0] + '\n' + description
+            await latest_giveaway.edit(embed=new_embed)
+            await ctx.send(f'Edited: {latest_giveaway.jump_url}')
+        else:
+            await ctx.send('No active giveaway')
+
+    @giveaway.command(8, aliases=['edit-winners'])
+    async def edit_winners(self, ctx, *, winners: int):
+        """Edit the number of winners of the latest giveaway"""
+        latest_giveaway = await self.get_latest_giveaway(ctx)
+        if latest_giveaway:
+            new_embed = latest_giveaway.embeds[0]
+            new_embed.description = f"__{winners} winner{'s' if winners > 1 else ''}__" + '\n' + '\n'.join(new_embed.description.split('\n')[1:])
             await latest_giveaway.edit(embed=new_embed)
             await ctx.send(f'Edited: {latest_giveaway.jump_url}')
         else:
@@ -238,6 +263,17 @@ class Giveaways(commands.Cog):
                     await ctx.send(f"Congratulations! Here are the **rerolled** winners for `{description}` <a:bahrooHi:402250652996337674>\n{fmt_winners}")
             else:
                 await ctx.send('No active giveaway')
+
+    @giveaway.command(6)
+    async def stop(self, ctx):
+        latest_giveaway = await self.get_latest_giveaway(ctx, force=True)
+        try:
+            self.queue[latest_giveaway.id].cancel()
+            del self.queue[latest_giveaway.id]
+        except KeyError:
+            pass
+        await self.end_giveaway(latest_giveaway)
+        await ctx.send(self.bot.accept)
 
 
 def setup(bot):

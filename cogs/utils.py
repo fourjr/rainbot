@@ -218,7 +218,8 @@ class Utility(commands.Cog):
     async def help_(self, ctx, *, command_or_cog=None, error=None):
         """Shows the help message"""
         if error:
-            error = f'{self.bot.deny} `{error}`'
+            error = await commands.clean_content(escape_markdown=True).convert(ctx, str(error))
+            error = f'{self.bot.deny} `{error}'
         prefix = (await self.bot.db.get_guild_config(ctx.guild.id)).prefix
         invalid_command = discord.Embed(title='Invalid command or cog name.', color=0xff0000)
 
@@ -246,12 +247,12 @@ class Utility(commands.Cog):
     @command(0)
     async def about(self, ctx):
         """About rainbot"""
-        await ctx.send('**What is rainbot?**\nrainbot is an full-fledged custom moderation bot!\nLook at <https://github.com/fourjr/rainbot/wiki/About> for more information.\n\nInvite: <https://discord.com/oauth2/authorize?client_id=372748944448552961&scope=bot&permissions=2013621494>\nSupport Server: https://discord.gg/eXrDpGS')
+        await ctx.send('**What is rainbot?**\nrainbot is an full-fledged custom moderation bot!\nLook at <https://github.com/fourjr/rainbot/wiki/About> for more information.\n\nInvite: <https://discord.com/oauth2/authorize?client_id=372748944448552961&scope=bot&permissions=2013785334>\nSupport Server: https://discord.gg/eXrDpGS')
 
     @command(0)
     async def invite(self, ctx):
         """Invite rainbot to your own server!"""
-        await ctx.send('<https://discord.com/oauth2/authorize?client_id=372748944448552961&scope=bot&permissions=2013621494>')
+        await ctx.send('<https://discord.com/oauth2/authorize?client_id=372748944448552961&scope=bot&permissions=2013785334>')
 
     @command(0)
     async def mylevel(self, ctx):

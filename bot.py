@@ -35,7 +35,7 @@ class rainbot(commands.Bot):
         handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
         self.logger.addHandler(handler)
 
-        self.db = DatabaseManager(os.getenv('mongo'))
+        self.db = DatabaseManager(os.getenv('mongo'), loop=self.loop)
 
         self.owners = list(map(int, os.getenv('owners', '').split(',')))
 
@@ -51,11 +51,11 @@ class rainbot(commands.Bot):
         try:
             self.run(os.getenv('token'))
         except discord.LoginFailure:
-            print('Invalid token')
+            self.logger.error('Invalid token')
         except KeyboardInterrupt:
             pass
         except Exception:
-            print('Fatal exception')
+            self.logger.error('Fatal exception')
             traceback.print_exc(file=sys.stderr)
 
     def load_extensions(self):
@@ -117,7 +117,7 @@ class rainbot(commands.Bot):
         """Set up mutes if the member rejoined to bypass a mute"""
         if not self.dev_mode:
             guild_config = await self.db.get_guild_config(m.guild.id)
-            mutes = guild_config.keys()
+            mutes = guild_config.mutes
             user_mute = None
 
             for mute in mutes:

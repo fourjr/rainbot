@@ -1,7 +1,9 @@
+import asyncio
 import copy
 
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
+
 
 DEFAULT = {
     'guild_id': None,
@@ -43,7 +45,8 @@ DEFAULT = {
     'giveaway': {
         'channel_id': None,
         'role_id': None,
-        'emoji_id': None
+        'emoji_id': None,
+        'message_id': None
     },
     'perm_levels': [],
     'command_levels': [],
@@ -67,10 +70,20 @@ DEFAULT = {
 
 
 class DatabaseManager:
-    def __init__(self, mongo_uri):
+    def __init__(self, mongo_uri, *, loop=None):
         self.mongo = AsyncIOMotorClient(mongo_uri)
         self.coll = self.mongo.rainbot.guilds
+        self.users = self.mongo.rainbot.users
         self.guilds_data = {}
+        self.users_data = {}
+
+        self.loop = loop or asyncio.get_event_loop()
+        self.loop.create_task(self.change_listener())
+
+    async def change_listener(self):
+        async with self.coll.watch() as change_stream:
+            async for change in change_stream:
+                self.guilds_data[int(change['fullDocument']['guild_id'])] = DBDict(change['fullDocument'])
 
     async def get_guild_config(self, guild_id):
         if guild_id not in self.guilds_data:
@@ -82,9 +95,9 @@ class DatabaseManager:
 
         return self.guilds_data[guild_id]
 
+    # Guilds
     async def update_guild_config(self, guild_id, update):
         self.guilds_data[guild_id] = DBDict(await self.coll.find_one_and_update({'guild_id': str(guild_id)}, update, upsert=True, return_document=ReturnDocument.AFTER))
-
         return self.guilds_data[guild_id]
 
     async def create_new_config(self, guild_id):
@@ -94,10 +107,20 @@ class DatabaseManager:
         self.guilds_data[guild_id] = DBDict(data)
         return self.guilds_data[guild_id]
 
+    # Users
+    async def get_user(self, user_id):
+        data = await self.users.find_one({'user_id': str(user_id)})
+        self.users_data[user_id] = DBDict(data)
+        return self.users_data[user_id]
+
+    async def update_user(self, user_id, update):
+        self.users_data[user_id] = DBDict(await self.users.find_one_and_update({'user_id': str(user_id)}, update, upsert=True, return_document=ReturnDocument.AFTER))
+        return self.users_data[user_id]
+
 
 class DBDict(dict):
     def __init__(self, *args, **kwargs):
-        self._default = kwargs.pop('default', DEFAULT)
+        self._default = kwargs.pop('_default', DEFAULT)
         super().__init__(*args, **kwargs)
 
     def __getitem__(self, key):
@@ -107,9 +130,9 @@ class DBDict(dict):
             item = self._default[key]
 
         if isinstance(item, dict):
-            return DBDict(item, default=tryget(self._default, key))
+            return DBDict(item, _default=tryget(self._default, key))
         elif isinstance(item, list):
-            return DBList(item, default=tryget(self._default, key))
+            return DBList(item, _default=tryget(self._default, key))
 
         return item
 
@@ -128,7 +151,7 @@ class DBDict(dict):
 
 class DBList(list):
     def __init__(self, *args, **kwargs):
-        self._default = kwargs.pop('default', DEFAULT)
+        self._default = kwargs.pop('_default', DEFAULT)
         super().__init__(*args, **kwargs)
 
     def __getitem__(self, index):
@@ -138,9 +161,9 @@ class DBList(list):
             item = self._default[index]
 
         if isinstance(item, dict):
-            return DBDict(item, default=tryget(self._default, index))
+            return DBDict(item, _default=tryget(self._default, index))
         elif isinstance(item, list):
-            return DBList(item, default=tryget(self._default, index))
+            return DBList(item, _default=tryget(self._default, index))
 
         return item
 
