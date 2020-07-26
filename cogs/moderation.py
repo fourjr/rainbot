@@ -45,7 +45,7 @@ class Moderation(commands.Cog):
         offset = guild_config.time_offset
         current_time = (ctx.message.created_at + timedelta(hours=offset)).strftime('%H:%M:%S')
 
-        modlogs = DBDict({i: int(guild_config.modlog[i]) for i in guild_config.modlog if i}, default=DEFAULT.modlog)
+        modlogs = DBDict({i: int(guild_config.modlog[i]) for i in guild_config.modlog if i}, default=DEFAULT['modlog'])
 
         try:
             if ctx.command.name == 'purge':
