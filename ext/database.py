@@ -109,12 +109,11 @@ class DatabaseManager:
 
     # Users
     async def get_user(self, user_id):
-        data = await self.users.find_one({'user_id': str(user_id)})
-        self.users_data[user_id] = DBDict(data)
+        self.users_data[user_id] = await self.users.find_one({'user_id': str(user_id)})
         return self.users_data[user_id]
 
     async def update_user(self, user_id, update):
-        self.users_data[user_id] = DBDict(await self.users.find_one_and_update({'user_id': str(user_id)}, update, upsert=True, return_document=ReturnDocument.AFTER))
+        self.users_data[user_id] = await self.users.find_one_and_update({'user_id': str(user_id)}, update, upsert=True, return_document=ReturnDocument.AFTER)
         return self.users_data[user_id]
 
 
