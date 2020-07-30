@@ -150,6 +150,9 @@ class DBDict(dict):
     def __copy__(self):
         return DBDict(copy.copy(dict(self)))
 
+    def getlist(self, key):
+        return [self[key]]
+
 
 class DBList(list):
     def __init__(self, *args, **kwargs):
