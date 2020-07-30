@@ -81,12 +81,9 @@ class DatabaseManager:
         self.loop.create_task(self.change_listener())
 
     async def change_listener(self):
-        async with self.coll.watch() as change_stream:
+        async with self.coll.watch(full_document='updateLookup') as change_stream:
             async for change in change_stream:
-                try:
-                    self.guilds_data[int(change['fullDocument']['guild_id'])] = DBDict(change['fullDocument'])
-                except KeyError:
-                    print(change)
+                self.guilds_data[int(change['fullDocument']['guild_id'])] = DBDict(change['fullDocument'])
 
     async def get_guild_config(self, guild_id):
         if guild_id not in self.guilds_data:
