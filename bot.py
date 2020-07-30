@@ -187,8 +187,11 @@ class rainbot(commands.Bot):
         if member:
             guild_config = await self.db.get_guild_config(guild_id)
             mute_role = discord.utils.get(member.guild.roles, id=int(guild_config.mute_role))
+            log_channel = None
 
-            log_channel = self.get_channel(int(guild_config.modlog.member_unmute))
+            if guild_config.modlog.member_unmute:
+                log_channel = self.get_channel(int(guild_config.modlog.member_unmute))
+
             current_time = datetime.utcnow()
 
             offset = guild_config.time_offset
@@ -201,7 +204,8 @@ class rainbot(commands.Bot):
                     if log_channel:
                         await log_channel.send(f"`{current_time}` {member} ({member.id}) has been unmuted. Reason: {reason}")
             else:
-                await log_channel.send(f"`{current_time}` Tried to unmute {member} ({member.id}), member not in server")
+                if log_channel:
+                    await log_channel.send(f"`{current_time}` Tried to unmute {member} ({member.id}), member not in server")
 
         # set db
         pull = {'$pull': {'mutes': {'member': str(member_id)}}}

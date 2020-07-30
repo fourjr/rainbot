@@ -52,13 +52,24 @@ class Logging(commands.Cog):
             await log.send(f"`{current_time}` Message ({payload.message_id}) has been {end}.")
         else:
             if mode == 'message_delete':
-                await log.send(f"`{current_time}` {payload.author} ({payload.author.id}): Message ({payload.id}) has been deleted in **#{payload.channel.name}** ({payload.channel.id})\n```\n{payload.content}\n```")
+                try:
+                    await log.send(f"`{current_time}` {payload.author} ({payload.author.id}): Message ({payload.id}) has been deleted in **#{payload.channel.name}** ({payload.channel.id})\n```\n{payload.content}\n```")
+                except discord.HTTPException:
+                    # to implement a more elegant solution
+                    await log.send(f"`{current_time}` {payload.author} ({payload.author.id}): Message ({payload.id}) has been deleted in **#{payload.channel.name}** ({payload.channel.id})")
+                    await log.send(f"```{payload.content}\n```")
             elif mode == 'member_join':
                 await log.send(f"`{current_time}` {payload} ({payload.id}) has joined.")
             elif mode == 'member_remove':
                 await log.send(f"`{current_time}` {payload} ({payload.id}) has left the server.")
             elif mode == 'message_edit':
-                await log.send(f"`{current_time}` {payload.author} ({payload.author.id}): Message ({payload.id}) has been edited in **#{payload.channel.name}** ({payload.channel.id})\nB:```\n{payload.content}\n```\nA:\n```{extra.content}\n```")
+                try:
+                    await log.send(f"`{current_time}` {payload.author} ({payload.author.id}): Message ({payload.id}) has been edited in **#{payload.channel.name}** ({payload.channel.id})\nB:```\n{payload.content}\n```\nA:\n```{extra.content}\n```")
+                except discord.HTTPException:
+                    # to implement a more elegant solution
+                    await log.send(f"`{current_time}` {payload.author} ({payload.author.id}): Message ({payload.id}) has been edited in **#{payload.channel.name}** ({payload.channel.id})")
+                    await log.send(f"B:```\n{payload.content}\n```\n")
+                    await log.send(f"A:\n```{extra.content}\n```")
             elif mode == 'member_leave_vc':
                 await log.send(f"`{current_time}` {payload} ({payload.id}) has left :microphone: **{extra}** ({extra.id}).")
             elif mode == 'member_join_vc':
