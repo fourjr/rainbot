@@ -99,7 +99,7 @@ class rainbot(commands.Bot):
         )
         if isinstance(e, (commands.UserInputError, errors.BotMissingPermissionsInChannel)):
             await ctx.invoke(self.get_command('help'), command_or_cog=ctx.command.qualified_name, error=e)
-        elif isinstance(e, (discord.Forbidden)):
+        elif isinstance(e, discord.Forbidden):
             await ctx.invoke(self.get_command('help'), command_or_cog=ctx.command.qualified_name, error=Exception('Bot has insufficient permissions'))
         elif isinstance(e, ignored) and not self.dev_mode:
             pass
