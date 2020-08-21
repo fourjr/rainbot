@@ -42,8 +42,10 @@ class rainbot(commands.Bot):
         self.remove_command('help')
         self.load_extensions()
 
-        self._connection = ConnState(dispatch=self.dispatch, chunker=self._chunker, handlers=self._handlers,
-                                     syncer=self._syncer, http=self.http, loop=self.loop, max_messages=100000)
+        self._connection = ConnState(dispatch=self.dispatch, handlers=self._handlers,
+                                     hooks=self._hooks, syncer=self._syncer, http=self.http, loop=self.loop, max_messages=10000)
+        self._connection.shard_count = self.shard_count
+        self._connection._get_websocket = self._get_websocket
 
         # self.loop.run_until_complete(self.cache_mutes())
         if not self.dev_mode:
