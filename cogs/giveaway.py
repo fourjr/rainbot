@@ -60,14 +60,17 @@ class Giveaways(commands.Cog):
 
         If force is False, it returns None if there is no current active giveaway
         """
-        guild_config = await self.bot.db.get_guild_config(guild_id or ctx.guild.id)
-        if guild_config.giveaway.message_id:
-            channel = await self.channel(ctx, guild_id=guild_id)
-            try:
-                return await channel.fetch_message(guild_config.giveaway.message_id)
-            except discord.NotFound:
-                await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'giveaway.message_id': None}})
-                return None
+        try:
+            guild_config = await self.bot.db.get_guild_config(guild_id or ctx.guild.id)
+            if guild_config.giveaway.message_id:
+                channel = await self.channel(ctx, guild_id=guild_id)
+                try:
+                    return await channel.fetch_message(guild_config.giveaway.message_id)
+                except discord.NotFound:
+                    await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'giveaway.message_id': None}})
+                    return None
+        except discord.Forbidden:
+            return None
 
     async def roll_winner(self, ctx, nwinners=None) -> str:
         """Rolls winner(s) and returns a list of discord.Member
