@@ -151,9 +151,9 @@ class Logging(commands.Cog):
         if member.bot or self.bot.dev_mode:
             return
         log_channel = await self.check_enabled(member.guild.id, 'vc_state_change')
+        if not log_channel:
+            return
         if before.channel != after.channel:
-            if not log_channel:
-                return
             if before.channel:
                 await self.send_log(log_channel, member, False, mode='member_leave_vc', extra=before.channel)
             if after.channel:
