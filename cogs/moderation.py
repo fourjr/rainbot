@@ -303,10 +303,13 @@ class Moderation(commands.Cog):
         else:
             duration = None
             reason = None
-            if time.dt:
-                duration = time.dt - ctx.message.created_at
-            if time.arg:
-                reason = time.arg
+            if not time:
+                duration = None
+            else:
+                if time.dt:
+                    duration = time.dt - ctx.message.created_at
+                if time.arg:
+                    reason = time.arg
             await self.bot.mute(member, duration, reason=reason)
             await ctx.send(self.bot.accept)
 
