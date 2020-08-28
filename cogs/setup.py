@@ -7,7 +7,7 @@ from discord.ext import commands
 from discord.ext.commands import Cog
 
 from ext.errors import BotMissingPermissionsInChannel
-from ext.utils import get_command_level, lower
+from ext.utils import get_command_level, lower, owner
 from ext.command import command, group, RainGroup
 from ext.database import DEFAULT
 
@@ -295,6 +295,16 @@ class Setup(commands.Cog):
             await self.bot.db.update_guild_config(ctx.guild.id, {'$pull': {'warn_punishments': {'warn_number': limit}}})
         else:
             await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {'warn_punishments': {'warn_number': limit, 'punishment': punishment}}})
+
+        await ctx.send(self.bot.accept)
+
+    @owner()
+    @command(10, aliases=['set-explicit', 'set_explicit'])
+    async def setexplicit(self, ctx, *types):
+        """Types can be a comma-seperated list of the following:
+        `EXPOSED_ANUS, EXPOSED_ARMPITS, COVERED_BELLY, EXPOSED_BELLY, COVERED_BUTTOCKS, EXPOSED_BUTTOCKS, FACE_F, FACE_M, COVERED_FEET, EXPOSED_FEET, COVERED_BREAST_F, EXPOSED_BREAST_F, COVERED_GENITALIA_F, EXPOSED_GENITALIA_F, EXPOSED_BREAST_M, EXPOSED_GENITALIA_M`
+        """
+        await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'detections.sexually_explicit': types}})
 
         await ctx.send(self.bot.accept)
 

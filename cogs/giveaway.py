@@ -66,7 +66,7 @@ class Giveaways(commands.Cog):
                 channel = await self.channel(ctx, guild_id=guild_id)
                 try:
                     return await channel.fetch_message(guild_config.giveaway.message_id)
-                except discord.NotFound:
+                except (discord.NotFound, AttributeError):
                     await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'giveaway.message_id': None}})
                     return None
         except discord.Forbidden:
@@ -269,6 +269,7 @@ class Giveaways(commands.Cog):
 
     @giveaway.command(6)
     async def stop(self, ctx):
+        """Stops the giveaway"""
         latest_giveaway = await self.get_latest_giveaway(ctx, force=True)
         try:
             self.queue[latest_giveaway.id].cancel()

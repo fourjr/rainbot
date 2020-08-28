@@ -40,7 +40,8 @@ DEFAULT = {
         'english_only': False,
         'mention_limit': None,
         'spam_detection': None,
-        'repetitive_message': None
+        'repetitive_message': None,
+        'sexually_explicit': []
     },
     'giveaway': {
         'channel_id': None,
