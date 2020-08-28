@@ -15,7 +15,7 @@ from imagehash import average_hash
 from nudenet import NudeDetector
 from PIL import Image
 
-from ext.utils import UNICODE_EMOJI
+from ext.utils import UNICODE_EMOJI, get_perm_level
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 
@@ -34,12 +34,12 @@ class Detections(commands.Cog):
 
     @Cog.listener()
     async def on_message(self, m):
-        if not m.guild or m.type != discord.MessageType.default or m.author.bot:
+        if not m.guild or m.type != discord.MessageType.default or m.author.bot or self.bot.dev_mode:
             return
 
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
-        # if get_perm_level(m.author, guild_config)[0] >= 5 and m.guild.id != 748107122969149472:
-        #     return
+        if get_perm_level(m.author, guild_config)[0] >= 5:
+            return
 
         detection_config = guild_config.detections
         ignored_channels = guild_config.ignored_channels
