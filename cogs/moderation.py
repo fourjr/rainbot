@@ -6,10 +6,9 @@ import discord
 from discord.ext import commands
 
 from ext.command import command, group
-from ext.database import DBDict, DEFAULT
+from ext.database import DEFAULT, DBDict
 from ext.time import UserFriendlyTime
-from ext.utils import get_perm_level, format_timedelta
-
+from ext.utils import format_timedelta, get_perm_level
 
 MEMBER_ID_REGEX = re.compile(r'<@!?([0-9]+)>$')
 

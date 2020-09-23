@@ -4,7 +4,6 @@ import copy
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
 
-
 DEFAULT = {
     'guild_id': None,
     'logs': {
@@ -57,6 +56,9 @@ DEFAULT = {
     'mutes': [],
     'tags': [],
     'whitelisted_guilds': [],
+    'reaction_roles': [],
+    'selfroles': [],
+    'autorole': None,
     'ignored_channels': {
         'filter': [],
         'block_invite': [],
