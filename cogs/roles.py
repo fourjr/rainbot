@@ -11,20 +11,19 @@ class Roles(commands.Cog):
         self.bot = bot
 
     @group(0, invoke_without_command=True)
-    async def selfrole(self, ctx, *, role: discord.Role=None):
+    async def selfrole(self, ctx, *, role: discord.Role):
         """Give yourself a role!"""
-        if not role:
-            await ctx.invoke(self.bot.get_command('help'), command_or_cog='selfrole')
+        selfroles = (await self.bot.db.get_guild_config(ctx.guild.id)).selfroles
+        if len(selfroles) == 0:
+            return
+        if role.id not in selfroles:
+            return await ctx.send(f'{role.name} is not an available selfrole.')
+        if role in ctx.author.roles:
+            await ctx.author.remove_roles(role, reason='Selfrole')
+            await ctx.send(f'Removed role {self.bot.accept}')
         else:
-            selfroles = (await self.bot.db.get_guild_config(ctx.guild.id)).selfroles
-            if role.id not in selfroles:
-                return await ctx.send(f'{role.name} is not an available selfrole.')
-            if role in ctx.author.roles:
-                await ctx.author.remove_roles(role, reason='Selfrole')
-                await ctx.send(f'Removed role {self.bot.accept}')
-            else:
-                await ctx.author.add_roles(role, reason='Selfrole')
-                await ctx.send(f'Added role {self.bot.accept}')
+            await ctx.author.add_roles(role, reason='Selfrole')
+            await ctx.send(f'Added role {self.bot.accept}')
 
     @selfrole.command(8)
     async def add(self, ctx, *, role: discord.Role):

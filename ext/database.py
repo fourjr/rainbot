@@ -58,7 +58,7 @@ DEFAULT = {
     'whitelisted_guilds': [],
     'reaction_roles': [],
     'selfroles': [],
-    'autorole': None,
+    'autorole': [],
     'ignored_channels': {
         'filter': [],
         'block_invite': [],
