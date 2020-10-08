@@ -87,7 +87,6 @@ class Roles(commands.Cog):
 
         await ctx.send(self.bot.accept)
 
-
     @reactionrole.command(10, name='remove', aliases=['del', 'delete'])
     async def remove_(self, ctx, message_id: int, role: discord.Role):
         """Remove a role/emoji pair from a message"""
@@ -132,7 +131,6 @@ class Roles(commands.Cog):
             member = guild.get_member(payload.user_id)
             role = guild.get_role(msg_roles[0].role_id)
             await member.remove_roles(role, reason='Reaction Role')
-
 
     @Cog.listener()
     async def on_guild_role_delete(self, role):
