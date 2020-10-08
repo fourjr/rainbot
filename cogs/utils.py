@@ -255,6 +255,11 @@ class Utility(commands.Cog):
         await ctx.send('<https://discord.com/oauth2/authorize?client_id=372748944448552961&scope=bot&permissions=2013785334>')
 
     @command(0)
+    async def server(self, ctx):
+        """Join the support server for rainbot!"""
+        await ctx.send('Join the rainbot support server: https://discord.gg/eXrDpGS')
+
+    @command(0)
     async def mylevel(self, ctx):
         """Checks your permission level"""
         perm_level = get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))
