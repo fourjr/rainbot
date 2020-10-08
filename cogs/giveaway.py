@@ -1,12 +1,12 @@
 import asyncio
-import discord
 import random
 
+import discord
 from discord.ext import commands
-from ext.command import command, group
-from ext.utils import EmojiOrUnicode
-from ext.time import UserFriendlyTime
 
+from ext.command import command, group
+from ext.time import UserFriendlyTime
+from ext.utils import EmojiOrUnicode
 
 ACTIVE_COLOR = 0x01dc5a
 INACTIVE_COLOR = 0xe8330f
