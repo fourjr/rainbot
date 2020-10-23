@@ -19,7 +19,9 @@ from ext.utils import format_timedelta
 
 class rainbot(commands.Bot):
     def __init__(self):
-        super().__init__(command_prefix=None)
+        intents = discord.Intents.default()
+        intents.members = True
+        super().__init__(command_prefix=None, indents=intents)
 
         self.accept = '<:check:684169254618398735>'
         self.deny = '<:xmark:684169254551158881>'
