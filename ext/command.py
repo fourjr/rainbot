@@ -4,11 +4,11 @@ from .utils import get_perm_level, get_command_level
 from ext.errors import Underleveled
 
 
-async def check_perm_level(ctx):
+async def check_perm_level(ctx, *, command_level=None):
     guild_config = await ctx.bot.db.get_guild_config(ctx.guild.id)
 
     perm_level = get_perm_level(ctx.author, guild_config)[0]
-    cmd_level = get_command_level(ctx.command, guild_config)
+    cmd_level = command_level or get_command_level(ctx.command, guild_config)
 
     if not perm_level >= cmd_level:
         raise Underleveled(f"User's level ({perm_level}) is not enough for the command's required level ({cmd_level})")
