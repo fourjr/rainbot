@@ -57,6 +57,14 @@ class Detections(commands.Cog):
         ctx.author = m.guild.me
         ctx.command = warn_cmd
 
+        # bots
+        if detection_config.auto_purge_trickocord and m.author.id == 755580145078632508 and m.embeds and m.embeds[0].title == 'A trick-or-treater has stopped by!':
+            await asyncio.sleep(90)
+            await m.delete()
+
+        if m.author.bot:
+            return
+
         # images
         if guild_config.detections.sexually_explicit:
             for i in m.attachments:

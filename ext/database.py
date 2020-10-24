@@ -37,6 +37,7 @@ DEFAULT = {
         'filters': [],
         'block_invite': False,
         'english_only': False,
+        'auto_purge_trickocord': False,
         'mention_limit': None,
         'spam_detection': None,
         'repetitive_message': None,

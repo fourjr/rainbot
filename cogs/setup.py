@@ -198,9 +198,9 @@ class Setup(commands.Cog):
     async def setdetection(self, ctx, detection_type: lower, value):
         """Sets or toggle the auto moderation types
 
-        Valid types: block_invite, english_only, mention_limit, spam_detection, repetitive_message
+        Valid types: block_invite, english_only, mention_limit, spam_detection, repetitive_message, auto_purge_trickocord
         """
-        if detection_type in ('block_invite', 'english_only'):
+        if detection_type in ('block_invite', 'english_only', 'auto_purge_trickocord'):
             await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'detections.{detection_type}': commands.core._convert_to_bool(value)}})
             await ctx.send(self.bot.accept)
         elif detection_type in ('mention_limit', 'spam_detection', 'repetitive_message'):
