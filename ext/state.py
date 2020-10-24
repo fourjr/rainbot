@@ -1,6 +1,5 @@
 import copy
 
-import discord
 from discord.state import ConnectionState
 from discord.raw_models import RawMessageUpdateEvent, RawBulkMessageDeleteEvent, RawMessageDeleteEvent
 

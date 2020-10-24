@@ -20,7 +20,7 @@ class MemberOrID(commands.MemberConverter):
         except commands.BadArgument:
             match = self._get_id_match(argument) or MEMBER_ID_REGEX.match(argument)
             try:
-                result = await self.bot.fetch_user(int(match.group(1)))
+                result = await ctx.bot.fetch_user(int(match.group(1)))
             except discord.NotFound as e:
                 raise commands.BadArgument(f'Member {argument} not found') from e
 

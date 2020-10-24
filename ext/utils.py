@@ -91,6 +91,13 @@ def format_timedelta(delta, *, assume_forever=True):
     return fmt.strip()
 
 
+def tryint(x):
+    try:
+        return int(x)
+    except ValueError:
+        return x
+
+
 class EmojiOrUnicode(commands.EmojiConverter):
     async def convert(self, ctx, argument):
         try:

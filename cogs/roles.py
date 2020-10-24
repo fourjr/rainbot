@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord.ext.commands import Cog
 
 from ext.command import group, check_perm_level
-from ext.utils import EmojiOrUnicode
+from ext.utils import EmojiOrUnicode, tryint
 
 
 async def selfrole_check(ctx):
@@ -138,7 +138,7 @@ class Roles(commands.Cog):
         """Add reaction roles"""
         reaction_roles = (await self.bot.db.get_guild_config(payload.guild_id)).reaction_roles
         emoji_id = payload.emoji.id or str(payload.emoji)
-        msg_roles = list(filter(lambda r: int(r.message_id) == payload.message_id and int(r.emoji_id) == emoji_id, reaction_roles))
+        msg_roles = list(filter(lambda r: int(r.message_id) == payload.message_id and tryint(r.emoji_id) == emoji_id, reaction_roles))
 
         if msg_roles:
             guild = self.bot.get_guild(payload.guild_id)
@@ -151,7 +151,7 @@ class Roles(commands.Cog):
         """Remove reaction roles"""
         reaction_roles = (await self.bot.db.get_guild_config(payload.guild_id)).reaction_roles
         emoji_id = payload.emoji.id or str(payload.emoji)
-        msg_roles = list(filter(lambda r: int(r.message_id) == payload.message_id and int(r.emoji_id) == emoji_id, reaction_roles))
+        msg_roles = list(filter(lambda r: int(r.message_id) == payload.message_id and tryint(r.emoji_id) == emoji_id, reaction_roles))
 
         if len(msg_roles) == 1:
             guild = self.bot.get_guild(payload.guild_id)

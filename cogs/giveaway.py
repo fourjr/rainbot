@@ -128,8 +128,8 @@ class Giveaways(commands.Cog):
             role_id = (await commands.RoleConverter().convert(ctx, role)).id
 
         await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {
-            'giveaway.emoji_id': emoji.id,
-            'giveaway.channel_id': channel.id,
+            'giveaway.emoji_id': str(emoji.id),
+            'giveaway.channel_id': str(channel.id),
             'giveaway.role_id': role_id
         }})
 

@@ -19,9 +19,7 @@ from ext.utils import format_timedelta
 
 class rainbot(commands.Bot):
     def __init__(self):
-        intents = discord.Intents.default()
-        intents.members = True
-        super().__init__(command_prefix=None, indents=intents)
+        super().__init__(command_prefix=None)
 
         self.accept = '<:check:684169254618398735>'
         self.deny = '<:xmark:684169254551158881>'
@@ -44,23 +42,28 @@ class rainbot(commands.Bot):
         self.remove_command('help')
         self.load_extensions()
 
+        intents = discord.Intents.default()
+        intents.members = True
+
         self._connection = ConnState(dispatch=self.dispatch, handlers=self._handlers,
-                                     hooks=self._hooks, syncer=self._syncer, http=self.http, loop=self.loop, max_messages=10000)
+                                     hooks=self._hooks, syncer=self._syncer, http=self.http,
+                                     loop=self.loop, max_messages=10000, intents=intents)
         self._connection.shard_count = self.shard_count
         self._connection._get_websocket = self._get_websocket
 
-        # self.loop.run_until_complete(self.cache_mutes())
         if not self.dev_mode:
             self.loop.run_until_complete(self.setup_unmutes())
         try:
-            self.run(os.getenv('token'))
+            self.loop.run_until_complete(self.start(os.getenv('token')))
         except discord.LoginFailure:
             self.logger.error('Invalid token')
         except KeyboardInterrupt:
-            pass
+            self.loop.run_until_complete(self.logout())
         except Exception:
             self.logger.error('Fatal exception')
             traceback.print_exc(file=sys.stderr)
+        finally:
+            self.loop.run_until_complete(self.session.close())
 
     def load_extensions(self):
         for i in os.listdir('cogs'):
@@ -114,9 +117,6 @@ class rainbot(commands.Bot):
             for m in d['mutes']:
                 self.loop.create_task(self.unmute(d['guild_id'], m['member'], m['time']))
 
-    async def cache_mutes(self):
-        self.mutes = await self.db.coll.find({'mutes': {'$exists': True, '$ne': []}})
-
     async def on_member_join(self, m):
         """Set up mutes if the member rejoined to bypass a mute"""
         if not self.dev_mode:
@@ -129,7 +129,7 @@ class rainbot(commands.Bot):
                     user_mute = mute
 
             if user_mute:
-                self.mute(m, user_mute['time'] - time(), 'Mute evasion', modify_db=False)
+                await self.mute(m, user_mute['time'] - time(), 'Mute evasion', modify_db=False)
 
     async def mute(self, member, delta, reason, modify_db=True):
         """Mutes a ``member`` for ``delta`` seconds"""
