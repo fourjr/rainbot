@@ -17,11 +17,11 @@ class MemberOrID(commands.MemberConverter):
     async def convert(self, ctx, argument):
         try:
             result = await super().convert(ctx, argument)
-        except commands.BadArgument as e:
+        except commands.BadArgument:
             match = self._get_id_match(argument) or MEMBER_ID_REGEX.match(argument)
-            if match:
-                result = discord.Object(int(match.group(1)))
-            else:
+            try:
+                result = await self.bot.fetch_user(int(match.group(1)))
+            except discord.NotFound as e:
                 raise commands.BadArgument(f'Member {argument} not found') from e
 
         return result
@@ -427,7 +427,7 @@ class Moderation(commands.Cog):
 
     @command(7)
     async def softban(self, ctx, member: discord.Member, *, reason=None):
-        """Swings the banhammer"""
+        """Bans then immediately unbans user (to purge messages)"""
         if get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0] >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]:
             await ctx.send('User has insufficient permissions')
         else:

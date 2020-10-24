@@ -106,7 +106,7 @@ class rainbot(commands.Bot):
         elif isinstance(e, ignored) and not self.dev_mode:
             pass
         else:
-            self.logger.exception(f'Error while executing {ctx.command} ({ctx.message.content})', exc_info=(type(e), e, e.__traceback__))
+            self.logger.exception(f'Error while executing {ctx.command} ({ctx.message.content}) in Guild {ctx.guild.id} by User {ctx.author.id}', exc_info=(type(e), e, e.__traceback__))
 
     async def setup_unmutes(self):
         data = self.db.coll.find({'mutes': {'$exists': True, '$ne': []}})
