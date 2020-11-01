@@ -237,7 +237,7 @@ class Setup(commands.Cog):
     async def setdetectionignore(self, ctx: commands.Context, detection_type: lower, channel: discord.TextChannel=None) -> None:
         """Ignores detections in specified channels
 
-        Valid detections: all, filter, block_invite, english_only, mention_limit, spam_detection, repetitive_message
+        Valid detections: all, filter, block_invite, english_only, mention_limit, spam_detection, repetitive_message, sexually_explicit, auto_purge_trickocord
         Run without specifying channel to clear ignored channels
         """
         valid_detections = list(DEFAULT['ignored_channels'].keys())

@@ -68,8 +68,10 @@ DEFAULT: Dict[str, Any] = {
         'block_invite': [],
         'english_only': [],
         'mention_limit': [],
+        'auto_purge_trickocord': [],
         'spam_detection': [],
-        'repetitive_message': []
+        'repetitive_message': [],
+        'sexually_explicit': []
     },
     'mute_role': None,
     'prefix': '!!'
