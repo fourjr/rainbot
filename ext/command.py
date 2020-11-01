@@ -1,13 +1,20 @@
+from typing import Any, Callable
+
+import discord
 from discord.ext import commands
 
 from .utils import get_perm_level, get_command_level
 from ext.errors import Underleveled
 
 
-async def check_perm_level(ctx, *, command_level=None):
+async def check_perm_level(ctx: commands.Context, *, command_level: int=None) -> bool:
     guild_config = await ctx.bot.db.get_guild_config(ctx.guild.id)
 
-    perm_level = get_perm_level(ctx.author, guild_config)[0]
+    if isinstance(ctx.author, discord.Member):
+        perm_level = get_perm_level(ctx.author, guild_config)[0]
+    else:
+        perm_level = 10
+
     cmd_level = command_level or get_command_level(ctx.command, guild_config)
 
     if not perm_level >= cmd_level:
@@ -19,13 +26,13 @@ class RainCommand(commands.Command):
     """Overwrites the default Command to use permission levels,
     overwrites signature to hide aliases"""
 
-    def __init__(self, callback, **kwargs):
+    def __init__(self, callback: Callable, **kwargs: Any) -> None:
         super().__init__(callback, **kwargs)
         self.perm_level = kwargs.get('perm_level', 0)
         self.checks.append(check_perm_level)
 
     @property
-    def signature(self):
+    def signature(self) -> str:
         """Returns a POSIX-like signature useful for help command output."""
         result = []
         parent = self.full_parent_name
@@ -61,15 +68,15 @@ class RainGroup(commands.Group):
     """Overwrites the default Command to use permission levels,
     overwrites signature to hide aliases"""
 
-    def __init__(self, callback, **attrs):
-        super().__init__(callback, **attrs)
+    def __init__(self, *args: Any, **attrs: Any) -> None:
+        super().__init__(*args, **attrs)
         self.perm_level = attrs.get('perm_level')
         if self.perm_level:
             self.checks.append(check_perm_level)
 
-    def command(self, *args, **kwargs):
+    def command(self, *args: Any, **kwargs: Any) -> Callable:
         """Overwrites GroupMixin.command to use RainCommand"""
-        def decorator(func):
+        def decorator(func: Callable) -> bool:
             kwargs.setdefault('parent', self)
             result = command(*args, **kwargs)(func)
             self.add_command(result)
@@ -78,7 +85,7 @@ class RainGroup(commands.Group):
         return decorator
 
     @property
-    def signature(self):
+    def signature(self) -> str:
         """Returns a POSIX-like signature useful for help command output."""
         result = []
         parent = self.full_parent_name
@@ -110,12 +117,12 @@ class RainGroup(commands.Group):
         return ' '.join(result)
 
 
-def command(level, *args, **kwargs):
+def command(level, **kwargs: Any) -> Callable:
     kwargs['perm_level'] = level
-    return commands.command(cls=RainCommand, *args, **kwargs)
+    return commands.command(cls=RainCommand, **kwargs)
 
 
-def group(level, *args, **kwargs):
+def group(level: int, **kwargs: Any) -> Callable:
     """Overwrites the default group to use RainGroup"""
     kwargs['perm_level'] = level
-    return commands.group(cls=RainGroup, *args, **kwargs)
+    return commands.group(cls=RainGroup, **kwargs)

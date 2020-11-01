@@ -1,3 +1,6 @@
+from typing import List
+
+import discord
 from discord.ext.commands import CheckFailure
 
 
@@ -15,7 +18,7 @@ class BotMissingPermissionsInChannel(CheckFailure):
     missing_perms: :class:`list`
         The required permissions that are missing.
     """
-    def __init__(self, missing_perms, channel, *args):
+    def __init__(self, missing_perms: List[str], channel: discord.TextChannel, *args: list):
         self.missing_perms = missing_perms
 
         missing = [perm.replace('_', ' ').replace('guild', 'server').title() for perm in missing_perms]

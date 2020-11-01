@@ -1,3 +1,7 @@
+# type: ignore
+
+from __future__ import annotations
+
 import datetime
 import parsedatetime as pdt
 from dateutil.relativedelta import relativedelta
@@ -8,10 +12,10 @@ import re
 
 
 class plural:
-    def __init__(self, value):
+    def __init__(self, value) -> None:
         self.value = value
 
-    def __format__(self, format_spec):
+    def __format__(self, format_spec: str) -> str:
         v = self.value
         singular, sep, plural = format_spec.partition('|')
         plural = plural or f'{singular}s'
@@ -30,12 +34,12 @@ class ShortTime:
                              (?:(?P<seconds>[0-9]{1,5})(?:seconds?|s))?    # e.g. 15s
                           """, re.VERBOSE)
 
-    def __init__(self, argument):
+    def __init__(self, argument: str) -> None:
         match = self.compiled.fullmatch(argument)
         if match is None or not match.group(0):
             raise commands.BadArgument('invalid time provided')
 
-        data = {k: int(v) for k, v in match.groupdict(default=0).items()}
+        data = {k: int(v) for k, v in match.groupdict(default='0').items()}
         now = datetime.datetime.utcnow()
         self.dt = now + relativedelta(**data)
 
@@ -43,7 +47,7 @@ class ShortTime:
 class HumanTime:
     calendar = pdt.Calendar(version=pdt.VERSION_CONTEXT_STYLE)
 
-    def __init__(self, argument):
+    def __init__(self, argument: str) -> None:
         now = datetime.datetime.utcnow()
         dt, status = self.calendar.parseDT(argument, sourceTime=now)
         if not status.hasDateOrTime:
@@ -58,7 +62,7 @@ class HumanTime:
 
 
 class Time(HumanTime):
-    def __init__(self, argument):
+    def __init__(self, argument: str) -> None:
         try:
             o = ShortTime(argument)
         except:
@@ -69,7 +73,7 @@ class Time(HumanTime):
 
 
 class FutureTime(Time):
-    def __init__(self, argument):
+    def __init__(self, argument: str) -> None:
         super().__init__(argument)
 
         if self._past:
@@ -78,7 +82,7 @@ class FutureTime(Time):
 
 class UserFriendlyTime(commands.Converter):
     """That way quotes aren't absolutely necessary."""
-    def __init__(self, converter=None, *, default=None, assume_reason=False):
+    def __init__(self, converter: commands.Converter=None, *, default: str=None, assume_reason: bool=False) -> None:
         if isinstance(converter, type) and issubclass(converter, commands.Converter):
             converter = converter()
 
@@ -89,7 +93,7 @@ class UserFriendlyTime(commands.Converter):
         self.default = default
         self.assume_reason = assume_reason
 
-    async def check_constraints(self, ctx, now, remaining):
+    async def check_constraints(self, ctx: commands.Context, now, remaining) -> UserFriendlyTime:
         if self.dt < now:
             raise commands.BadArgument('This time is in the past.')
 
@@ -104,7 +108,7 @@ class UserFriendlyTime(commands.Converter):
                 self.arg = remaining
         return self
 
-    async def convert(self, ctx, argument):
+    async def convert(self, ctx: commands.Context, argument: str) -> UserFriendlyTime:
         try:
             calendar = HumanTime.calendar
             regex = ShortTime.compiled
@@ -189,7 +193,7 @@ class UserFriendlyTime(commands.Converter):
             raise
 
 
-def human_timedelta(dt, *, source=None, accuracy=None):
+def human_timedelta(dt, *, source: datetime.datetime=None, accuracy: int=None):
     now = source or datetime.datetime.utcnow()
     if dt > now:
         delta = relativedelta(dt, now)

@@ -1,5 +1,8 @@
-import discord
 import asyncio
+from typing import List
+
+import discord
+from discord.ext import commands
 
 
 class Paginator:
@@ -10,7 +13,7 @@ class Paginator:
     ------------
     ctx: Context
         The context of the command.
-    *embeds: list[discord.Embed] or dict.values[discord.Embed]
+    *embeds: List[discord.Embed] or dict.values[discord.Embed]
         A list of entries to paginate.
     **timeout: int[Optional]
         How long to wait for before the session closes
@@ -22,7 +25,7 @@ class Paginator:
     stop:
         Stops the paginator session and deletes the embed.
     '''
-    def __init__(self, ctx, *embeds, **kwargs):
+    def __init__(self, ctx: commands.Context, *embeds: discord.Embed, **kwargs) -> None:
         '''Initialises the class'''
         self.embeds = embeds
 
@@ -30,7 +33,10 @@ class Paginator:
             raise SyntaxError('There should be at least 1 embed object provided to the paginator')
 
         for i, em in enumerate(self.embeds):
-            footer_text = em.footer.text or ' '
+            if isinstance(em.footer.text, discord.embed._EmptyEmbed):
+                footer_text = ' '
+            else:
+                footer_text = em.footer.text
             em.set_footer(text=f'Page {i+1} of {len(self.embeds)}' + footer_text, icon_url=em.footer.icon_url)
 
         self.page = 0
@@ -45,7 +51,7 @@ class Paginator:
             u'\u23ED': 'track_next'
         }
 
-    async def start(self):
+    async def start(self) -> None:
         '''Starts the paginator session'''
         self.message = await self.ctx.send(embed=self.embeds[0])
 
@@ -58,14 +64,14 @@ class Paginator:
             await asyncio.sleep(0.05)
         await self._wait_for_reaction()
 
-    async def stop(self):
+    async def stop(self) -> None:
         self.running = False
         try:
             await self.message.clear_reactions()
         except (discord.NotFound, discord.Forbidden):
             pass
 
-    async def _wait_for_reaction(self):
+    async def _wait_for_reaction(self) -> None:
         '''Waits for a user input reaction'''
         while self.running:
             try:
@@ -80,7 +86,7 @@ class Paginator:
                 if self.running:
                     self.ctx.bot.loop.create_task(self._reaction_action(reaction))
 
-    def _reaction_check(self, reaction, user):
+    def _reaction_check(self, reaction: discord.Reaction, user: discord.Member) -> bool:
         '''Checks if the reaction is from the user message and emoji is correct'''
         if not self.running:
             return True
@@ -90,11 +96,11 @@ class Paginator:
                     return True
         return False
 
-    async def _reaction_action(self, reaction):
+    async def _reaction_action(self, reaction: discord.Reaction) -> None:
         '''Fires an action based on the reaction'''
         if not self.running:
             return
-        to_exec = self.emojis[reaction.emoji]
+        to_exec = self.emojis[str(reaction.emoji)]
 
         if to_exec == 'arrow_backward':
             if self.page != 0:

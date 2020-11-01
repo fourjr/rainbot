@@ -6,6 +6,7 @@ from cachetools import LFUCache
 from collections import defaultdict, Counter
 from datetime import timedelta
 from tempfile import NamedTemporaryFile
+from typing import DefaultDict, List
 
 import discord
 import tensorflow as tf
@@ -15,25 +16,28 @@ from imagehash import average_hash
 from nudenet import NudeDetector
 from PIL import Image
 
+from bot import rainbot
 from ext.utils import UNICODE_EMOJI, get_perm_level
+
+
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 
 class Detections(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: rainbot) -> None:
         self.bot = bot
-        self.spam_detection = defaultdict(list)
-        self.repetitive_message = defaultdict(Counter)
+        self.spam_detection: DefaultDict[str, List[int]] = defaultdict(list)
+        self.repetitive_message: DefaultDict[str, Counter] = defaultdict(Counter)
         self.INVITE_REGEX = re.compile(r'((http(s|):\/\/|)(discord)(\.(gg|io|me)\/|app\.com\/invite\/)([0-z]+))')
         self.ENGLISH_REGEX = re.compile(r'[ -~]|(?:' + UNICODE_EMOJI + r')|(?:\U00002018|\U00002019|\s)|[.!?\\\-\(\)]|ツ|(?:\(╯°□°\）╯︵ ┻━┻)|(?:┬─┬ ノ\( ゜-゜ノ\))')  # U2018 and U2019 are iOS quotes
 
         self.nude_detector = NudeDetector()
         self.nude_graph = tf.get_default_graph()
 
-        self.nude_image_cache = LFUCache(50)
+        self.nude_image_cache: LFUCache[str, List[str]] = LFUCache(50)
 
     @Cog.listener()
-    async def on_message(self, m):
+    async def on_message(self, m: discord.Message) -> None:
         if not m.guild or m.type != discord.MessageType.default or self.bot.dev_mode:
             return
 
@@ -130,14 +134,14 @@ class Detections(commands.Cog):
             if not self.repetitive_message[str(m.author.id)].values():
                 del self.repetitive_message[str(m.author.id)]
 
-    def get_most_common_count(self, id):
-        most_common = self.repetitive_message.get(str(id), Counter()).most_common(1)
+    def get_most_common_count(self, id_: int) -> int:
+        most_common = self.repetitive_message.get(str(id_), Counter()).most_common(1)
         if most_common:
             if most_common[0]:
                 return most_common[0][1]
         return 0
 
-    def get_nudenet_classifications(self, m, path):
+    def get_nudenet_classifications(self, m, path) -> None:
         img = Image.open(path)
         image_hash = str(average_hash(img))
         img.close()
@@ -157,7 +161,7 @@ class Detections(commands.Cog):
             self.nude_image_cache[image_hash] = labels
             self.bot.loop.create_task(self.nudenet_callback(m, labels))
 
-    async def nudenet_callback(self, m, labels):
+    async def nudenet_callback(self, m, labels) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
 
         for i in guild_config.detections.sexually_explicit:
@@ -168,5 +172,5 @@ class Detections(commands.Cog):
                 break
 
 
-def setup(bot):
+def setup(bot: rainbot) -> None:
     bot.add_cog(Detections(bot))

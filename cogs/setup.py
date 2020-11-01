@@ -1,11 +1,12 @@
 import copy
 import json
-import typing
+from typing import Dict, List, Union
 
 import discord
 from discord.ext import commands
 from discord.ext.commands import Cog
 
+from bot import rainbot
 from ext.errors import BotMissingPermissionsInChannel
 from ext.utils import get_command_level, lower, owner
 from ext.command import command, group, RainGroup
@@ -15,16 +16,16 @@ from ext.database import DEFAULT
 class Setup(commands.Cog):
     """Setting up rainbot: https://github.com/fourjr/rainbot/wiki/Setting-up-rainbot"""
 
-    def __init__(self, bot):
+    def __init__(self, bot: rainbot) -> None:
         self.bot = bot
         self.order = 1
 
     @Cog.listener()
-    async def on_guild_join(self, guild):
+    async def on_guild_join(self, guild: discord.Guild) -> None:
         await self.bot.db.create_new_config(guild.id)
 
     @command(6, aliases=['view_config', 'view-config'])
-    async def viewconfig(self, ctx):
+    async def viewconfig(self, ctx: commands.Context) -> None:
         """View the current guild configuration"""
         guild_config = copy.copy(await self.bot.db.get_guild_config(ctx.guild.id))
         del guild_config['_id']
@@ -36,7 +37,7 @@ class Setup(commands.Cog):
                 await ctx.send(f"Your server's current configuration: https://hasteb.in/{data['key']}")
 
     @command(10, aliases=['import_config', 'import-config'])
-    async def importconfig(self, ctx, *, url):
+    async def importconfig(self, ctx: commands.Context, *, url: str) -> None:
         """Imports a new guild configuration.
 
         Generate one from https://fourjr.github.io/rainbot/"""
@@ -53,7 +54,7 @@ class Setup(commands.Cog):
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['reset_config', 'reset-config'])
-    async def resetconfig(self, ctx):
+    async def resetconfig(self, ctx: commands.Context):
         """Resets configuration to default"""
         await ctx.invoke(self.viewconfig)
         data = copy.copy(DEFAULT)
@@ -62,7 +63,7 @@ class Setup(commands.Cog):
         await ctx.send('All configuration reset')
 
     @command(10, alises=['set_log', 'set-log'])
-    async def setlog(self, ctx, log_name: lower, channel: discord.TextChannel=None):
+    async def setlog(self, ctx: commands.Context, log_name: lower, channel: discord.TextChannel=None) -> None:
         """Sets the log channel for various types of logging
 
         Valid types: all, message_delete, message_edit, member_join, member_remove, member_ban, member_unban, vc_state_change, channel_create, channel_delete, role_create, role_delete
@@ -87,7 +88,7 @@ class Setup(commands.Cog):
         await ctx.send(self.bot.accept)
 
     @command(10, alises=['set_modlog', 'set-modlog'])
-    async def setmodlog(self, ctx, log_name: lower, channel: discord.TextChannel=None):
+    async def setmodlog(self, ctx: commands.Context, log_name: lower, channel: discord.TextChannel=None) -> None:
         """Sets the log channel for various types of logging
 
         Valid types: all, member_warn, member_mute, member_unmute, member_kick, member_ban, member_unban, member_softban, message_purge, channel_lockdown, channel_slowmode
@@ -112,7 +113,7 @@ class Setup(commands.Cog):
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_perm_level', 'set-perm-level'])
-    async def setpermlevel(self, ctx, perm_level: int, *, role: discord.Role):
+    async def setpermlevel(self, ctx: commands.Context, perm_level: int, *, role: discord.Role) -> None:
         """Sets a role's permission level"""
         if perm_level < 0:
             raise commands.BadArgument(f'{perm_level} is below 0')
@@ -124,7 +125,7 @@ class Setup(commands.Cog):
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_command_level', 'set-command-level'])
-    async def setcommandlevel(self, ctx, perm_level: typing.Union[int, str], *, command: lower):
+    async def setcommandlevel(self, ctx: commands.Context, perm_level: Union[int, str], *, command: lower) -> None:
         """Changes a command's required permission level
 
         Examples:
@@ -147,22 +148,24 @@ class Setup(commands.Cog):
         name = cmd.qualified_name.replace(' ', '_')
 
         if perm_level == 'reset':
-            perm_level = cmd.perm_level
+            int_perm_level = cmd.perm_level
+        else:
+            int_perm_level = perm_level
 
-        levels = [{'command': name, 'level': perm_level}]
-        action = "pull" if perm_level == cmd.perm_level else "push"
+        levels: Union[List[Dict[str, Any]], Dict[str, List[Dict[str, Any]]]] = [{'command': name, 'level': int_perm_level}]
+        action = "pull" if int_perm_level == cmd.perm_level else "push"
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
 
         if cmd.parent:
             parent_level = get_command_level(cmd.parent, guild_config)
-            if perm_level < parent_level:
-                levels.append({'command': cmd.parent.name.replace(' ', '_'), 'level': perm_level})
-            elif perm_level > parent_level:
+            if int_perm_level < parent_level:
+                levels.append({'command': cmd.parent.name.replace(' ', '_'), 'level': int_perm_level})
+            elif int_perm_level > parent_level:
                 cmd_level = get_command_level(cmd, guild_config)
                 all_levels = [get_command_level(c, guild_config) for c in cmd.parent.commands]
 
                 all_levels.remove(cmd_level)
-                all_levels.append(perm_level)
+                all_levels.append(int_perm_level)
 
                 lowest = min(all_levels)
                 if lowest > parent_level:
@@ -180,13 +183,13 @@ class Setup(commands.Cog):
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_prefix', 'set-prefix'])
-    async def setprefix(self, ctx, new_prefix):
+    async def setprefix(self, ctx: commands.Context, new_prefix: str) -> None:
         """Sets the guild prefix"""
         await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'prefix': new_prefix}})
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_offset', 'set-offset'])
-    async def setoffset(self, ctx, offset: int):
+    async def setoffset(self, ctx: commands.Context, offset: int) -> None:
         """Sets the time offset from UTC"""
         if not -12 < offset < 14:
             raise commands.BadArgument(f'{offset} has to be between -12 and 14.')
@@ -195,7 +198,7 @@ class Setup(commands.Cog):
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_detection', 'set-detection'])
-    async def setdetection(self, ctx, detection_type: lower, value):
+    async def setdetection(self, ctx: commands.Context, detection_type: lower, value: str) -> None:
         """Sets or toggle the auto moderation types
 
         Valid types: block_invite, english_only, mention_limit, spam_detection, repetitive_message, auto_purge_trickocord
@@ -215,7 +218,7 @@ class Setup(commands.Cog):
             raise commands.BadArgument('Invalid detection, pick one from below:\nblock_invite, english_only, mention_limit, spam_detection, repetitive_message')
 
     @command(10, aliases=['set-guild-whitelist', 'set_guild_whitelist'])
-    async def setguildwhitelist(self, ctx, guild_id: int=None):
+    async def setguildwhitelist(self, ctx: commands.Context, guild_id: int=None) -> None:
         """Adds a server to the whitelist.
 
         Invite detection will not trigger when this guild's invite is sent.
@@ -231,7 +234,7 @@ class Setup(commands.Cog):
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set-detection-ignore', 'set_detection_ignore'])
-    async def setdetectionignore(self, ctx, detection_type: lower, channel: discord.TextChannel=None):
+    async def setdetectionignore(self, ctx: commands.Context, detection_type: lower, channel: discord.TextChannel=None) -> None:
         """Ignores detections in specified channels
 
         Valid detections: all, filter, block_invite, english_only, mention_limit, spam_detection, repetitive_message
@@ -257,30 +260,30 @@ class Setup(commands.Cog):
         await ctx.send(self.bot.accept)
 
     @group(8, name='filter', invoke_without_command=True)
-    async def filter_(self, ctx):
+    async def filter_(self, ctx: commands.Context) -> None:
         """Controls the word filter"""
         await ctx.invoke(self.bot.get_command('help'), command_or_cog='filter')
 
     @filter_.command(8)
-    async def add(self, ctx, *, word: lower):
+    async def add(self, ctx: commands.Context, *, word: lower) -> None:
         """Add blacklisted words into the word filter"""
         await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {'detections.filters': word}})
         await ctx.send(self.bot.accept)
 
     @filter_.command(8)
-    async def remove(self, ctx, *, word: lower):
+    async def remove(self, ctx: commands.Context, *, word: lower) -> None:
         """Removes blacklisted words from the word filter"""
         await self.bot.db.update_guild_config(ctx.guild.id, {'$pull': {'detections.filters': word}})
         await ctx.send(self.bot.accept)
 
     @filter_.command(8, name='list')
-    async def list_(self, ctx):
+    async def list_(self, ctx: commands.Context) -> None:
         """Lists the full word filter"""
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         await ctx.send(f"Filters: {', '.join([f'`{i}`' for i in guild_config.detections.filters])}")
 
     @command(10, aliases=['set-warn-punishment', 'set_warn_punishment'])
-    async def setwarnpunishment(self, ctx, limit: int, punishment=None):
+    async def setwarnpunishment(self, ctx: commands.Context, limit: int, punishment=None) -> None:
         """Sets punishment after certain number of warns.
         Punishments can be "kick", "ban" or "none".
 
@@ -300,7 +303,7 @@ class Setup(commands.Cog):
 
     @owner()
     @command(10, aliases=['set-explicit', 'set_explicit'])
-    async def setexplicit(self, ctx, *types):
+    async def setexplicit(self, ctx: commands.Context, *types: List[str]) -> None:
         """Types can be a comma-seperated list of the following:
         `EXPOSED_ANUS, EXPOSED_ARMPITS, COVERED_BELLY, EXPOSED_BELLY, COVERED_BUTTOCKS, EXPOSED_BUTTOCKS, FACE_F, FACE_M, COVERED_FEET, EXPOSED_FEET, COVERED_BREAST_F, EXPOSED_BREAST_F, COVERED_GENITALIA_F, EXPOSED_GENITALIA_F, EXPOSED_BREAST_M, EXPOSED_GENITALIA_M`
         """
@@ -309,5 +312,5 @@ class Setup(commands.Cog):
         await ctx.send(self.bot.accept)
 
 
-def setup(bot):
+def setup(bot: rainbot) -> None:
     bot.add_cog(Setup(bot))

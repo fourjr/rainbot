@@ -1,12 +1,15 @@
 import asyncio
 import random
+from typing import Dict, List, Union, Optional
 
 import discord
 from discord.ext import commands
 
+from bot import rainbot
 from ext.command import command, group
 from ext.time import UserFriendlyTime
 from ext.utils import EmojiOrUnicode
+
 
 ACTIVE_COLOR = 0x01dc5a
 INACTIVE_COLOR = 0xe8330f
@@ -15,13 +18,13 @@ INACTIVE_COLOR = 0xe8330f
 class Giveaways(commands.Cog):
     """Sets up giveaways!"""
 
-    def __init__(self, bot):
+    def __init__(self, bot: rainbot) -> None:
         self.bot = bot
         bot.loop.create_task(self.__ainit__())
         self.order = 3
-        self.queue = {}
+        self.queue: Dict[int, asyncio.Task] = {}
 
-    async def __ainit__(self):
+    async def __ainit__(self) -> None:
         """Setup constants"""
         await self.bot.wait_until_ready()
         for i in self.bot.guilds:
@@ -30,13 +33,14 @@ class Giveaways(commands.Cog):
             if latest_giveaway:
                 self.queue[latest_giveaway.id] = self.bot.loop.create_task(self.queue_roll(latest_giveaway))
 
-    async def channel(self, ctx=None, *, guild_id=None):
+    async def channel(self, ctx: commands.Context=None, *, guild_id: int=None) -> Optional[discord.TextChannel]:
         guild_id = guild_id or ctx.guild.id
         guild_config = await self.bot.db.get_guild_config(guild_id)
         if guild_config['giveaway']['channel_id']:
             return self.bot.get_channel(int(guild_config['giveaway']['channel_id']))
+        return None
 
-    async def role(self, ctx):
+    async def role(self, ctx: commands.Context) -> Optional[discord.Role]:
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         if guild_config.giveaway.role_id:
             role_id = guild_config.giveaway.role_id
@@ -45,8 +49,9 @@ class Giveaways(commands.Cog):
             elif role_id in ('@everyone', '@here'):
                 return role_id
             return discord.utils.get(ctx.guild.roles, id=int(role_id))
+        return None
 
-    async def emoji(self, ctx):
+    async def emoji(self, ctx: commands.Context) -> Union[int, str, None]:
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         if guild_config.giveaway.emoji_id:
             emoji_id = guild_config.giveaway.emoji_id
@@ -54,8 +59,9 @@ class Giveaways(commands.Cog):
                 return f'giveaway:{int(emoji_id)}'
             except ValueError:
                 return emoji_id
+        return None
 
-    async def get_latest_giveaway(self, ctx=None, *, force=False, guild_id=None) -> discord.Message:
+    async def get_latest_giveaway(self, ctx: commands.Context=None, *, force: bool=False, guild_id: int=None) -> Optional[discord.Message]:
         """Gets the latest giveaway message.
 
         If force is False, it returns None if there is no current active giveaway
@@ -71,8 +77,9 @@ class Giveaways(commands.Cog):
                     return None
         except discord.Forbidden:
             return None
+        return None
 
-    async def roll_winner(self, ctx, nwinners=None) -> str:
+    async def roll_winner(self, ctx: commands.Context, nwinners: int=None) -> List[str]:
         """Rolls winner(s) and returns a list of discord.Member
 
         Supports nwinners as an arg. Defaults to check giveaway message
@@ -88,14 +95,14 @@ class Giveaways(commands.Cog):
         winners = random.sample(participants, nwinners)
         return winners
 
-    async def queue_roll(self, giveaway: discord.Message):
+    async def queue_roll(self, giveaway: discord.Message) -> None:
         """Queues up the autoroll."""
         time = (giveaway.embeds[0].timestamp - giveaway.created_at).total_seconds()
         await asyncio.sleep(time)
 
         await self.end_giveaway(giveaway)
 
-    async def end_giveaway(self, giveaway):
+    async def end_giveaway(self, giveaway) -> None:
         try:
             winners = await self.roll_winner(giveaway)
         except (RuntimeError, ValueError):
@@ -116,7 +123,7 @@ class Giveaways(commands.Cog):
         await self.bot.db.update_guild_config(giveaway.guild.id, {'$set': {'giveaway.message_id': None}})
 
     @command(10, aliases=['set-giveaway' 'set_giveaway'])
-    async def setgiveaway(self, ctx, emoji: EmojiOrUnicode, channel: discord.TextChannel, role=None):
+    async def setgiveaway(self, ctx: commands.Context, emoji: EmojiOrUnicode, channel: discord.TextChannel, role: str=None):
         """Sets up giveaways.
 
         Role can be @everyone, @here or none"""
@@ -136,12 +143,12 @@ class Giveaways(commands.Cog):
         await ctx.send(self.bot.accept)
 
     @group(6, invoke_without_command=True, aliases=['give'])
-    async def giveaway(self, ctx):
+    async def giveaway(self, ctx: commands.Context) -> None:
         """Setup giveaways!"""
         await ctx.invoke(self.bot.get_command('help'), command_or_cog='giveaway')
 
     @giveaway.command(8, usage='<endtime> <winners> <description>')
-    async def create(self, ctx, *, time: UserFriendlyTime):
+    async def create(self, ctx: commands.Context, *, time: UserFriendlyTime) -> None:
         """Create a giveaway
 
         Example: `!giveaway create 3 days 5 $10USD`
@@ -157,7 +164,8 @@ class Giveaways(commands.Cog):
                 # Check if the giveaway exusts
                 guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
                 if not guild_config.giveaway.channel_id:
-                    return await ctx.invoke(self.bot.get_command('help'), command_or_cog='setgiveaway', error=Exception('Setup giveaways with setgiveaway first.'))
+                    await ctx.invoke(self.bot.get_command('help'), command_or_cog='setgiveaway', error=Exception('Setup giveaways with setgiveaway first.'))
+                    return
 
                 if not time.arg:
                     raise commands.BadArgument('Converting to "str" failed for parameter "description".')
@@ -190,7 +198,7 @@ class Giveaways(commands.Cog):
                 await ctx.send('A giveaway already exists. Please wait until the current one expires.')
 
     @giveaway.command(6, aliases=['stat', 'statistics'])
-    async def stats(self, ctx):
+    async def stats(self, ctx: commands.Context) -> None:
         """View statistics of the latest giveaway"""
         async with ctx.typing():
             latest_giveaway = await self.get_latest_giveaway(ctx, force=True)
@@ -227,7 +235,7 @@ class Giveaways(commands.Cog):
                 await ctx.send('No giveaway found')
 
     @giveaway.command(8, aliases=['edit-description'])
-    async def edit_description(self, ctx, *, description):
+    async def edit_description(self, ctx: commands.Context, *, description: str) -> None:
         """Edit the description of the latest giveaway"""
         latest_giveaway = await self.get_latest_giveaway(ctx)
         if latest_giveaway:
@@ -239,7 +247,7 @@ class Giveaways(commands.Cog):
             await ctx.send('No active giveaway')
 
     @giveaway.command(8, aliases=['edit-winners'])
-    async def edit_winners(self, ctx, *, winners: int):
+    async def edit_winners(self, ctx: commands.Context, *, winners: int) -> None:
         """Edit the number of winners of the latest giveaway"""
         latest_giveaway = await self.get_latest_giveaway(ctx)
         if latest_giveaway:
@@ -251,7 +259,7 @@ class Giveaways(commands.Cog):
             await ctx.send('No active giveaway')
 
     @giveaway.command(8, aliases=['roll'])
-    async def reroll(self, ctx, nwinners=None):
+    async def reroll(self, ctx: commands.Context, nwinners: int=None) -> None:
         """Rerolls the winners"""
         async with ctx.typing():
             latest_giveaway = await self.get_latest_giveaway(ctx, force=True)
@@ -268,7 +276,7 @@ class Giveaways(commands.Cog):
                 await ctx.send('No active giveaway')
 
     @giveaway.command(6)
-    async def stop(self, ctx):
+    async def stop(self, ctx: commands.Context) -> None:
         """Stops the giveaway"""
         latest_giveaway = await self.get_latest_giveaway(ctx, force=True)
         try:
@@ -280,5 +288,5 @@ class Giveaways(commands.Cog):
         await ctx.send(self.bot.accept)
 
 
-def setup(bot):
+def setup(bot: rainbot) -> None:
     bot.add_cog(Giveaways(bot))

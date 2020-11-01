@@ -1,10 +1,13 @@
+from __future__ import annotations
+
 import asyncio
 import copy
+from typing import Any, Dict, List, Union
 
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
 
-DEFAULT = {
+DEFAULT: Dict[str, Any] = {
     'guild_id': None,
     'logs': {
         'message_delete': None,
@@ -73,60 +76,12 @@ DEFAULT = {
 }
 
 
-class DatabaseManager:
-    def __init__(self, mongo_uri, *, loop=None):
-        self.mongo = AsyncIOMotorClient(mongo_uri)
-        self.coll = self.mongo.rainbot.guilds
-        self.users = self.mongo.rainbot.users
-        self.guilds_data = {}
-        self.users_data = {}
-
-        self.loop = loop or asyncio.get_event_loop()
-        self.loop.create_task(self.change_listener())
-
-    async def change_listener(self):
-        async with self.coll.watch(full_document='updateLookup') as change_stream:
-            async for change in change_stream:
-                self.guilds_data[int(change['fullDocument']['guild_id'])] = DBDict(change['fullDocument'])
-
-    async def get_guild_config(self, guild_id):
-        if guild_id not in self.guilds_data:
-            data = await self.coll.find_one({'guild_id': str(guild_id)})
-            if data:
-                self.guilds_data[guild_id] = DBDict(data)
-            else:
-                await self.create_new_config(guild_id)
-
-        return self.guilds_data[guild_id]
-
-    # Guilds
-    async def update_guild_config(self, guild_id, update):
-        self.guilds_data[guild_id] = DBDict(await self.coll.find_one_and_update({'guild_id': str(guild_id)}, update, upsert=True, return_document=ReturnDocument.AFTER))
-        return self.guilds_data[guild_id]
-
-    async def create_new_config(self, guild_id):
-        data = copy.copy(DEFAULT)
-        data['guild_id'] = str(guild_id)
-        await self.coll.insert_one(data)
-        self.guilds_data[guild_id] = DBDict(data)
-        return self.guilds_data[guild_id]
-
-    # Users
-    async def get_user(self, user_id):
-        self.users_data[user_id] = await self.users.find_one({'user_id': str(user_id)})
-        return self.users_data[user_id]
-
-    async def update_user(self, user_id, update):
-        self.users_data[user_id] = await self.users.find_one_and_update({'user_id': str(user_id)}, update, upsert=True, return_document=ReturnDocument.AFTER)
-        return self.users_data[user_id]
-
-
 class DBDict(dict):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         self._default = kwargs.pop('_default', DEFAULT)
         super().__init__(*args, **kwargs)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> Any:
         try:
             item = super().__getitem__(key)
         except KeyError:
@@ -139,7 +94,7 @@ class DBDict(dict):
 
         return item
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
         try:
             return super().__getattribute__(name)
         except AttributeError as e:
@@ -148,19 +103,19 @@ class DBDict(dict):
             except KeyError:
                 raise e
 
-    def __copy__(self):
+    def __copy__(self) -> DBDict:
         return DBDict(copy.copy(dict(self)))
 
-    def getlist(self, key):
+    def getlist(self, key: str) -> List[Any]:
         return [self[key]]
 
 
 class DBList(list):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         self._default = kwargs.pop('_default', DEFAULT)
         super().__init__(*args, **kwargs)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: Union[int, slice]) -> Any:
         try:
             item = super().__getitem__(index)
         except KeyError:
@@ -173,10 +128,10 @@ class DBList(list):
 
         return item
 
-    def __copy__(self):
+    def __copy__(self) -> DBList:
         return DBList(copy.copy(list(self)))
 
-    def __iter__(self):
+    def __iter__(self) -> Any:
         for i in super().__iter__():
             if isinstance(i, dict):
                 i = DBDict(i)
@@ -184,7 +139,7 @@ class DBList(list):
                 i = DBList(i)
             yield i
 
-    def get_kv(self, key, value):
+    def get_kv(self, key: str, value: Any) -> DBDict:
         for i in self:
             if i[key] == value:
                 return i
@@ -192,8 +147,56 @@ class DBList(list):
         raise IndexError(f'Key {key} with {value} not found')
 
 
-def tryget(obj, index):
+class DatabaseManager:
+    def __init__(self, mongo_uri: str, *, loop: asyncio.AbstractEventLoop=None) -> None:
+        self.mongo = AsyncIOMotorClient(mongo_uri)
+        self.coll = self.mongo.rainbot.guilds
+        self.users = self.mongo.rainbot.users
+        self.guilds_data: Dict[int, DBDict] = {}
+        self.users_data: Dict[int, DBDict] = {}
+
+        self.loop = loop or asyncio.get_event_loop()
+        self.loop.create_task(self.change_listener())
+
+    async def change_listener(self) -> None:
+        async with self.coll.watch(full_document='updateLookup') as change_stream:
+            async for change in change_stream:
+                self.guilds_data[int(change['fullDocument']['guild_id'])] = DBDict(change['fullDocument'])
+
+    async def get_guild_config(self, guild_id: int) -> DBDict:
+        if guild_id not in self.guilds_data:
+            data = await self.coll.find_one({'guild_id': str(guild_id)})
+            if data:
+                self.guilds_data[guild_id] = DBDict(data)
+            else:
+                await self.create_new_config(guild_id)
+
+        return self.guilds_data[guild_id]
+
+    # Guilds
+    async def update_guild_config(self, guild_id: int, update: dict) -> DBDict:
+        self.guilds_data[guild_id] = DBDict(await self.coll.find_one_and_update({'guild_id': str(guild_id)}, update, upsert=True, return_document=ReturnDocument.AFTER))
+        return self.guilds_data[guild_id]
+
+    async def create_new_config(self, guild_id: int) -> DBDict:
+        data = copy.copy(DEFAULT)
+        data['guild_id'] = str(guild_id)
+        await self.coll.insert_one(data)
+        self.guilds_data[guild_id] = DBDict(data)
+        return self.guilds_data[guild_id]
+
+    # Users
+    async def get_user(self, user_id: int) -> DBDict:
+        self.users_data[user_id] = await self.users.find_one({'user_id': str(user_id)})
+        return self.users_data[user_id]
+
+    async def update_user(self, user_id: int, update: dict) -> DBDict:
+        self.users_data[user_id] = await self.users.find_one_and_update({'user_id': str(user_id)}, update, upsert=True, return_document=ReturnDocument.AFTER)
+        return self.users_data[user_id]
+
+
+def tryget(obj: Union[dict, list], key: Any) -> Any:
     try:
-        return obj[index]
+        return obj[key]
     except (KeyError, IndexError):
         return None

@@ -18,6 +18,9 @@ Support Server: <https://discord.gg/eXrDpGS>
 Check out the [wiki](https://github.com/fourjr/rainbot/wiki/Setting-up-rainbot) for a full guide.
 
 # Contributing
-- Python 3.8 and above is not supported: Suggested version is Python 3.8
+- Python 3.9 and above is not supported: Suggested version is Python 3.8
 - Install requirements using `pip install -r requirements.txt`
 - Run bot with `python bot.py`
+
+# Stubs Acknowledgements
+- [pcorpet/pymongo-bson](https://github.com/mongodb/mongo-python-driver/pull/408)
