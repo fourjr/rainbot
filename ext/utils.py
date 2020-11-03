@@ -166,7 +166,7 @@ class Detection:
         self.require_attachment = attrs.pop('require_attachment', False)
 
         self.__cog_detection__ = True
-    
+
     async def check_constraints(self, bot: rainbot, message: discord.Message) -> bool:
         if self.require_guild and not message.guild:
             return False
@@ -191,15 +191,15 @@ class Detection:
 
         if not self.allow_bot and message.author.bot:
             return False
-        
+
         if self.require_prod and bot.dev_mode:
             return False
-        
+
         if self.require_attachment and not message.attachments:
             return False
-        
+
         return True
-    
+
     async def trigger(self, cog: commands.Cog, message: discord.Message) -> Any:
         if await self.check_constraints(cog.bot, message):
             return await self.callback(cog, message)

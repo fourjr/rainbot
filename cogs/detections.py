@@ -17,7 +17,7 @@ from nudenet import NudeDetector
 from PIL import Image
 
 from bot import rainbot
-from ext.utils import UNICODE_EMOJI, Detection, detection, get_perm_level
+from ext.utils import UNICODE_EMOJI, Detection, detection
 
 
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
@@ -81,7 +81,9 @@ class Detections(commands.Cog):
 
     @detection('filter', check_enabled=False)
     async def filtered_words(self, m: discord.Message) -> None:
-        if len(filtered_words) != 0 and str(m.channel.id):
+        guild_config = await self.bot.db.get_guild_config(m.guild.id)
+        words = [i for i in guild_config.detections.filters if i in m.content.lower()]
+        if len(words) != 0 and str(m.channel.id):
             await m.delete()
             return True
 
@@ -106,7 +108,7 @@ class Detections(commands.Cog):
         english_text = ''.join(self.ENGLISH_REGEX.findall(m.content))
         if english_text != m.content:
             await m.delete()
-    
+
     @detection('spam_detection')
     async def spam_detection(self, m: discord.Message) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
@@ -141,7 +143,7 @@ class Detections(commands.Cog):
             await self.bot.mute(m.author, timedelta(minutes=10), reason=reason)
             await self.invoke('warn add', m, member=m.author, reason=reason)
             await self.invoke('purge', m, member=m.author, limit=self.get_most_common_count_repmessage(m.author.id))
-            
+
             try:
                 del self.repetitive_message[str(m.author.id)]
             except KeyError:

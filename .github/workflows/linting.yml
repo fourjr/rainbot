@@ -27,7 +27,7 @@ jobs:
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
-        flake8 . --select=E9,F63,F7,F82 --show-source
+        flake8 . --select=E9,F63,F7,F82 --ignore=F722 --show-source
         # exit-zero treats all errors as warnings.
         flake8 . --ignore=E722,E501,E741,E252,E731,W605,F722
     - name: Lint with mypy (type checking)

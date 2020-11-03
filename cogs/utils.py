@@ -8,7 +8,7 @@ import textwrap
 import traceback
 from contextlib import redirect_stdout
 from datetime import datetime
-from typing import TYPE_CHECKING, Callable, Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import discord
 from discord.ext import commands
