@@ -82,7 +82,7 @@ class Utility(commands.Cog):
         func = env['func']
         try:
             with redirect_stdout(stdout):
-                ret = await func()  # type: ignore[operator]
+                ret = await func()
         except Exception:
             value = stdout.getvalue()
             err = await ctx.send(f'```py\n{value}{traceback.format_exc()}\n```')
@@ -286,13 +286,13 @@ class Utility(commands.Cog):
     async def on_guild_join(self, guild) -> None:
         channel = self.bot.get_channel(733702521893289985)
         if channel:
-            await channel.send(f'Joined {guild.name} ({guild.id}) [{len(guild.members)} members] - Total: {len(self.bot.guilds)}')  # type: ignore[union-attr]
+            await channel.send(f'Joined {guild.name} ({guild.id}) [{len(guild.members)} members] - Total: {len(self.bot.guilds)}')
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild) -> None:
         channel = self.bot.get_channel(733702521893289985)
         if channel:
-            await channel.send(f'Left {guild.name} ({guild.id}) [{len(guild.members)} members] - Total: {len(self.bot.guilds)}')  # type: ignore[union-attr]
+            await channel.send(f'Left {guild.name} ({guild.id}) [{len(guild.members)} members] - Total: {len(self.bot.guilds)}')
 
 
 def setup(bot: 'rainbot') -> None:

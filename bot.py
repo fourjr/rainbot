@@ -60,7 +60,7 @@ class rainbot(commands.Bot):
             traceback.print_exc(file=sys.stderr)
         finally:
             if self.session:
-                self.loop.run_until_complete(self.session.close())  # type: ignore[unreachable]
+                self.loop.run_until_complete(self.session.close())
             self.loop.close()
             os._exit(0)
 
@@ -160,7 +160,7 @@ class rainbot(commands.Bot):
         await member.add_roles(mute_role)
 
         # mute complete, log it
-        log_channel: discord.TextChannel = self.get_channel(int(guild_config.modlog.member_mute or 0))  # type: ignore[assignment]
+        log_channel: discord.TextChannel = self.get_channel(int(guild_config.modlog.member_mute or 0))
         if log_channel:
             current_time = datetime.utcnow()
 
@@ -196,7 +196,7 @@ class rainbot(commands.Bot):
             log_channel: Optional[discord.TextChannel] = None
 
             if guild_config.modlog.member_unmute:
-                log_channel = self.get_channel(int(guild_config.modlog.member_unmute))  # type: ignore[assignment]
+                log_channel = self.get_channel(int(guild_config.modlog.member_unmute))
 
             current_time = datetime.utcnow()
 
