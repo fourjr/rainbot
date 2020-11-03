@@ -302,11 +302,15 @@ class Setup(commands.Cog):
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set-explicit', 'set_explicit'])
-    async def setexplicit(self, ctx: commands.Context, *types: List[str]) -> None:
-        """Types can be a comma-seperated list of the following:
+    async def setexplicit(self, ctx: commands.Context, *types_: List[str]) -> None:
+        """Types can be a space-seperated list of the following:
         `EXPOSED_ANUS, EXPOSED_ARMPITS, COVERED_BELLY, EXPOSED_BELLY, COVERED_BUTTOCKS, EXPOSED_BUTTOCKS, FACE_F, FACE_M, COVERED_FEET, EXPOSED_FEET, COVERED_BREAST_F, EXPOSED_BREAST_F, COVERED_GENITALIA_F, EXPOSED_GENITALIA_F, EXPOSED_BREAST_M, EXPOSED_GENITALIA_M`
         """
-        await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'detections.sexually_explicit': types}})
+        possibles = ['EXPOSED_ANUS', 'EXPOSED_ARMPITS', 'COVERED_BELLY', 'EXPOSED_BELLY', 'COVERED_BUTTOCKS', 'EXPOSED_BUTTOCKS', 'FACE_F', 'FACE_M', 'COVERED_FEET', 'EXPOSED_FEET', 'COVERED_BREAST_F', 'EXPOSED_BREAST_F', 'COVERED_GENITALIA_F', 'EXPOSED_GENITALIA_F', 'EXPOSED_BREAST_M', 'EXPOSED_GENITALIA_M']
+        for i in types_:
+            if i not in possibles:
+                return await ctx.send(f'{i} is not a valid type')
+        await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'detections.sexually_explicit': types_}})
 
         await ctx.send(self.bot.accept)
 
