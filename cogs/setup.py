@@ -301,7 +301,6 @@ class Setup(commands.Cog):
 
         await ctx.send(self.bot.accept)
 
-    @owner()
     @command(10, aliases=['set-explicit', 'set_explicit'])
     async def setexplicit(self, ctx: commands.Context, *types: List[str]) -> None:
         """Types can be a comma-seperated list of the following:

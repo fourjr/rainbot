@@ -44,7 +44,7 @@ class Detections(commands.Cog):
 
     @Cog.listener()
     async def on_message(self, m: discord.Message) -> None:
-        if m.guild.id != 733697261065994320 or m.type != discord.MessageType.default:
+        if (not self.bot.dev_mode or (m.guild and m.guild.id != 733697261065994320)) or m.type != discord.MessageType.default:
             return
 
         for func in self.detections:
@@ -99,7 +99,7 @@ class Detections(commands.Cog):
                     if not (invite.guild.id == m.guild.id or str(invite.guild.id) in guild_config.whitelisted_guilds):
                         await m.delete()
                         await self.invoke('warn add', m, member=m.author, reason=f'Advertising discord server {invite.guild.name} (<{invite.url}>)')
-                        await self.bot.mute(m.author, timedelta(minutes=10), reason=f'Advertising discord server (<{invite.url}>)')
+                        await self.bot.mute(m.author, timedelta(minutes=10), reason=f'Advertising discord server {invite.guild.name} (<{invite.url}>)')
 
     @detection('english_only')
     async def english_only(self, m: discord.Message) -> None:
@@ -115,42 +115,54 @@ class Detections(commands.Cog):
             reason = f'Exceeding spam detection ({limit} messages/5s)'
             await self.bot.mute(m.author, timedelta(minutes=10), reason=reason)
             await self.invoke('warn add', m, member=m.author, reason=reason)
-            await self.invoke('purge', m, member=m.author, limit=len(self.spam_detection[str(m.author.id)]), reason=reason)
+            await self.invoke('purge', m, member=m.author, limit=len(self.spam_detection[str(m.author.id)]))
 
-            del self.spam_detection[str(m.author.id)]
+            try:
+                del self.spam_detection[str(m.author.id)]
+            except KeyError:
+                pass
         else:
             self.spam_detection[str(m.author.id)].append(m.id)
             await asyncio.sleep(5)
-            self.spam_detection[str(m.author.id)].remove(m.id)
+            try:
+                self.spam_detection[str(m.author.id)].remove(m.id)
 
-            if not self.spam_detection[str(m.author.id)]:
-                del self.spam_detection[str(m.author.id)]
+                if not self.spam_detection[str(m.author.id)]:
+                    del self.spam_detection[str(m.author.id)]
+            except ValueError:
+                pass
 
     @detection('repetitive_message')
     async def repetitive_message(self, m: discord.Message) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         limit = guild_config.detections.repetitive_message
-        if self.get_most_common_count(m.author.id) >= limit:
+        if self.get_most_common_count_repmessage(m.author.id) >= limit:
             reason = f'Repetitive message detection ({limit} identical messages/1m)'
             await self.bot.mute(m.author, timedelta(minutes=10), reason=reason)
             await self.invoke('warn add', m, member=m.author, reason=reason)
-            await self.invoke('purge', m, member=m.author, limit=self.get_most_common_count(m.author.id), reason=reason)
+            await self.invoke('purge', m, member=m.author, limit=self.get_most_common_count_repmessage(m.author.id))
             
-            del self.spam_detection[str(m.author.id)]
+            try:
+                del self.repetitive_message[str(m.author.id)]
+            except KeyError:
+                pass
         else:
             self.repetitive_message[str(m.author.id)][m.content] += 1
             await asyncio.sleep(60)
-            self.repetitive_message[str(m.author.id)][m.content] -= 1
+            try:
+                self.repetitive_message[str(m.author.id)][m.content] -= 1
 
-            if not self.repetitive_message[str(m.author.id)].values():
-                del self.repetitive_message[str(m.author.id)]
+                if not self.repetitive_message[str(m.author.id)].values():
+                    del self.repetitive_message[str(m.author.id)]
+            except KeyError:
+                pass
 
     async def invoke(self, command, message: discord.Message, **kwargs) -> None:
         ctx = await self.bot.get_context(message)
         ctx.author = message.guild.me
-        await ctx.invoke(self.bot.get_command('warn add'), **kwargs)
+        await ctx.invoke(self.bot.get_command(command), **kwargs)
 
-    def get_most_common_count(self, id_: int) -> int:
+    def get_most_common_count_repmessage(self, id_: int) -> int:
         most_common = self.repetitive_message.get(str(id_), Counter()).most_common(1)
         if most_common:
             if most_common[0]:
@@ -166,7 +178,7 @@ class Detections(commands.Cog):
             labels = self.nude_image_cache[image_hash]
         except KeyError:
             with self.nude_graph.as_default():
-                result = self.nude_detector.detect(path)
+                result = self.nude_detector.detect(path, min_prob=0.8)
             labels = []
 
             for i in result:

@@ -160,7 +160,7 @@ class Detection:
         self.name = attrs.pop('name')
         self.check_enabled = attrs.pop('check_enabled', True)
         self.require_user = attrs.pop('require_user', None)
-        self.allow_bot = attrs.pop('allow_bot', True)
+        self.allow_bot = attrs.pop('allow_bot', False)
         self.require_prod = attrs.pop('require_prod', True)
         self.require_guild = attrs.pop('require_guild', True)
         self.require_attachment = attrs.pop('require_attachment', False)
@@ -168,24 +168,31 @@ class Detection:
         self.__cog_detection__ = True
     
     async def check_constraints(self, bot: rainbot, message: discord.Message) -> bool:
-        guild_config = await bot.db.get_guild_config(message.guild.id)
+        if self.require_guild and not message.guild:
+            return False
 
-        if self.check_enabled and not guild_config.detections[self.name]:
-            return False
-    
-        if str(message.channel.id) in guild_config.ignored_channels[self.name]:
-            return False
+        if message.guild:
+            guild_config = await bot.db.get_guild_config(message.guild.id)
+
+            if self.check_enabled and not guild_config.detections[self.name]:
+                return False
+
+            if str(message.channel.id) in guild_config.ignored_channels[self.name]:
+                return False
+
+            if not bot.dev_mode and str(message.channel.id) in guild_config.ignored_channels_in_prod:
+                return False
+
+            if get_perm_level(message.author, guild_config)[0] >= 5:
+                return False
 
         if self.require_user and message.author.id != self.require_user:
             return False
 
-        if self.allow_bot and message.author.bot:
+        if not self.allow_bot and message.author.bot:
             return False
         
         if self.require_prod and bot.dev_mode:
-            return False
-        
-        if self.require_guild and not message.guild:
             return False
         
         if self.require_attachment and not message.attachments:

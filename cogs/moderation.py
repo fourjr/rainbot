@@ -325,11 +325,14 @@ class Moderation(commands.Cog):
             await self.bot.unmute(ctx.guild.id, member.id, None, reason=reason)
             await ctx.send(self.bot.accept)
 
-    @command(6, aliases=['clean', 'prune'])
+    @command(6, aliases=['clean', 'prune'], usage='<limit> [member]')
     async def purge(self, ctx: commands.Context, limit: int, *, member: MemberOrID=None) -> None:
         """Deletes messages in bulk"""
         count = min(2000, limit)
-        await ctx.message.delete()
+        try:
+            await ctx.message.delete()
+        except discord.NotFound:
+            pass
 
         retries = 0
         if member:
@@ -344,8 +347,13 @@ class Moderation(commands.Cog):
                     previous = m.id
 
                 if last_message != -1:
+                    if last_message:
+                        before = discord.Object(last_message)
+                    else:
+                        before = None
+
                     try:
-                        deleted = await ctx.channel.purge(limit=count, check=lambda m: m.author.id == member.id, before=discord.Object(last_message))
+                        deleted = await ctx.channel.purge(limit=count, check=lambda m: m.author.id == member.id, before=before)
                     except discord.NotFound:
                         pass
                     else:
@@ -354,6 +362,7 @@ class Moderation(commands.Cog):
                     break
 
                 if retries > 20:
+                    print('tryhard')
                     break
         else:
             deleted = await ctx.channel.purge(limit=count)

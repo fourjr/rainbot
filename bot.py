@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 
 from ext import errors
 from ext.database import DatabaseManager
+from ext.errors import Underleveled
 from ext.utils import format_timedelta
 
 
@@ -66,6 +67,8 @@ class rainbot(commands.Bot):
     def load_extensions(self) -> None:
         for i in os.listdir('cogs'):
             if i.endswith('.py'):
+                if self.dev_mode and i == 'logs.py':
+                    continue
                 try:
                     self.load_extension(f'cogs.{i.replace(".py", "")}')
                 except:
@@ -98,7 +101,8 @@ class rainbot(commands.Bot):
         ignored = (
             commands.CommandNotFound,
             commands.CheckFailure,
-            commands.BadArgument
+            commands.BadArgument,
+            Underleveled
         )
         if isinstance(e, (commands.UserInputError, errors.BotMissingPermissionsInChannel)):
             await ctx.invoke(self.get_command('help'), command_or_cog=ctx.command.qualified_name, error=e)

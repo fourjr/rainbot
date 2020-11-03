@@ -148,7 +148,7 @@ class Logging(commands.Cog):
 
     @Cog.listener()
     async def on_bulk_message_delete(self, payload: List[discord.Message]) -> None:
-        guild_id = payload[0].guild_id
+        guild_id = payload[0].guild.id
         log_channel = await self.check_enabled(guild_id, 'message_delete')
         if not guild_id or not log_channel or self.bot.dev_mode:
             return
@@ -206,7 +206,7 @@ class Logging(commands.Cog):
             if isinstance(channel, (discord.TextChannel, discord.VoiceChannel, discord.CategoryChannel)):
                 try:
                     await channel.set_permissions(role, send_messages=False, speak=False)
-                except discord.NotFound:
+                except discord.Forbidden:
                     pass
 
     @Cog.listener()
