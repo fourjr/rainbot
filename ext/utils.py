@@ -155,7 +155,7 @@ def apply_vars(bot: 'rainbot', tag: str, message: discord.Message) -> str:
 
 
 class Detection:
-    def __init__(self, func: Callable, **attrs):
+    def __init__(self, func: Callable, **attrs: Union[bool, str]):
         self.callback = func
         self.name = attrs.pop('name')
         self.check_enabled = attrs.pop('check_enabled', True)
@@ -205,7 +205,7 @@ class Detection:
             return await self.callback(cog, message)
 
 
-def detection(name: str, **attrs) -> Callable:
+def detection(name: str, **attrs: bool) -> Callable:
     def decorator(func: Callable) -> Detection:
         return Detection(func, name=name, **attrs)
     return decorator

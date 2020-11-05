@@ -10,7 +10,7 @@ from bot import rainbot
 from ext.command import command, group
 from ext.database import DEFAULT, DBDict
 from ext.time import UserFriendlyTime
-from ext.utils import format_timedelta, get_perm_level
+from ext.utils import format_timedelta, get_perm_level, tryint
 
 MEMBER_ID_REGEX = re.compile(r'<@!?([0-9]+)>$')
 
@@ -47,7 +47,7 @@ class Moderation(commands.Cog):
         offset = guild_config.time_offset
         current_time = (ctx.message.created_at + timedelta(hours=offset)).strftime('%H:%M:%S')
 
-        modlogs = DBDict({i: int(guild_config.modlog[i]) for i in guild_config.modlog if i}, default=DEFAULT['modlog'])
+        modlogs = DBDict({i: tryint(guild_config.modlog[i]) for i in guild_config.modlog if i}, default=DEFAULT['modlog'])
 
         try:
             if ctx.command.name == 'purge':
@@ -210,28 +210,28 @@ class Moderation(commands.Cog):
             cmd = None
             punish = False
 
-            try:
-                num_warns = len(warns) + 1
-                fmt = f'You have been warned in **{ctx.guild.name}**, reason: {reason}. This is warning #{num_warns}.'
+            num_warns = len(warns) + 1
+            fmt = f'You have been warned in **{ctx.guild.name}**, reason: {reason}. This is warning #{num_warns}.'
 
-                if warn_punishments:
-                    punishments = list(filter(lambda x: int(x) == num_warns, warn_punishment_limits))
-                    if not punishments:
-                        punish = False
-                        above = list(filter(lambda x: int(x) > num_warns, warn_punishment_limits))
-                        if above:
-                            closest = min(map(int, above))
-                            cmd = warn_punishments.get_kv('warn_number', closest).punishment
-                            if cmd == 'ban':
-                                cmd = 'bann'
-                            fmt += f' You will be {cmd}ed on warning {closest}.'
-                    else:
-                        punish = True
-                        cmd = warn_punishments.get_kv('warn_number', max(map(int, punishments))).punishment
+            if warn_punishments:
+                punishments = list(filter(lambda x: int(x) == num_warns, warn_punishment_limits))
+                if not punishments:
+                    punish = False
+                    above = list(filter(lambda x: int(x) > num_warns, warn_punishment_limits))
+                    if above:
+                        closest = min(map(int, above))
+                        cmd = warn_punishments.get_kv('warn_number', closest).punishment
                         if cmd == 'ban':
                             cmd = 'bann'
-                        fmt += f' You have been {cmd}ed from the server.'
+                        fmt += f' You will be {cmd}ed on warning {closest}.'
+                else:
+                    punish = True
+                    cmd = warn_punishments.get_kv('warn_number', max(map(int, punishments))).punishment
+                    if cmd == 'ban':
+                        cmd = 'bann'
+                    fmt += f' You have been {cmd}ed from the server.'
 
+            try:
                 await member.send(fmt)
             except discord.Forbidden:
                 if ctx.author != ctx.guild.me:

@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 from ext import errors
 from ext.database import DatabaseManager
 from ext.errors import Underleveled
-from ext.utils import format_timedelta
+from ext.utils import format_timedelta, tryint
 
 
 class rainbot(commands.Bot):
@@ -160,7 +160,7 @@ class rainbot(commands.Bot):
         await member.add_roles(mute_role)
 
         # mute complete, log it
-        log_channel: discord.TextChannel = self.get_channel(int(guild_config.modlog.member_mute or 0))
+        log_channel: discord.TextChannel = self.get_channel(tryint(guild_config.modlog.member_mute))
         if log_channel:
             current_time = datetime.utcnow()
 
@@ -193,10 +193,7 @@ class rainbot(commands.Bot):
         if member:
             guild_config = await self.db.get_guild_config(guild_id)
             mute_role: Optional[discord.Role] = discord.utils.get(member.guild.roles, id=int(guild_config.mute_role))
-            log_channel: Optional[discord.TextChannel] = None
-
-            if guild_config.modlog.member_unmute:
-                log_channel = self.get_channel(int(guild_config.modlog.member_unmute))
+            log_channel: Optional[discord.TextChannel] = self.get_channel(tryint(guild_config.modlog.member_unmute))
 
             current_time = datetime.utcnow()
 

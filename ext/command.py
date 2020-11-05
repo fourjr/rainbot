@@ -117,7 +117,7 @@ class RainGroup(commands.Group):
         return ' '.join(result)
 
 
-def command(level, **kwargs: Any) -> Callable:
+def command(level: int, **kwargs: Any) -> Callable:
     kwargs['perm_level'] = level
     return commands.command(cls=RainCommand, **kwargs)
 
