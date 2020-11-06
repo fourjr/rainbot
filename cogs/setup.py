@@ -202,12 +202,12 @@ class Setup(commands.Cog):
     async def setdetection(self, ctx: commands.Context, detection_type: lower, value: str) -> None:
         """Sets or toggle the auto moderation types
 
-        Valid types: block_invite, english_only, mention_limit, spam_detection, repetitive_message, auto_purge_trickocord, max_lines
+        Valid types: block_invite, english_only, mention_limit, spam_detection, repetitive_message, auto_purge_trickocord, max_lines, max_words, max_characters
         """
         if detection_type in ('block_invite', 'english_only', 'auto_purge_trickocord'):
             await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'detections.{detection_type}': commands.core._convert_to_bool(value)}})
             await ctx.send(self.bot.accept)
-        elif detection_type in ('mention_limit', 'spam_detection', 'repetitive_message', 'max_lines'):
+        elif detection_type in ('mention_limit', 'spam_detection', 'repetitive_message', 'max_lines', 'max_words', 'max_characters'):
             try:
                 if int(value) <= 0:
                     raise ValueError
@@ -216,7 +216,7 @@ class Setup(commands.Cog):
                 raise commands.BadArgument(f'{value} (`value`) is not a valid number above 0') from e
             await ctx.send(self.bot.accept)
         else:
-            raise commands.BadArgument('Invalid detection, pick one from below:\nblock_invite, english_only, mention_limit, spam_detection, repetitive_message, auto_purge_trickorcord, max_lines')
+            raise commands.BadArgument('Invalid detection, pick one from below:\nblock_invite, english_only, mention_limit, spam_detection, repetitive_message, auto_purge_trickorcord, max_lines, max_words, max_characters')
 
     @command(10, aliases=['set-guild-whitelist', 'set_guild_whitelist'])
     async def setguildwhitelist(self, ctx: commands.Context, guild_id: int=None) -> None:

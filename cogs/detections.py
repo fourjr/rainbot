@@ -79,10 +79,24 @@ class Detections(commands.Cog):
             await self.invoke('warn add', m, member=m.author, reason=f'Mass mentions ({len(m.mentions)})')
             await self.bot.mute(m.author, timedelta(minutes=10), reason=f'Mass mentions ({len(m.mentions)})')
 
-    @detection('max_lines', require_prod=False)
+    @detection('max_lines')
     async def max_lines(self, m: discord.Message) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         if len(m.content.splitlines()) > guild_config.detections.max_lines:
+            await m.delete()
+            return True
+
+    @detection('max_words')
+    async def max_words(self, m: discord.Message) -> None:
+        guild_config = await self.bot.db.get_guild_config(m.guild.id)
+        if len(m.content.split(' ')) > guild_config.detections.max_words:
+            await m.delete()
+            return True
+
+    @detection('max_characters')
+    async def max_characters(self, m: discord.Message) -> None:
+        guild_config = await self.bot.db.get_guild_config(m.guild.id)
+        if len(m.content) > guild_config.detections.max_characters:
             await m.delete()
             return True
 

@@ -46,6 +46,8 @@ DEFAULT: Dict[str, Any] = {
         'spam_detection': None,
         'repetitive_message': None,
         'max_lines': None,
+        'max_words': None,
+        'max_characters': None,
         'sexually_explicit': []
     },
     'giveaway': {
@@ -75,6 +77,8 @@ DEFAULT: Dict[str, Any] = {
         'spam_detection': [],
         'repetitive_message': [],
         'max_lines': [],
+        'max_words': [],
+        'max_characters': [],
         'sexually_explicit': []
     },
     'ignored_channels_in_prod': [],
