@@ -181,17 +181,17 @@ class Moderation(commands.Cog):
 
             await ctx.send(fmt)
 
-    @group(6, invoke_without_command=True, usage='')
-    async def warn(self, ctx: commands.Context, member: str=None, *, reason: str=None) -> None:
+    @group(6, invoke_without_command=True, usage='\u200b')
+    async def warn(self, ctx: commands.Context, member: Union[MemberOrID, str]=None, *, reason: str=None) -> None:
         """Manage warns"""
-        # TODO: try using Union[str, MemberOrID, None]
-        try:
-            member = await MemberOrID().convert(ctx, member)
-        except commands.BadArgument:
-            await ctx.invoke(self.bot.get_command('help'), command_or_cog='warn')
+        if isinstance(member, (discord.User, discord.Member)):
+            if reason:
+                ctx.command = self.add_
+                await ctx.invoke(self.add_, member=member, reason=reason)
+            else:
+                await ctx.invoke(self.bot.get_command('help'), command_or_cog='warn add')
         else:
-            ctx.command = self.add_
-            await ctx.invoke(self.add_, member=member, reason=reason)
+            await ctx.invoke(self.bot.get_command('help'), command_or_cog='warn')
 
     @warn.command(6, name='add')
     async def add_(self, ctx: commands.Context, member: MemberOrID, *, reason: str) -> None:
