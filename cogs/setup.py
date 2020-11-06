@@ -1,5 +1,6 @@
 import copy
 import json
+import re
 from typing import Any, Dict, List, Union
 
 import discord
@@ -258,6 +259,34 @@ class Setup(commands.Cog):
                 await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {f'ignored_channels.{detection_type}': str(channel.id)}})
 
         await ctx.send(self.bot.accept)
+
+    @group(8, invoke_without_command=True)
+    async def regexfilter(self, ctx: commands.Context) -> None:
+        """Controls the regex filter"""
+        await ctx.invoke(self.bot.get_command('help'), command_or_cog='regexfilter')
+
+    @regexfilter.command(8, name='add')
+    async def re_add(self, ctx: commands.Context, *, pattern) -> None:
+        """Add blacklisted regex into the regex filter"""
+        try:
+            re.compile(pattern)
+        except re.error as e:
+            return await ctx.send(f'Invalid regex pattern: `{e}`.\nView <https://regexr.com/> for a guide.')
+
+        await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {'detections.regex_filters': pattern}})
+        await ctx.send(self.bot.accept)
+
+    @regexfilter.command(8, name='remove')
+    async def re_remove(self, ctx: commands.Context, *, pattern) -> None:
+        """Removes blacklisted regex from the regex filter"""
+        await self.bot.db.update_guild_config(ctx.guild.id, {'$pull': {'detections.regex_filters': pattern}})
+        await ctx.send(self.bot.accept)
+
+    @regexfilter.command(8, name='list')
+    async def re_list_(self, ctx: commands.Context) -> None:
+        """Lists the full word filter"""
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        await ctx.send(f"Regex Filters: {', '.join([f'`{i}`' for i in guild_config.detections.regex_filters])}")
 
     @group(8, name='filter', invoke_without_command=True)
     async def filter_(self, ctx: commands.Context) -> None:

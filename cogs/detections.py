@@ -83,7 +83,15 @@ class Detections(commands.Cog):
     async def filtered_words(self, m: discord.Message) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         words = [i for i in guild_config.detections.filters if i in m.content.lower()]
-        if len(words) != 0 and str(m.channel.id):
+        if words:
+            await m.delete()
+            return True
+
+    @detection('regex_filter', check_enabled=False)
+    async def regex_filter(self, m: discord.Message) -> None:
+        guild_config = await self.bot.db.get_guild_config(m.guild.id)
+        matches = [i for i in guild_config.detections.regex_filters if re.match(i, m.content)]
+        if matches:
             await m.delete()
             return True
 

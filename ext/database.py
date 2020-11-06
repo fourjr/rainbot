@@ -38,6 +38,7 @@ DEFAULT: Dict[str, Any] = {
     'time_offset': 0,
     'detections': {
         'filters': [],
+        'regex_filters': [],
         'block_invite': False,
         'english_only': False,
         'auto_purge_trickocord': False,
@@ -65,6 +66,7 @@ DEFAULT: Dict[str, Any] = {
     'autoroles': [],
     'ignored_channels': {
         'filter': [],
+        'regex_filter': [],
         'block_invite': [],
         'english_only': [],
         'mention_limit': [],
