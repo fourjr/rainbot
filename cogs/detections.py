@@ -44,7 +44,10 @@ class Detections(commands.Cog):
 
     @Cog.listener()
     async def on_message(self, m: discord.Message) -> None:
-        if (not self.bot.dev_mode or (m.guild and m.guild.id != 733697261065994320)) or m.type != discord.MessageType.default:
+        if self.bot.dev_mode:
+            if m.guild.id != 733697261065994320:
+                return
+        if (self.bot.dev_mode and (m.guild and m.guild.id != 733697261065994320)) or m.type != discord.MessageType.default:
             return
 
         for func in self.detections:
