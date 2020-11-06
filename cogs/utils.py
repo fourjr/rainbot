@@ -202,25 +202,25 @@ class Utility(commands.Cog):
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         cmd_level = get_command_level(cmd, guild_config)
 
-        if isinstance(cmd, RainCommand):
-            if await self.can_run(ctx, cmd) and cmd.enabled:
+        if await self.can_run(ctx, cmd) and cmd.enabled:
+            if isinstance(cmd, RainCommand):
                 em = discord.Embed(title=prefix + cmd.signature, description=f'{cmd.help}\n\nPermission level: {cmd_level}', color=0x7289da)
                 return em
 
-        elif isinstance(cmd, RainGroup):
-            em = discord.Embed(title=prefix + cmd.signature, description=f'{cmd.help}\n\nPermission level: {cmd_level}', color=0x7289da)
-            subcommands = ''
-            commands = []
+            elif isinstance(cmd, RainGroup):
+                em = discord.Embed(title=prefix + cmd.signature, description=f'{cmd.help}\n\nPermission level: {cmd_level}', color=0x7289da)
+                subcommands = ''
+                commands = []
+                for i in cmd.commands:
+                    if await self.can_run(ctx, i):
+                        commands.append(i)
 
-            for i in cmd.commands:
-                if await self.can_run(ctx, i):
-                    commands.append(i)
+                for i in commands:
+                    subcommands += f"`{i.name}` {i.short_doc}\n"
 
-            for i in commands:
-                subcommands += f"`{i.name}` {i.short_doc}\n"
-
-            em.add_field(name='Subcommands', value=subcommands)
-            return em
+                em.add_field(name='Subcommands', value=subcommands)
+                if commands:
+                    return em
 
         return None
 

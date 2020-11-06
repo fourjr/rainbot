@@ -62,7 +62,7 @@ class Roles(commands.Cog):
     @group(10, invoke_without_command=True)
     async def autorole(self, ctx: commands.Context) -> None:
         """Manage autoroles"""
-        await ctx.invoke(self.bot.get_command('help'), command_or_cog='note')
+        await ctx.invoke(self.bot.get_command('help'), command_or_cog='autorole')
 
     @autorole.command(10, name='add')
     async def _add(self, ctx: commands.Context, *, role: discord.Role) -> None:
@@ -92,7 +92,7 @@ class Roles(commands.Cog):
     @group(10, aliases=['reaction-role', 'reaction_role'], invoke_without_command=True)
     async def reactionrole(self, ctx: commands.Context) -> None:
         """Manage reaction roles."""
-        await ctx.invoke(self.bot.get_command('help'), command_or_cog='note')
+        await ctx.invoke(self.bot.get_command('help'), command_or_cog='reactionrole')
 
     @reactionrole.command(10, name='add')
     async def add_(self, ctx: commands.Context, channel: discord.TextChannel, message_id: int, emoji: EmojiOrUnicode, role: discord.Role) -> None:
