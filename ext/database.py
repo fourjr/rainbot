@@ -45,6 +45,7 @@ DEFAULT: Dict[str, Any] = {
         'mention_limit': None,
         'spam_detection': None,
         'repetitive_message': None,
+        'max_lines': None,
         'sexually_explicit': []
     },
     'giveaway': {
@@ -73,6 +74,7 @@ DEFAULT: Dict[str, Any] = {
         'auto_purge_trickocord': [],
         'spam_detection': [],
         'repetitive_message': [],
+        'max_lines': [],
         'sexually_explicit': []
     },
     'ignored_channels_in_prod': [],
