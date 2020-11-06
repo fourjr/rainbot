@@ -209,3 +209,9 @@ def detection(name: str, **attrs: bool) -> Callable:
     def decorator(func: Callable) -> Detection:
         return Detection(func, name=name, **attrs)
     return decorator
+
+
+class QuickId:
+    def __init__(self, guild_id: int, id_: int):
+        self.guild_id = guild_id
+        self.id = id_

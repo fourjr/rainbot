@@ -6,6 +6,7 @@ from discord.ext import commands
 from discord.ext.commands import Cog
 
 from bot import rainbot
+from ext.utils import QuickId
 
 
 class Logging(commands.Cog):
@@ -59,7 +60,7 @@ class Logging(commands.Cog):
 
         if raw:
             if mode == 'bulk':
-                await log.send(f"`{current_time}` Message ({payload}) has been {end}.")
+                await log.send(f"`{current_time}` Message ({payload.id}) has been {end}.")
             else:
                 await log.send(f"`{current_time}` Message ({payload.message_id}) has been {end}.")
         else:
@@ -144,7 +145,7 @@ class Logging(commands.Cog):
         found = [i.id for i in payload.cached_messages]
         for id_ in payload.message_ids:
             if id_ not in found:
-                await self.send_log(log_channel, id_, True, 'deleted', mode='bulk')
+                await self.send_log(log_channel, QuickId(payload.guild_id, id_), True, 'deleted', mode='bulk')
 
     @Cog.listener()
     async def on_bulk_message_delete(self, payload: List[discord.Message]) -> None:

@@ -1,4 +1,5 @@
 import asyncio
+from typing import Any
 
 import discord
 from discord.ext import commands
@@ -24,7 +25,7 @@ class Paginator:
     stop:
         Stops the paginator session and deletes the embed.
     '''
-    def __init__(self, ctx: commands.Context, *embeds: discord.Embed, **kwargs) -> None:
+    def __init__(self, ctx: commands.Context, *embeds: discord.Embed, **kwargs: Any) -> None:
         '''Initialises the class'''
         self.embeds = embeds
 
