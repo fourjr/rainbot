@@ -15,7 +15,7 @@ from ext.utils import format_timedelta, get_perm_level, tryint
 MEMBER_ID_REGEX = re.compile(r'<@!?([0-9]+)>$')
 
 
-class MemberOrID(commands.Converter):
+class MemberOrID(commands.IDConverter):
     async def convert(self, ctx: commands.Context, argument: str) -> Union[discord.Member, discord.User]:
         result: Union[discord.Member, discord.User]
         try:
