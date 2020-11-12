@@ -17,6 +17,7 @@ class Roles(commands.Cog):
 
     def __init__(self, bot: rainbot) -> None:
         self.bot = bot
+        self.order = 5
 
     @commands.check(selfrole_check)
     @group(0, invoke_without_command=True)

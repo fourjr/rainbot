@@ -108,7 +108,7 @@ def format_timedelta(delta: datetime.timedelta, *, assume_forever: bool=True) ->
 def tryint(x: str) -> Union[str, int]:
     try:
         return int(x)
-    except ValueError:
+    except (ValueError, TypeError):
         return x
 
 
