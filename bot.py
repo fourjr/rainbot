@@ -67,7 +67,7 @@ class rainbot(commands.Bot):
     def load_extensions(self) -> None:
         for i in os.listdir('cogs'):
             if i.endswith('.py'):
-                if self.dev_mode and i == 'logs.py':
+                if self.dev_mode and i in ('logs.py', 'detections.py'):
                     continue
                 try:
                     self.load_extension(f'cogs.{i.replace(".py", "")}')

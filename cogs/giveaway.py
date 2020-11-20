@@ -107,7 +107,7 @@ class Giveaways(commands.Cog):
             winners = await self.roll_winner(giveaway)
         except (RuntimeError, ValueError):
             winners = None
-            await giveaway.channel.send('Not enough participants :(')
+            return await giveaway.channel.send('Not enough participants :(')
         else:
             fmt_winners = '\n'.join({i.mention for i in winners})
             description = '\n'.join(giveaway.embeds[0].description.split('\n')[1:])

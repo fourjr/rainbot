@@ -47,7 +47,10 @@ class Setup(commands.Cog):
                 url = 'https://hasteb.in/raw/' + url[18:]
 
             async with self.bot.session.get(url) as resp:
-                data = await resp.json(content_type=None)
+                try:
+                    data = await resp.json(content_type=None)
+                except json.JSONDecodeError as e:
+                    return await ctx.send(f'Error decoding JSON: {e}')
         else:
             data = url
         data['guild_id'] = str(ctx.guild.id)
@@ -122,7 +125,14 @@ class Setup(commands.Cog):
         if perm_level == 0:
             await self.bot.db.update_guild_config(ctx.guild.id, {'$pull': {'perm_levels': {'role_id': str(role.id)}}})
         else:
-            await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {'perm_levels': {'role_id': str(role.id), 'level': perm_level}}})
+            guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+            if str(role.id) in [i['role_id'] for i in guild_config['perm_levels']]:
+                # overwrite
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'perm_levels.$[elem].level': perm_level}}, array_filters=[{'elem.role_id': str(role.id)}])
+            else:
+                # push
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {'perm_levels': {'role_id': str(role.id), 'level': perm_level}}})
+
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_command_level', 'set-command-level'])
@@ -172,14 +182,15 @@ class Setup(commands.Cog):
                 if lowest > parent_level:
                     levels.append({'command': cmd.parent.name.replace(' ', '_'), 'level': lowest})
 
-        if action == 'push':
-            levels = {'$each': levels}
-        elif action == 'pull':
-            for i in levels:
-                i['level'] = get_command_level(self.bot.get_command(i['command']), guild_config)
-            levels = {'$in': levels}
+        to_push_levels = {'$each': copy.deepcopy(levels)}
 
-        await self.bot.db.update_guild_config(ctx.guild.id, {f'${action}': {'command_levels': levels}})
+        for i in levels:
+            i['level'] = get_command_level(self.bot.get_command(i['command']), guild_config)
+        levels = {'$in': levels}
+        await self.bot.db.update_guild_config(ctx.guild.id, {'$pull': {'command_levels': levels}})
+
+        if action == 'push':
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {'command_levels': to_push_levels}})
 
         await ctx.send(self.bot.accept)
 
@@ -230,7 +241,7 @@ class Setup(commands.Cog):
         if guild_id is None:
             await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'whitelisted_guilds': []}})
         else:
-            await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {'whitelisted_guilds': str(guild_id)}})
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$addToSet': {'whitelisted_guilds': str(guild_id)}})
 
         await ctx.send(self.bot.accept)
 
@@ -251,12 +262,12 @@ class Setup(commands.Cog):
                 if channel is None:
                     await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'ignored_channels.{i}': []}})
                 else:
-                    await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {f'ignored_channels.{i}': str(channel.id)}})
+                    await self.bot.db.update_guild_config(ctx.guild.id, {'$addToSet': {f'ignored_channels.{i}': str(channel.id)}})
         else:
             if channel is None:
                 await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'ignored_channels.{detection_type}': []}})
             else:
-                await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {f'ignored_channels.{detection_type}': str(channel.id)}})
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$addToSet': {f'ignored_channels.{detection_type}': str(channel.id)}})
 
         await ctx.send(self.bot.accept)
 
@@ -273,7 +284,7 @@ class Setup(commands.Cog):
         except re.error as e:
             return await ctx.send(f'Invalid regex pattern: `{e}`.\nView <https://regexr.com/> for a guide.')
 
-        await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {'detections.regex_filters': pattern}})
+        await self.bot.db.update_guild_config(ctx.guild.id, {'$addToSet': {'detections.regex_filters': pattern}})
         await ctx.send(self.bot.accept)
 
     @regexfilter.command(8, name='remove')
@@ -296,7 +307,7 @@ class Setup(commands.Cog):
     @filter_.command(8)
     async def add(self, ctx: commands.Context, *, word: lower) -> None:
         """Add blacklisted words into the word filter"""
-        await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {'detections.filters': word}})
+        await self.bot.db.update_guild_config(ctx.guild.id, {'$addToSet': {'detections.filters': word}})
         await ctx.send(self.bot.accept)
 
     @filter_.command(8)
@@ -326,7 +337,13 @@ class Setup(commands.Cog):
         if punishment == 'none' or punishment is None:
             await self.bot.db.update_guild_config(ctx.guild.id, {'$pull': {'warn_punishments': {'warn_number': limit}}})
         else:
-            await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {'warn_punishments': {'warn_number': limit, 'punishment': punishment}}})
+            guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+            if limit in [i['warn_number'] for i in guild_config['warn_punishments']]:
+                # overwrite
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'warn_punishments.$[elem].punishment': punishment}}, array_filters=[{'elem.warn_number': limit}])
+            else:
+                # push
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {'warn_punishments': {'warn_number': limit, 'punishment': punishment}}})
 
         await ctx.send(self.bot.accept)
 
