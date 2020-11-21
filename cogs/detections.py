@@ -52,7 +52,7 @@ class Detections(commands.Cog):
         for func in self.detections:
             await func.trigger(self, m)
 
-    @detection('sexually_explicit', require_attachment=True, require_prod=False)
+    @detection('sexually_explicit', require_attachment=True)
     async def sexually_explicit(self, m: MessageWrapper) -> None:
         for i in m.attachments:
             if i.filename.endswith('.png') or i.filename.endswith('.jpg') or i.filename.endswith('.jpeg'):
@@ -61,7 +61,7 @@ class Detections(commands.Cog):
                         fp.write(await resp.read())
                 await self.bot.loop.run_in_executor(None, functools.partial(self.get_nudenet_classifications, m, fp.name))
 
-    @detection('mention_limit', require_prod=False)
+    @detection('mention_limit')
     async def mention_limit(self, m: MessageWrapper) -> None:
         mentions = []
         for i in m.mentions:
@@ -72,39 +72,39 @@ class Detections(commands.Cog):
         if len(mentions) >= guild_config.detections.mention_limit:
             await m.detection.punish(self.bot, m, reason=f'Mass mentions ({len(m.mentions)})')
 
-    @detection('max_lines', require_prod=False)
+    @detection('max_lines')
     async def max_lines(self, m: MessageWrapper) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         if len(m.content.splitlines()) > guild_config.detections.max_lines:
             await m.detection.punish(self.bot, m)
 
-    @detection('max_words', require_prod=False)
+    @detection('max_words')
     async def max_words(self, m: MessageWrapper) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         if len(m.content.split(' ')) > guild_config.detections.max_words:
             await m.detection.punish(self.bot, m)
 
-    @detection('max_characters', require_prod=False)
+    @detection('max_characters')
     async def max_characters(self, m: MessageWrapper) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         if len(m.content) > guild_config.detections.max_characters:
             await m.detection.punish(self.bot, m)
 
-    @detection('filter', check_enabled=False, require_prod=False)
+    @detection('filter', check_enabled=False)
     async def filtered_words(self, m: MessageWrapper) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         words = [i for i in guild_config.detections.filters if i in m.content.lower()]
         if words:
             await m.detection.punish(self.bot, m)
 
-    @detection('regex_filter', check_enabled=False, require_prod=False)
+    @detection('regex_filter', check_enabled=False)
     async def regex_filter(self, m: MessageWrapper) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         matches = [i for i in guild_config.detections.regex_filters if re.match(i, m.content)]
         if matches:
             await m.detection.punish(self.bot, m)
 
-    @detection('block_invite', require_prod=False)
+    @detection('block_invite')
     async def block_invite(self, m: MessageWrapper) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         invite_match = self.INVITE_REGEX.findall(m.content)
@@ -118,13 +118,13 @@ class Detections(commands.Cog):
                     if not (invite.guild.id == m.guild.id or str(invite.guild.id) in guild_config.whitelisted_guilds):
                         await m.detection.punish(self.bot, m, reason=f'Advertising discord server `{invite.guild.name}` (<{invite.url}>)')
 
-    @detection('english_only', require_prod=False)
+    @detection('english_only')
     async def english_only(self, m: MessageWrapper) -> None:
         english_text = ''.join(self.ENGLISH_REGEX.findall(m.content))
         if english_text != m.content:
             await m.detection.punish(self.bot, m)
 
-    @detection('spam_detection', require_prod=False)
+    @detection('spam_detection')
     async def spam_detection(self, m: MessageWrapper) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         limit = guild_config.detections.spam_detection
@@ -147,7 +147,7 @@ class Detections(commands.Cog):
             except ValueError:
                 pass
 
-    @detection('repetitive_message', require_prod=False)
+    @detection('repetitive_message')
     async def repetitive_message(self, m: MessageWrapper) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         limit = guild_config.detections.repetitive_message
@@ -170,7 +170,7 @@ class Detections(commands.Cog):
             except KeyError:
                 pass
 
-    @detection('caps_message', check_enabled=False, require_prod=False)
+    @detection('caps_message', check_enabled=False)
     async def caps_message(self, m: MessageWrapper) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         percent = guild_config.detections.caps_message_percent
