@@ -1,4 +1,5 @@
 import asyncio
+from ext.database import DBDict
 import random
 from typing import Dict, List, Union, Optional
 
@@ -61,7 +62,7 @@ class Giveaways(commands.Cog):
                 return emoji_id
         return None
 
-    async def get_latest_giveaway(self, ctx: commands.Context=None, *, force: bool=False, guild_id: int=None) -> Optional[discord.Message]:
+    async def get_latest_giveaway(self, ctx: commands.Context=None, *, force: bool=False, guild_id: int=None, only_previous: bool=False) -> Optional[discord.Message]:
         """Gets the latest giveaway message.
 
         If force is False, it returns None if there is no current active giveaway
@@ -69,23 +70,22 @@ class Giveaways(commands.Cog):
         try:
             guild_config = await self.bot.db.get_guild_config(guild_id or ctx.guild.id)
             if guild_config.giveaway.message_id:
-                channel = await self.channel(ctx, guild_id=guild_id)
-                try:
-                    return await channel.fetch_message(guild_config.giveaway.message_id)
-                except (discord.NotFound, AttributeError):
-                    await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'giveaway.message_id': None}})
-                    return None
+                if (only_previous and guild_config.giveaway.ended) or (not only_previous and not guild_config.giveaway.ended):
+                    channel = await self.channel(ctx, guild_id=guild_id)
+                    try:
+                        return await channel.fetch_message(guild_config.giveaway.message_id)
+                    except (discord.NotFound, AttributeError):
+                        await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'giveaway.message_id': None, 'giveaway.ended': True}})
+                        return None
         except discord.Forbidden:
             return None
         return None
 
-    async def roll_winner(self, ctx: commands.Context, nwinners: int=None) -> List[str]:
+    async def roll_winner(self, ctx: commands.Context, latest_giveaway: DBDict, nwinners: int=None) -> List[str]:
         """Rolls winner(s) and returns a list of discord.Member
 
         Supports nwinners as an arg. Defaults to check giveaway message
         """
-        latest_giveaway = await self.get_latest_giveaway(ctx, force=True)
-
         nwinners = nwinners or int(latest_giveaway.embeds[0].description.split(' ')[0][2:])
         emoji_id = await self.emoji(ctx)
         participants = await next(r for r in latest_giveaway.reactions if getattr(r.emoji, 'id', r.emoji) == emoji_id).users().filter(
@@ -102,12 +102,14 @@ class Giveaways(commands.Cog):
 
         await self.end_giveaway(giveaway)
 
-    async def end_giveaway(self, giveaway) -> None:
+    async def end_giveaway(self, giveaway: DBDict) -> None:
+        latest_giveaway = await self.get_latest_giveaway(giveaway, force=True)
         try:
-            winners = await self.roll_winner(giveaway)
+            winners = await self.roll_winner(giveaway, latest_giveaway)
         except (RuntimeError, ValueError):
             winners = None
-            return await giveaway.channel.send('Not enough participants :(')
+            fmt_winners = None
+            await giveaway.channel.send('Not enough participants.')
         else:
             fmt_winners = '\n'.join({i.mention for i in winners})
             description = '\n'.join(giveaway.embeds[0].description.split('\n')[1:])
@@ -120,7 +122,7 @@ class Giveaways(commands.Cog):
 
         new_embed.color = INACTIVE_COLOR
         await giveaway.edit(embed=new_embed)
-        await self.bot.db.update_guild_config(giveaway.guild.id, {'$set': {'giveaway.message_id': None}})
+        await self.bot.db.update_guild_config(giveaway.guild.id, {'$set': {'giveaway.ended': True}})
 
     @command(10, aliases=['set-giveaway' 'set_giveaway'])
     async def setgiveaway(self, ctx: commands.Context, emoji: EmojiOrUnicode, channel: discord.TextChannel, role: str=None):
@@ -151,7 +153,7 @@ class Giveaways(commands.Cog):
     async def create(self, ctx: commands.Context, *, time: UserFriendlyTime) -> None:
         """Create a giveaway
 
-        Example: `!giveaway create 3 days 5 $10USD`
+        Example: `!!giveaway create 3 days 5 $10USD`
         """
         async with ctx.typing():
             latest_giveaway = await self.get_latest_giveaway(ctx)
@@ -190,7 +192,7 @@ class Giveaways(commands.Cog):
 
                 await message.add_reaction(emoji)
 
-                await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'giveaway.message_id': str(message.id)}})
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'giveaway.message_id': str(message.id), 'giveaway.ended': False}})
 
                 await ctx.send(f'Created: {message.jump_url}')
                 self.bot.loop.create_task(self.queue_roll(message))
@@ -262,30 +264,33 @@ class Giveaways(commands.Cog):
     async def reroll(self, ctx: commands.Context, nwinners: int=None) -> None:
         """Rerolls the winners"""
         async with ctx.typing():
-            latest_giveaway = await self.get_latest_giveaway(ctx, force=True)
+            latest_giveaway = await self.get_latest_giveaway(ctx, force=True, only_previous=True)
             if latest_giveaway:
                 try:
-                    winners = await self.roll_winner(ctx)
+                    winners = await self.roll_winner(ctx, latest_giveaway)
                 except ValueError:
-                    await ctx.send('Not enough participants :(')
+                    await ctx.send('Not enough participants.')
                 else:
                     fmt_winners = '\n'.join({i.mention for i in winners})
-                    description = '\n'.join(latest_giveaway.embeds[0].description.split('\n')[1:])
+                    description = '\n'.join(latest_giveaway.embeds[0].description.split('\n')[1:-(len(winners) + 1)].strip())
                     await ctx.send(f"Congratulations! Here are the **rerolled** winners for `{description}` <a:bahrooHi:402250652996337674>\n{fmt_winners}")
             else:
-                await ctx.send('No active giveaway')
+                await ctx.send('No previous giveaway to reroll. To end a giveaway, use `giveaway stop`.')
 
     @giveaway.command(6)
     async def stop(self, ctx: commands.Context) -> None:
         """Stops the giveaway"""
         latest_giveaway = await self.get_latest_giveaway(ctx, force=True)
-        try:
-            self.queue[latest_giveaway.id].cancel()
-            del self.queue[latest_giveaway.id]
-        except KeyError:
-            pass
-        await self.end_giveaway(latest_giveaway)
-        await ctx.send(self.bot.accept)
+        if latest_giveaway:
+            try:
+                self.queue[latest_giveaway.id].cancel()
+                del self.queue[latest_giveaway.id]
+            except KeyError:
+                pass
+            await self.end_giveaway(latest_giveaway)
+            await ctx.send(self.bot.accept)
+        else:
+            await ctx.send('No active giveaway')
 
 
 def setup(bot: rainbot) -> None:

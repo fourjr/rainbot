@@ -54,7 +54,8 @@ DEFAULT: Dict[str, Any] = {
         'channel_id': None,
         'role_id': None,
         'emoji_id': None,
-        'message_id': None
+        'message_id': None,
+        'ended': False
     },
     'perm_levels': [],
     'command_levels': [],
