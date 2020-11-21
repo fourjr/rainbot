@@ -1,4 +1,5 @@
 import copy
+from ext.time import UserFriendlyTime
 import json
 import re
 from typing import Any, Dict, List, Union
@@ -9,7 +10,7 @@ from discord.ext.commands import Cog
 
 from bot import rainbot
 from ext.errors import BotMissingPermissionsInChannel
-from ext.utils import detection, get_command_level, lower
+from ext.utils import get_command_level, lower
 from ext.command import command, group, RainGroup
 from ext.database import DEFAULT, RECOMMENDED_DETECTIONS
 
@@ -224,7 +225,7 @@ class Setup(commands.Cog):
                 value = float(value)
                 if value <= 0:
                     raise ValueError
-            except ValueError as e:
+            except ValueError:
                 try:
                     value = int(value)
                     if value <= 0:
@@ -241,6 +242,46 @@ class Setup(commands.Cog):
         else:
             valid_detections = DEFAULT['detections'].keys()
             raise commands.BadArgument(f'Invalid detection, pick one from below:\n{", ".join(valid_detections)}')
+
+    @command(10, aliases=['set_detection_punishments', 'set-detection-punishments'])
+    async def setdetectionpunishments(self, ctx: commands.Context, detection_type: lower, key: lower, *, value: lower) -> None:
+        """Sets punishment for the detections
+
+        Valid detections: filter, block_invite, english_only, mention_limit, spam_detection, repetitive_message, sexually_explicit, auto_purge_trickocord, max_lines, max_words, max_characters, caps_message
+
+        Valid keys: warn, mute, kick, ban, delete
+
+        Warn accepts a number of warns to give to the user
+        Kick, ban and delete accepts "yes/no"
+        Mute has to be set to a time, or none (do not use relative times).
+        """
+        valid_detections = list(DEFAULT['detection_punishments'].keys())
+
+        if detection_type not in valid_detections:
+            raise commands.BadArgument('Invalid detection, pick one from below:\n' + ', '.join(valid_detections))
+
+        valid_keys = list(DEFAULT['detection_punishments'][valid_detections[0]].keys())
+
+        if key not in valid_keys:
+            raise commands.BadArgument('Invalid key, pick one from below:\n' + ', '.join(valid_keys))
+
+        if key in ('warn'):
+            try:
+                value = int(value)
+            except ValueError:
+                raise commands.BadArgument(f'{key} accepts a number')
+
+        elif key in ('kick', 'ban', 'delete'):
+            value = commands.core._convert_to_bool(value)
+
+        elif key in ('mute'):
+            if value == 'none':
+                value = None
+            else:
+                await UserFriendlyTime(default='nil').convert(ctx, value)  # validation
+
+        await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'detection_punishments.{detection_type}.{key}': value}})
+        await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_recommended', 'set-recommended'])
     async def setrecommended(self, ctx: commands.Context) -> None:
@@ -268,7 +309,7 @@ class Setup(commands.Cog):
     async def setdetectionignore(self, ctx: commands.Context, detection_type: lower, channel: discord.TextChannel=None) -> None:
         """Ignores detections in specified channels
 
-        Valid detections: all, filter, block_invite, english_only, mention_limit, spam_detection, repetitive_message, sexually_explicit, auto_purge_trickocord
+        Valid detections: all, filter, block_invite, english_only, mention_limit, spam_detection, repetitive_message, sexually_explicit, auto_purge_trickocord, max_lines, max_words, max_characters, caps_message
         Run without specifying channel to clear ignored channels
         """
         valid_detections = list(DEFAULT['ignored_channels'].keys())

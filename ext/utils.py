@@ -1,12 +1,14 @@
 from __future__ import annotations
-import datetime
 import random
 import re
+from datetime import datetime
 from typing import Any, Callable, Optional, Tuple, Union, TYPE_CHECKING
 
 import discord
 from discord.ext import commands
 from discord.ext.commands import check
+
+from ext.time import UserFriendlyTime
 
 if TYPE_CHECKING:
     from bot import rainbot
@@ -24,12 +26,16 @@ __all__ = ('get_perm_level', 'format_timedelta')
 
 def get_perm_level(member: discord.Member, guild_config: 'DBDict') -> Tuple[int, Union[str, discord.Role, None]]:
     # User is not in server
-    if not getattr(member, 'guild_permissions', None):
-        return (0, None)
-
     highest_role: Union[str, discord.Role, None] = None
 
-    if member.guild_permissions.administrator:
+    if not getattr(member, 'guild_permissions', None):
+        perm_level = 0
+        highest_role = None
+    elif member.id == member.guild.me.id:
+        # if its the bot
+        perm_level = 100
+        highest_role = 'Bot'
+    elif member.guild_permissions.administrator:
         perm_level = 15
         highest_role = 'Administrator'
     elif member.guild_permissions.manage_guild:
@@ -202,7 +208,59 @@ class Detection:
 
     async def trigger(self, cog: commands.Cog, message: discord.Message) -> Any:
         if await self.check_constraints(cog.bot, message):
-            return await self.callback(cog, message)
+            message = MessageWrapper(message)
+            message.detection = self
+            cog.bot.loop.create_task(self.callback(cog, message))
+
+    async def punish(self, bot: rainbot, message: discord.Message, *, reason=None, purge_limit=None):
+        ctx = DummyContext(await bot.get_context(message))
+        ctx.author = message.guild.me  # bot
+
+        guild_config = await bot.db.get_guild_config(message.guild.id)
+        punishments = guild_config.detection_punishments[self.name]
+
+        reason = reason or f'Detection triggered: {self.name}'
+
+        for _ in range(punishments.warn):
+            ctx.command = bot.get_command('warn add')
+            await ctx.invoke(bot.get_command('warn add'), member=message.author, reason=reason)
+
+        if punishments.kick:
+            try:
+                ctx.command = bot.get_command('kick')
+                await ctx.invoke(bot.get_command('kick'), member=message.author, reason=reason)
+            except discord.NotFound:
+                pass
+
+        if punishments.ban:
+            try:
+                ctx.command = bot.get_command('ban')
+                await ctx.invoke(bot.get_command('ban'), member=message.author, reason=reason)
+            except discord.NotFound:
+                pass
+
+        if punishments.delete:
+            if purge_limit:
+                ctx.command = bot.get_command('purge')
+                await ctx.invoke(bot.get_command('purge'), member=message.author, limit=purge_limit)
+            else:
+                try:
+                    await message.delete()
+                except discord.NotFound:
+                    pass
+
+        if punishments.mute:
+            try:
+                time = await UserFriendlyTime(default='nil').convert(ctx, punishments.mute)
+            except commands.BadArgument:
+                # ignore as bad argument
+                pass
+            else:
+                delta = time.dt - message.created_at
+                try:
+                    await bot.mute(message.author, delta, reason=reason)
+                except discord.NotFound:
+                    pass
 
 
 def detection(name: str, **attrs: bool) -> Callable:
@@ -215,3 +273,23 @@ class QuickId:
     def __init__(self, guild_id: int, id_: int):
         self.guild_id = guild_id
         self.id = id_
+
+
+class MessageWrapper:
+    def __init__(self, message):
+        self._message = message
+
+    def __getattr__(self, item):
+        return getattr(self._message, item)
+
+
+class DummyContext:
+    def __init__(self, message):
+        self._message = message
+
+    def __getattr__(self, item):
+        return getattr(self._message, item)
+
+    def send(self, *args, **kwargs):
+        # block ctx.send
+        pass

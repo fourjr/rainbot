@@ -134,7 +134,7 @@ class rainbot(commands.Bot):
                 await self.mute(m, user_mute['time'] - time(), 'Mute evasion', modify_db=False)
 
     async def mute(self, member: discord.Member, delta: timedelta, reason: str, modify_db: bool=True) -> None:
-        """Mutes a ``member`` for ``delta`` seconds"""
+        """Mutes a ``member`` for ``delta``"""
         guild_config = await self.db.get_guild_config(member.guild.id)
         mute_role = discord.utils.get(member.guild.roles, id=int(guild_config.mute_role or 0))
         if not mute_role:

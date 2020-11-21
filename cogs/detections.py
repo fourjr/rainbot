@@ -3,7 +3,6 @@ import functools
 import os
 import re
 from collections import Counter, defaultdict
-from datetime import timedelta
 from tempfile import NamedTemporaryFile
 from typing import DefaultDict, List
 
@@ -17,7 +16,7 @@ from nudenet import NudeDetector
 from PIL import Image
 
 from bot import rainbot
-from ext.utils import UNICODE_EMOJI, Detection, detection
+from ext.utils import UNICODE_EMOJI, Detection, detection, MessageWrapper
 
 
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
@@ -43,7 +42,7 @@ class Detections(commands.Cog):
                 self.detections.append(func)
 
     @Cog.listener()
-    async def on_message(self, m: discord.Message) -> None:
+    async def on_message(self, m: MessageWrapper) -> None:
         if self.bot.dev_mode:
             if m.guild.id != 733697261065994320:
                 return
@@ -53,14 +52,8 @@ class Detections(commands.Cog):
         for func in self.detections:
             await func.trigger(self, m)
 
-    @detection('auto_purge_trickocord', require_user=755580145078632508, allow_bot=True)
-    async def auto_purge_trickocord(self, m: discord.Message) -> None:
-        if m.embeds and m.embeds[0].title == 'A trick-or-treater has stopped by!':
-            await asyncio.sleep(90)
-            await m.delete()
-
-    @detection('sexually_explicit', require_attachment=True)
-    async def sexually_explicit(self, m: discord.Message) -> None:
+    @detection('sexually_explicit', require_attachment=True, require_prod=False)
+    async def sexually_explicit(self, m: MessageWrapper) -> None:
         for i in m.attachments:
             if i.filename.endswith('.png') or i.filename.endswith('.jpg') or i.filename.endswith('.jpeg'):
                 with NamedTemporaryFile(mode='wb+', delete=False) as fp:
@@ -68,8 +61,8 @@ class Detections(commands.Cog):
                         fp.write(await resp.read())
                 await self.bot.loop.run_in_executor(None, functools.partial(self.get_nudenet_classifications, m, fp.name))
 
-    @detection('mention_limit')
-    async def mention_limit(self, m: discord.Message) -> None:
+    @detection('mention_limit', require_prod=False)
+    async def mention_limit(self, m: MessageWrapper) -> None:
         mentions = []
         for i in m.mentions:
             if i not in mentions and i != m.author and not i.bot:
@@ -77,49 +70,42 @@ class Detections(commands.Cog):
 
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         if len(mentions) >= guild_config.detections.mention_limit:
-            await m.delete()
-            await self.invoke('warn add', m, member=m.author, reason=f'Mass mentions ({len(m.mentions)})')
-            await self.bot.mute(m.author, timedelta(minutes=10), reason=f'Mass mentions ({len(m.mentions)})')
+            await m.detection.punish(self.bot, m, reason=f'Mass mentions ({len(m.mentions)})')
 
-    @detection('max_lines')
-    async def max_lines(self, m: discord.Message) -> None:
+    @detection('max_lines', require_prod=False)
+    async def max_lines(self, m: MessageWrapper) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         if len(m.content.splitlines()) > guild_config.detections.max_lines:
-            await m.delete()
-            return True
+            await m.detection.punish(self.bot, m)
 
-    @detection('max_words')
-    async def max_words(self, m: discord.Message) -> None:
+    @detection('max_words', require_prod=False)
+    async def max_words(self, m: MessageWrapper) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         if len(m.content.split(' ')) > guild_config.detections.max_words:
-            await m.delete()
-            return True
+            await m.detection.punish(self.bot, m)
 
-    @detection('max_characters')
-    async def max_characters(self, m: discord.Message) -> None:
+    @detection('max_characters', require_prod=False)
+    async def max_characters(self, m: MessageWrapper) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         if len(m.content) > guild_config.detections.max_characters:
-            await m.delete()
-            return True
+            await m.detection.punish(self.bot, m)
 
-    @detection('filter', check_enabled=False)
-    async def filtered_words(self, m: discord.Message) -> None:
+    @detection('filter', check_enabled=False, require_prod=False)
+    async def filtered_words(self, m: MessageWrapper) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         words = [i for i in guild_config.detections.filters if i in m.content.lower()]
         if words:
-            await m.delete()
-            return True
+            await m.detection.punish(self.bot, m)
 
-    @detection('regex_filter', check_enabled=False)
-    async def regex_filter(self, m: discord.Message) -> None:
+    @detection('regex_filter', check_enabled=False, require_prod=False)
+    async def regex_filter(self, m: MessageWrapper) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         matches = [i for i in guild_config.detections.regex_filters if re.match(i, m.content)]
         if matches:
-            await m.delete()
-            return True
+            await m.detection.punish(self.bot, m)
 
-    @detection('block_invite')
-    async def block_invite(self, m: discord.Message) -> None:
+    @detection('block_invite', require_prod=False)
+    async def block_invite(self, m: MessageWrapper) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         invite_match = self.INVITE_REGEX.findall(m.content)
         if invite_match:
@@ -130,25 +116,21 @@ class Detections(commands.Cog):
                     pass
                 else:
                     if not (invite.guild.id == m.guild.id or str(invite.guild.id) in guild_config.whitelisted_guilds):
-                        await m.delete()
-                        await self.invoke('warn add', m, member=m.author, reason=f'Advertising discord server {invite.guild.name} (<{invite.url}>)')
-                        await self.bot.mute(m.author, timedelta(minutes=10), reason=f'Advertising discord server {invite.guild.name} (<{invite.url}>)')
+                        await m.detection.punish(self.bot, m, reason=f'Advertising discord server `{invite.guild.name}` (<{invite.url}>)')
 
-    @detection('english_only')
-    async def english_only(self, m: discord.Message) -> None:
+    @detection('english_only', require_prod=False)
+    async def english_only(self, m: MessageWrapper) -> None:
         english_text = ''.join(self.ENGLISH_REGEX.findall(m.content))
         if english_text != m.content:
-            await m.delete()
+            await m.detection.punish(self.bot, m)
 
-    @detection('spam_detection')
-    async def spam_detection(self, m: discord.Message) -> None:
+    @detection('spam_detection', require_prod=False)
+    async def spam_detection(self, m: MessageWrapper) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         limit = guild_config.detections.spam_detection
         if len(self.spam_detection.get(str(m.author.id), [])) >= limit:
             reason = f'Exceeding spam detection ({limit} messages/5s)'
-            await self.bot.mute(m.author, timedelta(minutes=10), reason=reason)
-            await self.invoke('warn add', m, member=m.author, reason=reason)
-            await self.invoke('purge', m, member=m.author, limit=len(self.spam_detection[str(m.author.id)]))
+            await m.detection.punish(self.bot, m, reason=reason, purge_limit=len(self.spam_detection[str(m.author.id)]))
 
             try:
                 del self.spam_detection[str(m.author.id)]
@@ -165,15 +147,13 @@ class Detections(commands.Cog):
             except ValueError:
                 pass
 
-    @detection('repetitive_message')
-    async def repetitive_message(self, m: discord.Message) -> None:
+    @detection('repetitive_message', require_prod=False)
+    async def repetitive_message(self, m: MessageWrapper) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         limit = guild_config.detections.repetitive_message
         if self.get_most_common_count_repmessage(m.author.id) >= limit:
             reason = f'Repetitive message detection ({limit} identical messages/1m)'
-            await self.bot.mute(m.author, timedelta(minutes=10), reason=reason)
-            await self.invoke('warn add', m, member=m.author, reason=reason)
-            await self.invoke('purge', m, member=m.author, limit=self.get_most_common_count_repmessage(m.author.id))
+            await m.detection.punish(self.bot, m, reason=reason, purge_limit=self.get_most_common_count_repmessage(m.author.id))
 
             try:
                 del self.repetitive_message[str(m.author.id)]
@@ -191,20 +171,16 @@ class Detections(commands.Cog):
                 pass
 
     @detection('caps_message', check_enabled=False, require_prod=False)
-    async def caps_message(self, m: discord.Message) -> None:
+    async def caps_message(self, m: MessageWrapper) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         percent = guild_config.detections.caps_message_percent
         min_words = guild_config.detections.caps_message_min_words
 
         if all((percent, min_words)):
             # this is the check enabled
-            if len(m.content.split(' ')) >= min_words and (len([i for i in m.content if i.upper() == i]) / len(m.content)) >= percent:
-                await m.delete()
-
-    async def invoke(self, command, message: discord.Message, **kwargs) -> None:
-        ctx = await self.bot.get_context(message)
-        ctx.author = message.guild.me
-        await ctx.invoke(self.bot.get_command(command), **kwargs)
+            english_text = ''.join(self.ENGLISH_REGEX.findall(m.content))
+            if english_text and len(m.content.split(' ')) >= min_words and (len([i for i in english_text if i.upper() == i]) / len(english_text)) >= percent:
+                await m.detection.punish(self.bot, m)
 
     def get_most_common_count_repmessage(self, id_: int) -> int:
         most_common = self.repetitive_message.get(str(id_), Counter()).most_common(1)
@@ -238,9 +214,7 @@ class Detections(commands.Cog):
 
         for i in guild_config.detections.sexually_explicit:
             if i in labels:
-                await m.delete()
-                await self.bot.mute(m.author, timedelta(minutes=10), reason=f'Explicit image detection {tuple(labels)}')
-
+                await m.detection.punish(self.bot, m, reason=f'Explicit image detection {tuple(labels)}')
                 break
 
 

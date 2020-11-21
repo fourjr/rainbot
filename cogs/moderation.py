@@ -375,7 +375,7 @@ class Moderation(commands.Cog):
         channel = channel or ctx.channel
         overwrite = channel.overwrites_for(ctx.guild.default_role)
 
-        if overwrite.send_messages is None or overwrite.send_messages:  
+        if overwrite.send_messages is None or overwrite.send_messages:
             overwrite.send_messages = False
             await channel.set_permissions(ctx.guild.default_role, overwrite=overwrite)
             await ctx.send(f'Lockdown {self.bot.accept}')
