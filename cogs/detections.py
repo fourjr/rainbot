@@ -55,7 +55,6 @@ class Detections(commands.Cog):
 
     @detection('auto_purge_trickocord', require_user=755580145078632508, allow_bot=True)
     async def auto_purge_trickocord(self, m: discord.Message) -> None:
-        print(self, m)
         if m.embeds and m.embeds[0].title == 'A trick-or-treater has stopped by!':
             await asyncio.sleep(90)
             await m.delete()
@@ -190,6 +189,17 @@ class Detections(commands.Cog):
                     del self.repetitive_message[str(m.author.id)]
             except KeyError:
                 pass
+
+    @detection('caps_message', check_enabled=False, require_prod=False)
+    async def caps_message(self, m: discord.Message) -> None:
+        guild_config = await self.bot.db.get_guild_config(m.guild.id)
+        percent = guild_config.detections.caps_message_percent
+        min_words = guild_config.detections.caps_message_min_words
+
+        if all((percent, min_words)):
+            # this is the check enabled
+            if len(m.content.split(' ')) >= min_words and (len([i for i in m.content if i.upper() == i]) / len(m.content)) >= percent:
+                await m.delete()
 
     async def invoke(self, command, message: discord.Message, **kwargs) -> None:
         ctx = await self.bot.get_context(message)

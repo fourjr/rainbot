@@ -9,9 +9,9 @@ from discord.ext.commands import Cog
 
 from bot import rainbot
 from ext.errors import BotMissingPermissionsInChannel
-from ext.utils import get_command_level, lower
+from ext.utils import detection, get_command_level, lower
 from ext.command import command, group, RainGroup
-from ext.database import DEFAULT
+from ext.database import DEFAULT, RECOMMENDED_DETECTIONS
 
 
 class Setup(commands.Cog):
@@ -213,21 +213,40 @@ class Setup(commands.Cog):
     async def setdetection(self, ctx: commands.Context, detection_type: lower, value: str) -> None:
         """Sets or toggle the auto moderation types
 
-        Valid types: block_invite, english_only, mention_limit, spam_detection, repetitive_message, auto_purge_trickocord, max_lines, max_words, max_characters
+        Valid types: block_invite, english_only, mention_limit, spam_detection, repetitive_message, auto_purge_trickocord, max_lines, max_words, max_characters, caps_message_percent, caps_message_min_words
         """
         if detection_type in ('block_invite', 'english_only', 'auto_purge_trickocord'):
             await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'detections.{detection_type}': commands.core._convert_to_bool(value)}})
             await ctx.send(self.bot.accept)
-        elif detection_type in ('mention_limit', 'spam_detection', 'repetitive_message', 'max_lines', 'max_words', 'max_characters'):
+        elif detection_type in ('mention_limit', 'spam_detection', 'repetitive_message', 'max_lines', 'max_words', 'max_characters', 'caps_message_percent', 'caps_message_min_words'):
+            # int or float
             try:
-                if int(value) <= 0:
+                value = float(value)
+                if value <= 0:
                     raise ValueError
-                await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'detections.{detection_type}': int(value)}})
             except ValueError as e:
-                raise commands.BadArgument(f'{value} (`value`) is not a valid number above 0') from e
+                try:
+                    value = int(value)
+                    if value <= 0:
+                        raise ValueError
+                except ValueError as e:
+                    raise commands.BadArgument(f'{value} (value) is not a valid number above 0') from e
+
+            if detection_type in ('caps_message_percent'):
+                if value > 1:
+                    raise commands.BadArgument(f'{value} (value) should be between 1 and 0 as it is a percent.')
+
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'detections.{detection_type}': int(value)}})
             await ctx.send(self.bot.accept)
         else:
-            raise commands.BadArgument('Invalid detection, pick one from below:\nblock_invite, english_only, mention_limit, spam_detection, repetitive_message, auto_purge_trickorcord, max_lines, max_words, max_characters')
+            valid_detections = DEFAULT['detections'].keys()
+            raise commands.BadArgument(f'Invalid detection, pick one from below:\n{", ".join(valid_detections)}')
+
+    @command(10, aliases=['set_recommended', 'set-recommended'])
+    async def setrecommended(self, ctx: commands.Context) -> None:
+        """Sets a recommended set of detections"""
+        await self.bot.db.update_guild_config(ctx.guild.id, {'$set': RECOMMENDED_DETECTIONS})
+        await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set-guild-whitelist', 'set_guild_whitelist'])
     async def setguildwhitelist(self, ctx: commands.Context, guild_id: int=None) -> None:

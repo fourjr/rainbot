@@ -48,7 +48,9 @@ DEFAULT: Dict[str, Any] = {
         'max_lines': None,
         'max_words': None,
         'max_characters': None,
-        'sexually_explicit': []
+        'sexually_explicit': [],
+        'caps_message_percent': None,
+        'caps_message_min_words': None
     },
     'giveaway': {
         'channel_id': None,
@@ -80,11 +82,39 @@ DEFAULT: Dict[str, Any] = {
         'max_lines': [],
         'max_words': [],
         'max_characters': [],
-        'sexually_explicit': []
+        'sexually_explicit': [],
+        'caps_message': []
     },
     'ignored_channels_in_prod': [],
     'mute_role': None,
     'prefix': '!!'
+}
+
+RECOMMENDED_DETECTIONS: Dict[str, Any] = {
+    'detections': {
+        'filters': [],
+        'regex_filters': [],
+        'block_invite': True,
+        'english_only': True,
+        'auto_purge_trickocord': False,
+        'mention_limit': 5,
+        'spam_detection': 5,
+        'repetitive_message': 15,
+        'max_lines': 15,
+        'max_words': 450,
+        'max_characters': None,
+        'sexually_explicit': [
+            "EXPOSED_ANUS",
+            "EXPOSED_BELLY",
+            "EXPOSED_BUTTOCKS",
+            "EXPOSED_BREAST_F",
+            "EXPOSED_GENITALIA_F",
+            "COVERED_GENITALIA_F",
+            "EXPOSED_GENITALIA_M"
+        ],
+        'caps_message_percent': 0.80,
+        'caps_message_min_words': 10
+    }
 }
 
 

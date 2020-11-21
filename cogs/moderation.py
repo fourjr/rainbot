@@ -362,7 +362,6 @@ class Moderation(commands.Cog):
                     break
 
                 if retries > 20:
-                    print('tryhard')
                     break
         else:
             deleted = await ctx.channel.purge(limit=count)
@@ -374,9 +373,9 @@ class Moderation(commands.Cog):
     @command(6)
     async def lockdown(self, ctx: commands.Context, channel: discord.TextChannel=None) -> None:
         channel = channel or ctx.channel
-        overwrite = ctx.channel.overwrites_for(ctx.guild.default_role)
+        overwrite = channel.overwrites_for(ctx.guild.default_role)
 
-        if overwrite.send_messages is None or overwrite.send_messages:
+        if overwrite.send_messages is None or overwrite.send_messages:  
             overwrite.send_messages = False
             await channel.set_permissions(ctx.guild.default_role, overwrite=overwrite)
             await ctx.send(f'Lockdown {self.bot.accept}')
