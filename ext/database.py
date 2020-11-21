@@ -176,17 +176,13 @@ DEFAULT: Dict[str, Any] = {
 
 RECOMMENDED_DETECTIONS: Dict[str, Any] = {
     'detections': {
-        'filters': [],
-        'regex_filters': [],
         'block_invite': True,
         'english_only': True,
-        'auto_purge_trickocord': False,
         'mention_limit': 5,
         'spam_detection': 5,
         'repetitive_message': 15,
         'max_lines': 15,
         'max_words': 450,
-        'max_characters': None,
         'sexually_explicit': [
             "EXPOSED_ANUS",
             "EXPOSED_BELLY",
