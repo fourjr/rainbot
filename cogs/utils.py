@@ -144,7 +144,7 @@ class Utility(commands.Cog):
         else:
             # Something other than a cog is modified
             for fn in res.splitlines():
-                if fn.split('/')[0] != 'cogs':
+                if fn.split('/')[0] not in ('cogs', '.github', 'stubs'):
                     await ctx.send('Bot restarting...')
                     subprocess.Popen('sudo systemctl restart rainbot', cwd=os.getcwd(), shell=True)
                     return
@@ -158,7 +158,7 @@ class Utility(commands.Cog):
                     self.bot.load_extension(cog_name[:-3])
                     fmt += f'Reloaded {cog_name[:-3]}\n'
 
-            await ctx.send(fmt)
+            await ctx.send(fmt or 'No changes to restart')
 
     async def can_run(self, ctx: commands.Context, cmd: Union[RainCommand, RainGroup]) -> bool:
         ctx.command = cmd
