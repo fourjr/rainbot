@@ -28,7 +28,7 @@ class Detections(commands.Cog):
         self.spam_detection: DefaultDict[str, List[int]] = defaultdict(list)
         self.repetitive_message: DefaultDict[str, Counter] = defaultdict(Counter)
         self.INVITE_REGEX = re.compile(r'((http(s|):\/\/|)(discord)(\.(gg|io|me)\/|app\.com\/invite\/)([0-z]+))')
-        self.ENGLISH_REGEX = re.compile(r'[ -~]|(?:' + UNICODE_EMOJI + r')|(?:\U00002018|\U00002019|\s)|[.!?\\\-\(\)]|ツ|(?:\(╯°□°\）╯︵ ┻━┻)|(?:┬─┬ ノ\( ゜-゜ノ\))')  # U2018 and U2019 are iOS quotes
+        self.ENGLISH_REGEX = re.compile(r'(?:\(╯°□°\）╯︵ ┻━┻)|[ -~]|(?:' + UNICODE_EMOJI + r')|(?:\U00002018|\U00002019|\s)|[.!?\\\-\(\)]|ツ|¯|(?:┬─┬ ノ\( ゜-゜ノ\))')  # U2018 and U2019 are iOS quotes
 
         self.nude_detector = NudeDetector()
         self.nude_graph = tf.get_default_graph()
