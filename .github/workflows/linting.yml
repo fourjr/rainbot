@@ -30,5 +30,3 @@ jobs:
         flake8 . --select=E9,F63,F7,F82 --ignore=F722 --show-source
         # exit-zero treats all errors as warnings.
         flake8 . --ignore=E722,E501,E741,E252,E731,W605,F722
-    - name: Lint with mypy (type checking)
-      run: mypy cogs ext bot.py

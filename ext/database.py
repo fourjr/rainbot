@@ -382,7 +382,7 @@ class DatabaseManager:
         return self.guilds_data[guild_id]
 
     # Guilds
-    async def update_guild_config(self, guild_id: int, update: dict, **kwargs) -> DBDict:
+    async def update_guild_config(self, guild_id: int, update: dict, **kwargs: Any) -> DBDict:
         self.guilds_data[guild_id] = DBDict(await self.coll.find_one_and_update({'guild_id': str(guild_id)}, update, upsert=True, return_document=ReturnDocument.AFTER, **kwargs))
         return self.guilds_data[guild_id]
 

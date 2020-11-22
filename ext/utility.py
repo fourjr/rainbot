@@ -276,26 +276,26 @@ class QuickId:
 
 
 class MessageWrapper:
-    def __init__(self, message):
+    def __init__(self, message: discord.Message):
         self._message = message
 
-    def __getattr__(self, item):
+    def __getattr__(self, item: str) -> Any:
         return getattr(self._message, item)
 
 
 class DummyContext:
-    def __init__(self, message):
-        self._message = message
+    def __init__(self, context: commands.Context):
+        self._context = context
         self._dummy = True
 
-    def __getattr__(self, item):
-        return getattr(self._message, item)
+    def __getattr__(self, item: str) -> Any:
+        return getattr(self._context, item)
 
-    async def send(self, *args, **kwargs):
+    async def send(self, *args: Any, **kwargs: Any) -> None:
         # block ctx.send
         pass
 
-    async def invoke(self, *args, **kwargs):
+    async def invoke(self, *args: Any, **kwargs: Any) -> None:
         """Overwrite so invoke uses DummyContext"""
 
         try:
