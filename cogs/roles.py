@@ -4,7 +4,7 @@ from discord.ext.commands import Cog
 
 from bot import rainbot
 from ext.command import group, check_perm_level
-from ext.utils import EmojiOrUnicode, tryint
+from ext.utility import EmojiOrUnicode, tryint
 
 
 async def selfrole_check(ctx: commands.Context) -> bool:

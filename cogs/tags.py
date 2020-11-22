@@ -6,7 +6,7 @@ from discord.ext import commands
 
 from bot import rainbot
 from ext.command import group
-from ext.utils import apply_vars
+from ext.utility import apply_vars
 
 
 class Tags(commands.Cog):

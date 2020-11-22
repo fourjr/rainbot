@@ -14,7 +14,7 @@ import discord
 from discord.ext import commands
 from ext.command import RainCommand, RainGroup, command
 from ext.paginator import Paginator
-from ext.utils import get_command_level, get_perm_level, owner
+from ext.utility import get_command_level, get_perm_level, owner
 
 if TYPE_CHECKING:
     from bot import rainbot

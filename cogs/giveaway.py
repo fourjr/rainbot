@@ -9,7 +9,7 @@ from discord.ext import commands
 from bot import rainbot
 from ext.command import command, group
 from ext.time import UserFriendlyTime
-from ext.utils import EmojiOrUnicode
+from ext.utility import EmojiOrUnicode
 
 
 ACTIVE_COLOR = 0x01dc5a

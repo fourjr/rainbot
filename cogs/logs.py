@@ -6,7 +6,7 @@ from discord.ext import commands
 from discord.ext.commands import Cog
 
 from bot import rainbot
-from ext.utils import QuickId
+from ext.utility import QuickId
 
 
 class Logging(commands.Cog):

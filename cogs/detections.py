@@ -16,7 +16,7 @@ from nudenet import NudeDetector
 from PIL import Image
 
 from bot import rainbot
-from ext.utils import UNICODE_EMOJI, Detection, detection, MessageWrapper
+from ext.utility import UNICODE_EMOJI, Detection, detection, MessageWrapper
 
 
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
@@ -118,7 +118,7 @@ class Detections(commands.Cog):
                     if not (invite.guild.id == m.guild.id or str(invite.guild.id) in guild_config.whitelisted_guilds):
                         await m.detection.punish(self.bot, m, reason=f'Advertising discord server `{invite.guild.name}` (<{invite.url}>)')
 
-    @detection('english_only')
+    @detection('english_only', require_prod=False)
     async def english_only(self, m: MessageWrapper) -> None:
         english_text = ''.join(self.ENGLISH_REGEX.findall(m.content))
         if english_text != m.content:

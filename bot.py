@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 from ext import errors
 from ext.database import DatabaseManager
 from ext.errors import Underleveled
-from ext.utils import format_timedelta, tryint
+from ext.utility import format_timedelta, tryint
 
 
 class rainbot(commands.Bot):

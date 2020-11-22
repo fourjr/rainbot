@@ -220,8 +220,8 @@ RECOMMENDED_DETECTIONS: Dict[str, Any] = {
         'english_only': {
             "warn": 0,
             "mute": None,
-            "kick": True,
-            "ban": True,
+            "kick": False,
+            "ban": False,
             "delete": True
         },
         'mention_limit': {

@@ -10,7 +10,7 @@ from bot import rainbot
 from ext.command import command, group
 from ext.database import DEFAULT, DBDict
 from ext.time import UserFriendlyTime
-from ext.utils import format_timedelta, get_perm_level, tryint
+from ext.utility import format_timedelta, get_perm_level, tryint
 
 MEMBER_ID_REGEX = re.compile(r'<@!?([0-9]+)>$')
 

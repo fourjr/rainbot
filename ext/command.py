@@ -3,7 +3,7 @@ from typing import Any, Callable
 import discord
 from discord.ext import commands
 
-from .utils import get_perm_level, get_command_level
+from ext.utility import get_perm_level, get_command_level
 from ext.errors import Underleveled
 
 

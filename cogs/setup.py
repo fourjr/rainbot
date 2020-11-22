@@ -10,7 +10,7 @@ from discord.ext.commands import Cog
 
 from bot import rainbot
 from ext.errors import BotMissingPermissionsInChannel
-from ext.utils import get_command_level, lower
+from ext.utility import get_command_level, lower
 from ext.command import command, group, RainGroup
 from ext.database import DEFAULT, RECOMMENDED_DETECTIONS
 
