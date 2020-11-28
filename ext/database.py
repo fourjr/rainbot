@@ -39,6 +39,7 @@ DEFAULT: Dict[str, Any] = {
     'detections': {
         'filters': [],
         'regex_filters': [],
+        'image_filters': [],
         'block_invite': False,
         'english_only': False,
         'mention_limit': None,
@@ -52,7 +53,7 @@ DEFAULT: Dict[str, Any] = {
         'caps_message_min_words': None
     },
     'detection_punishments': {
-        'filter': {
+        'filters': {
             "warn": 1,
             "mute": None,
             "kick": False,
@@ -60,6 +61,13 @@ DEFAULT: Dict[str, Any] = {
             "delete": True
         },
         'regex_filters': {
+            "warn": 1,
+            "mute": None,
+            "kick": False,
+            "ban": False,
+            "delete": True
+        },
+        'image_filters': {
             "warn": 1,
             "mute": None,
             "kick": False,
@@ -156,8 +164,9 @@ DEFAULT: Dict[str, Any] = {
     'selfroles': [],
     'autoroles': [],
     'ignored_channels': {
-        'filter': [],
-        'regex_filter': [],
+        'filters': [],
+        'regex_filters': [],
+        'image_filters': [],
         'block_invite': [],
         'english_only': [],
         'mention_limit': [],
@@ -196,7 +205,7 @@ RECOMMENDED_DETECTIONS: Dict[str, Any] = {
         'caps_message_min_words': 10
     },
     'detection_punishments': {
-        'filter': {
+        'filters': {
             "warn": 1,
             "mute": None,
             "kick": False,
@@ -204,6 +213,13 @@ RECOMMENDED_DETECTIONS: Dict[str, Any] = {
             "delete": True
         },
         'regex_filters': {
+            "warn": 1,
+            "mute": None,
+            "kick": False,
+            "ban": False,
+            "delete": True
+        },
+        'image_filters': {
             "warn": 1,
             "mute": None,
             "kick": False,

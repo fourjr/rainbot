@@ -1,5 +1,6 @@
 import asyncio
 import functools
+import io
 import os
 import re
 from collections import Counter, defaultdict
@@ -44,7 +45,7 @@ class Detections(commands.Cog):
     @Cog.listener()
     async def on_message(self, m: MessageWrapper) -> None:
         if self.bot.dev_mode:
-            if m.guild.id != 733697261065994320:
+            if m.guild and m.guild.id != 733697261065994320:
                 return
         if (self.bot.dev_mode and (m.guild and m.guild.id != 733697261065994320)) or m.type != discord.MessageType.default:
             return
@@ -90,19 +91,33 @@ class Detections(commands.Cog):
         if len(m.content) > guild_config.detections.max_characters:
             await m.detection.punish(self.bot, m)
 
-    @detection('filter', check_enabled=False)
+    @detection('filters')
     async def filtered_words(self, m: MessageWrapper) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         words = [i for i in guild_config.detections.filters if i in m.content.lower()]
         if words:
-            await m.detection.punish(self.bot, m)
+            await m.detection.punish(self.bot, m, reason=f'Sent a filtered word: {words[0]}')
 
-    @detection('regex_filter', check_enabled=False)
+    @detection('regex_filters')
     async def regex_filter(self, m: MessageWrapper) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         matches = [i for i in guild_config.detections.regex_filters if re.match(i, m.content)]
         if matches:
-            await m.detection.punish(self.bot, m)
+            await m.detection.punish(self.bot, m, reason='Sent a filtered message.')
+
+    @detection('image_filters', require_attachment=True, require_prod=False)
+    async def image_filters(self, m: MessageWrapper) -> None:
+        guild_config = await self.bot.db.get_guild_config(m.guild.id)
+        for i in m.attachments:
+            stream = io.BytesIO()
+            await i.save(stream)
+            img = Image.open(stream)
+            image_hash = str(average_hash(img))
+            img.close()
+
+            if image_hash in guild_config.detections.image_filters:
+                await m.detection.punish(self.bot, m, reason='Sent a filtered image')
+                break
 
     @detection('block_invite')
     async def block_invite(self, m: MessageWrapper) -> None:

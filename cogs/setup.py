@@ -1,5 +1,6 @@
 import copy
 from ext.time import UserFriendlyTime
+import io
 import json
 import re
 from typing import Any, Dict, List, Union
@@ -7,6 +8,8 @@ from typing import Any, Dict, List, Union
 import discord
 from discord.ext import commands
 from discord.ext.commands import Cog
+from imagehash import average_hash
+from PIL import Image
 
 from bot import rainbot
 from ext.errors import BotMissingPermissionsInChannel
@@ -27,10 +30,18 @@ class Setup(commands.Cog):
         await self.bot.db.create_new_config(guild.id)
 
     @command(6, aliases=['view_config', 'view-config'])
-    async def viewconfig(self, ctx: commands.Context) -> None:
-        """View the current guild configuration"""
+    async def viewconfig(self, ctx: commands.Context, options: lower=None) -> None:
+        """View the current guild configuration
+        
+        options can be "all" to include mutes and warns
+        """
         guild_config = copy.copy(await self.bot.db.get_guild_config(ctx.guild.id))
         del guild_config['_id']
+
+        if options != 'all':
+            del guild_config['warns']
+            del guild_config['mutes']
+
         try:
             await ctx.send(f'```json\n{json.dumps(guild_config, indent=2)}\n```')
         except discord.HTTPException:
@@ -365,15 +376,51 @@ class Setup(commands.Cog):
         await ctx.invoke(self.bot.get_command('help'), command_or_cog='filter')
 
     @filter_.command(8)
-    async def add(self, ctx: commands.Context, *, word: lower) -> None:
+    async def add(self, ctx: commands.Context, *, word: lower=None) -> None:
         """Add blacklisted words into the word filter"""
-        await self.bot.db.update_guild_config(ctx.guild.id, {'$addToSet': {'detections.filters': word}})
+        if word:
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$addToSet': {'detections.filters': word}})
+        else:
+            to_add = []
+            for i in ctx.message.attachments:
+                if i.filename.lower().endswith('.png') or i.filename.lower().endswith('.jpg') or i.filename.lower().endswith('.jpeg'):
+                    stream = io.BytesIO()
+                    await i.save(stream)
+                    img = Image.open(stream)
+                    image_hash = str(average_hash(img))
+                    img.close()
+
+                    to_add.append(image_hash)
+
+            if to_add:
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$addToSet': {'detections.image_filters': {'$each': to_add}}})
+            else:
+                raise commands.UserInputError('word has to be provided or an image has to be attached.')
+
         await ctx.send(self.bot.accept)
 
     @filter_.command(8)
-    async def remove(self, ctx: commands.Context, *, word: lower) -> None:
+    async def remove(self, ctx: commands.Context, *, word: lower=None) -> None:
         """Removes blacklisted words from the word filter"""
-        await self.bot.db.update_guild_config(ctx.guild.id, {'$pull': {'detections.filters': word}})
+        if word:
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$pull': {'detections.filters': word}})
+        else:
+            to_remove = []
+            for i in ctx.message.attachments:
+                if i.filename.lower().endswith('.png') or i.filename.lower().endswith('.jpg') or i.filename.lower().endswith('.jpeg'):
+                    stream = io.BytesIO()
+                    await i.save(stream)
+                    img = Image.open(stream)
+                    image_hash = str(average_hash(img))
+                    img.close()
+
+                    to_remove.append(image_hash)
+
+            if to_remove:
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$pull': {'detections.image_filters': {'$each': to_remove}}})
+            else:
+                raise commands.UserInputError('word has to be provided or an image has to be attached.')
+
         await ctx.send(self.bot.accept)
 
     @filter_.command(8, name='list')
