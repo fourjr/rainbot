@@ -32,7 +32,7 @@ class Setup(commands.Cog):
     @command(6, aliases=['view_config', 'view-config'])
     async def viewconfig(self, ctx: commands.Context, options: lower=None) -> None:
         """View the current guild configuration
-        
+
         options can be "all" to include mutes and warns
         """
         guild_config = copy.copy(await self.bot.db.get_guild_config(ctx.guild.id))
@@ -377,7 +377,11 @@ class Setup(commands.Cog):
 
     @filter_.command(8)
     async def add(self, ctx: commands.Context, *, word: lower=None) -> None:
-        """Add blacklisted words into the word filter"""
+        """Add blacklisted words into the word filter
+
+        Can also add image filters if an iamge is attached,
+        do note that it can easily be bypassed by
+        slightly editing the images."""
         if word:
             await self.bot.db.update_guild_config(ctx.guild.id, {'$addToSet': {'detections.filters': word}})
         else:
@@ -401,7 +405,9 @@ class Setup(commands.Cog):
 
     @filter_.command(8)
     async def remove(self, ctx: commands.Context, *, word: lower=None) -> None:
-        """Removes blacklisted words from the word filter"""
+        """Removes blacklisted words from the word filter
+
+        Can also remove image filters if an iamge is attached, """
         if word:
             await self.bot.db.update_guild_config(ctx.guild.id, {'$pull': {'detections.filters': word}})
         else:

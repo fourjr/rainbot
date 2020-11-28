@@ -105,7 +105,7 @@ class Detections(commands.Cog):
         if matches:
             await m.detection.punish(self.bot, m, reason='Sent a filtered message.')
 
-    @detection('image_filters', require_attachment=True, require_prod=False)
+    @detection('image_filters', require_attachment=True)
     async def image_filters(self, m: MessageWrapper) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         for i in m.attachments:
