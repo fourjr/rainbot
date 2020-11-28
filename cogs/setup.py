@@ -423,7 +423,7 @@ class Setup(commands.Cog):
                     to_remove.append(image_hash)
 
             if to_remove:
-                await self.bot.db.update_guild_config(ctx.guild.id, {'$pull': {'detections.image_filters': {'$each': to_remove}}})
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$pullAll': {'detections.image_filters': to_remove}})
             else:
                 raise commands.UserInputError('word has to be provided or an image has to be attached.')
 
