@@ -267,12 +267,12 @@ class Giveaways(commands.Cog):
             latest_giveaway = await self.get_latest_giveaway(ctx, force=True, only_previous=True)
             if latest_giveaway:
                 try:
-                    winners = await self.roll_winner(ctx, latest_giveaway)
+                    winners = await self.roll_winner(ctx, latest_giveaway, nwinners)
                 except ValueError:
                     await ctx.send('Not enough participants.')
                 else:
                     fmt_winners = '\n'.join({i.mention for i in winners})
-                    description = '\n'.join(latest_giveaway.embeds[0].description.split('\n')[1:-(len(winners) + 1)].strip())
+                    description = '\n'.join(latest_giveaway.embeds[0].description.split('\n')[1:-(len(winners) + 1)]).strip()
                     await ctx.send(f"Congratulations! Here are the **rerolled** winners for `{description}` <a:bahrooHi:402250652996337674>\n{fmt_winners}")
             else:
                 await ctx.send('No previous giveaway to reroll. To end a giveaway, use `giveaway stop`.')

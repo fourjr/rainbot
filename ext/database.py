@@ -52,7 +52,7 @@ DEFAULT: Dict[str, Any] = {
         'caps_message_min_words': None
     },
     'detection_punishments': {
-        'filters': {
+        'filter': {
             "warn": 1,
             "mute": None,
             "kick": False,
@@ -196,7 +196,7 @@ RECOMMENDED_DETECTIONS: Dict[str, Any] = {
         'caps_message_min_words': 10
     },
     'detection_punishments': {
-        'filters': {
+        'filter': {
             "warn": 1,
             "mute": None,
             "kick": False,
