@@ -23,7 +23,7 @@ class rainbot(commands.Bot):
         intents = discord.Intents.default()
         intents.members = True
 
-        super().__init__(command_prefix=None, max_messages=10000, intents=intents)
+        super().__init__(command_prefix=None, max_messages=10000, intents=intents, allowed_mentions=discord.AllowedMentions.none())
 
         self.accept = '<:check:684169254618398735>'
         self.deny = '<:xmark:684169254551158881>'

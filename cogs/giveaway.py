@@ -1,13 +1,14 @@
 import asyncio
-from ext.database import DBDict
 import random
 from typing import Dict, List, Union, Optional
 
 import discord
 from discord.ext import commands
+from discord.mentions import AllowedMentions
 
 from bot import rainbot
 from ext.command import command, group
+from ext.database import DBDict
 from ext.time import UserFriendlyTime
 from ext.utility import EmojiOrUnicode
 
@@ -113,7 +114,7 @@ class Giveaways(commands.Cog):
         else:
             fmt_winners = '\n'.join({i.mention for i in winners})
             description = '\n'.join(giveaway.embeds[0].description.split('\n')[1:])
-            await giveaway.channel.send(f"Congratulations! Here are the winners for `{description}` <a:bahrooHi:402250652996337674>\n{fmt_winners}")
+            await giveaway.channel.send(f"Congratulations! Here are the winners for `{description}` <a:bahrooHi:402250652996337674>\n{fmt_winners}", allowed_mentions=AllowedMentions.all())
 
         new_embed = giveaway.embeds[0]
         new_embed.title = 'Giveaway Ended'
@@ -184,9 +185,9 @@ class Giveaways(commands.Cog):
                 emoji = await self.emoji(ctx)
 
                 if isinstance(role, discord.Role):
-                    message = await channel.send(role.mention, embed=em)
+                    message = await channel.send(role.mention, embed=em, allowed_mentions=AllowedMentions.all())
                 elif isinstance(role, str):
-                    message = await channel.send(role, embed=em)
+                    message = await channel.send(role, embed=em, allowed_mentions=AllowedMentions.all())
                 else:
                     message = await channel.send(embed=em)
 
@@ -273,7 +274,7 @@ class Giveaways(commands.Cog):
                 else:
                     fmt_winners = '\n'.join({i.mention for i in winners})
                     description = '\n'.join(latest_giveaway.embeds[0].description.split('\n')[1:-(len(winners) + 1)]).strip()
-                    await ctx.send(f"Congratulations! Here are the **rerolled** winners for `{description}` <a:bahrooHi:402250652996337674>\n{fmt_winners}")
+                    await ctx.send(f"Congratulations! Here are the **rerolled** winners for `{description}` <a:bahrooHi:402250652996337674>\n{fmt_winners}", allowed_mentions=AllowedMentions.all())
             else:
                 await ctx.send('No previous giveaway to reroll. To end a giveaway, use `giveaway stop`.')
 
