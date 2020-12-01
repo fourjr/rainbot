@@ -252,7 +252,7 @@ class Setup(commands.Cog):
             await ctx.send(self.bot.accept)
         else:
             valid_detections = DEFAULT['detections'].keys()
-            raise commands.BadArgument(f'Invalid detection, pick one from below:\n{", ".join(valid_detections)}')
+            raise commands.BadArgument(f'Invalid detection.')
 
     @command(10, aliases=['set_detection_punishments', 'set-detection-punishments'])
     async def setdetectionpunishments(self, ctx: commands.Context, detection_type: lower, key: lower, *, value: lower) -> None:
@@ -269,7 +269,7 @@ class Setup(commands.Cog):
         valid_detections = list(DEFAULT['detection_punishments'].keys())
 
         if detection_type not in valid_detections:
-            raise commands.BadArgument('Invalid detection, pick one from below:\n' + ', '.join(valid_detections))
+            raise commands.BadArgument('Invalid detection.')
 
         valid_keys = list(DEFAULT['detection_punishments'][valid_detections[0]].keys())
 
@@ -460,8 +460,8 @@ class Setup(commands.Cog):
 
         await ctx.send(self.bot.accept)
 
-    @command(10, aliases=['set-explicit', 'set_explicit'])
-    async def setexplicit(self, ctx: commands.Context, *types_: List[str]) -> None:
+    @command(10, aliases=['set-explicit', 'set_explicit'], usage='[types...]')
+    async def setexplicit(self, ctx: commands.Context, *types_) -> None:
         """Types can be a space-seperated list of the following:
         `EXPOSED_ANUS, EXPOSED_ARMPITS, COVERED_BELLY, EXPOSED_BELLY, COVERED_BUTTOCKS, EXPOSED_BUTTOCKS, FACE_F, FACE_M, COVERED_FEET, EXPOSED_FEET, COVERED_BREAST_F, EXPOSED_BREAST_F, COVERED_GENITALIA_F, EXPOSED_GENITALIA_F, EXPOSED_BREAST_M, EXPOSED_GENITALIA_M`
         """
