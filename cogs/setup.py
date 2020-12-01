@@ -251,8 +251,7 @@ class Setup(commands.Cog):
             await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'detections.{detection_type}': int(value)}})
             await ctx.send(self.bot.accept)
         else:
-            valid_detections = DEFAULT['detections'].keys()
-            raise commands.BadArgument(f'Invalid detection.')
+            raise commands.BadArgument('Invalid detection.')
 
     @command(10, aliases=['set_detection_punishments', 'set-detection-punishments'])
     async def setdetectionpunishments(self, ctx: commands.Context, detection_type: lower, key: lower, *, value: lower) -> None:
