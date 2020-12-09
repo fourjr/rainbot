@@ -101,7 +101,7 @@ class Detections(commands.Cog):
     @detection('regex_filters')
     async def regex_filter(self, m: MessageWrapper) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
-        matches = [i for i in guild_config.detections.regex_filters if re.match(i, m.content)]
+        matches = [i for i in guild_config.detections.regex_filters if re.search(i, m.content)]
         if matches:
             await m.detection.punish(self.bot, m, reason='Sent a filtered message.')
 
