@@ -168,7 +168,7 @@ class Setup(commands.Cog):
         if isinstance(cmd, RainGroup):
             raise commands.BadArgument('Cannot override a command group')
 
-        name = cmd.qualified_name.replace(' ', '_')
+        name = cmd.qualified_name
 
         if perm_level == 'reset':
             int_perm_level = cmd.perm_level
@@ -182,7 +182,7 @@ class Setup(commands.Cog):
         if cmd.parent:
             parent_level = get_command_level(cmd.parent, guild_config)
             if int_perm_level < parent_level:
-                levels.append({'command': cmd.parent.name.replace(' ', '_'), 'level': int_perm_level})
+                levels.append({'command': cmd.parent.name, 'level': int_perm_level})
             elif int_perm_level > parent_level:
                 cmd_level = get_command_level(cmd, guild_config)
                 all_levels = [get_command_level(c, guild_config) for c in cmd.parent.commands]
@@ -192,12 +192,15 @@ class Setup(commands.Cog):
 
                 lowest = min(all_levels)
                 if lowest > parent_level:
-                    levels.append({'command': cmd.parent.name.replace(' ', '_'), 'level': lowest})
+                    levels.append({'command': cmd.parent.name, 'level': lowest})
 
         to_push_levels = {'$each': copy.deepcopy(levels)}
 
+        print(levels)
         for i in levels:
             i['level'] = get_command_level(self.bot.get_command(i['command']), guild_config)
+            i['command'] = i['command'].replace(' ', '_')
+
         levels = {'$in': levels}
         await self.bot.db.update_guild_config(ctx.guild.id, {'$pull': {'command_levels': levels}})
 
