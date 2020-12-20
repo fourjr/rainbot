@@ -152,7 +152,6 @@ class SafeString(str):
             return SafeString('%s.%s}' % (self[:-1], name))
 
 
-
 def apply_vars(bot: 'rainbot', tag: str, message: discord.Message) -> str:
     return string.Formatter().vformat(tag, [], SafeFormat(
         invoked=message,

@@ -274,7 +274,7 @@ class Setup(commands.Cog):
         Leave value blank to remove
         """
         valid_punishments = ('kick', 'ban', 'mute', 'softban', 'unmute')
-        
+
         if punishment in valid_punishments:
             await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'alert.{punishment}': value}})
         else:
