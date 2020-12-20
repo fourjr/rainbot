@@ -256,6 +256,31 @@ class Setup(commands.Cog):
         else:
             raise commands.BadArgument('Invalid detection.')
 
+    @command(10, aliases=['set-alert', 'set_alert'])
+    async def setalert(self, ctx: commands.Context, punishment: lower, *, value: str=None) -> None:
+        """Set the message DM-ed to the user upon a punishment.
+
+        Possible punishments: kick, ban, mute, softban, unmute
+
+        Possible templates:
+        - `{time}` (in time offset)
+        - `{author}`
+        - `{user}`
+        - `{reason}` (will be "None" if not provided)
+        - `{channel}`
+        - `{guild}`
+        - `{duration}` (for mute only)
+
+        Leave value blank to remove
+        """
+        valid_punishments = ('kick', 'ban', 'mute', 'softban', 'unmute')
+        
+        if punishment in valid_punishments:
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'alert.{punishment}': value}})
+        else:
+            raise commands.BadArgument(f'Invalid punishment. Pick from {", ".join(valid_punishments)}.')
+        await ctx.send(self.bot.accept)
+
     @command(10, aliases=['set_detection_punishments', 'set-detection-punishments'])
     async def setdetectionpunishments(self, ctx: commands.Context, detection_type: lower, key: lower, *, value: lower) -> None:
         """Sets punishment for the detections

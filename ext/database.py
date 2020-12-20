@@ -145,6 +145,13 @@ DEFAULT: Dict[str, Any] = {
             "delete": True
         }
     },
+    'alert': {
+        'kick': None,
+        'ban': None,
+        'softban': None,
+        'mute': None,
+        'unmute': None,
+    },
     'giveaway': {
         'channel_id': None,
         'role_id': None,

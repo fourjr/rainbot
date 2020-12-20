@@ -1,6 +1,7 @@
 from __future__ import annotations
 import random
 import re
+import string
 from datetime import datetime
 from typing import Any, Callable, Optional, Tuple, Union, TYPE_CHECKING
 
@@ -151,12 +152,13 @@ class SafeString(str):
             return SafeString('%s.%s}' % (self[:-1], name))
 
 
+
 def apply_vars(bot: 'rainbot', tag: str, message: discord.Message) -> str:
-    return tag.format(**SafeFormat(
+    return string.Formatter().vformat(tag, [], SafeFormat(
         invoked=message,
         guild=message.guild,
         channel=message.channel,
-        bot=bot.user,
+        bot=bot.user
     ))
 
 

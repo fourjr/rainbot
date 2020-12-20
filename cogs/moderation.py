@@ -1,5 +1,6 @@
 import asyncio
 import re
+import string
 from datetime import timedelta
 from typing import Union
 
@@ -10,7 +11,7 @@ from bot import rainbot
 from ext.command import command, group
 from ext.database import DEFAULT, DBDict
 from ext.time import UserFriendlyTime
-from ext.utility import format_timedelta, get_perm_level, tryint
+from ext.utility import format_timedelta, get_perm_level, tryint, SafeFormat
 
 MEMBER_ID_REGEX = re.compile(r'<@!?([0-9]+)>$')
 
@@ -41,6 +42,27 @@ class Moderation(commands.Cog):
         """Handles discord.Forbidden"""
         if isinstance(error, discord.Forbidden):
             await ctx.send(f'I do not have the required permissions needed to run `{ctx.command.name}`.')
+
+    async def alert_user(self, ctx: commands.Context, member, reason, *, duration=None) -> None:
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        offset = guild_config.time_offset
+        current_time = (ctx.message.created_at + timedelta(hours=offset)).strftime('%H:%M:%S')
+
+        if guild_config.alert[ctx.command.name]:
+            fmt = string.Formatter().vformat(guild_config.alert[ctx.command.name], [], SafeFormat(
+                time=current_time,
+                author=ctx.author,
+                user=member,
+                reason=reason,
+                duration=duration,
+                channel=ctx.channel,
+                guild=ctx.guild
+            ))
+
+            try:
+                await member.send(fmt)
+            except discord.Forbidden:
+                pass
 
     async def send_log(self, ctx: commands.Context, *args) -> None:
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
@@ -313,6 +335,7 @@ class Moderation(commands.Cog):
                     duration = time.dt - ctx.message.created_at
                 if time.arg:
                     reason = time.arg
+            await self.alert_user(ctx, member, reason, duration=duration)
             await self.bot.mute(member, duration, reason=reason)
             await ctx.send(self.bot.accept)
 
@@ -322,6 +345,7 @@ class Moderation(commands.Cog):
         if get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0] >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]:
             await ctx.send('User has insufficient permissions')
         else:
+            await self.alert_user(ctx, member, reason)
             await self.bot.unmute(ctx.guild.id, member.id, None, reason=reason)
             await ctx.send(self.bot.accept)
 
@@ -432,6 +456,7 @@ class Moderation(commands.Cog):
         if get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0] >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]:
             await ctx.send('User has insufficient permissions')
         else:
+            await self.alert_user(ctx, member, reason)
             await member.kick(reason=reason)
             if ctx.author != ctx.guild.me:
                 await ctx.send(self.bot.accept)
@@ -443,6 +468,7 @@ class Moderation(commands.Cog):
         if get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0] >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]:
             await ctx.send('User has insufficient permissions')
         else:
+            await self.alert_user(ctx, member, reason)
             await member.ban(reason=reason)
             await asyncio.sleep(2)
             await member.unban(reason=reason)
@@ -455,6 +481,7 @@ class Moderation(commands.Cog):
         if get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0] >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]:
             await ctx.send('User has insufficient permissions')
         else:
+            await self.alert_user(ctx, member, reason)
             await ctx.guild.ban(member, reason=reason)
             await ctx.send(self.bot.accept)
             await self.send_log(ctx, member, reason)
