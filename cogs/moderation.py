@@ -335,7 +335,7 @@ class Moderation(commands.Cog):
                     duration = time.dt - ctx.message.created_at
                 if time.arg:
                     reason = time.arg
-            await self.alert_user(ctx, member, reason, duration=duration)
+            await self.alert_user(ctx, member, reason, duration=format_timedelta(duration))
             await self.bot.mute(member, duration, reason=reason)
             await ctx.send(self.bot.accept)
 

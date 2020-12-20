@@ -272,6 +272,8 @@ class Setup(commands.Cog):
         - `{duration}` (for mute only)
 
         Leave value blank to remove
+
+        Example: !!setalert mute You have been muted in {guild.name} for {reason} for a duration of {duration}!
         """
         valid_punishments = ('kick', 'ban', 'mute', 'softban', 'unmute')
 
