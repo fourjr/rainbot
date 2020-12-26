@@ -58,7 +58,7 @@ def get_perm_level(member: discord.Member, guild_config: 'DBDict') -> Tuple[int,
 
 
 def get_command_level(cmd: Union['RainCommand', 'RainGroup'], guild_config: 'DBDict') -> int:
-    name = cmd.qualified_name.replace(' ', '_')
+    name = cmd.qualified_name
 
     try:
         perm_level = guild_config.command_levels.get_kv('command', name).level
