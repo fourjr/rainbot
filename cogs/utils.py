@@ -125,9 +125,9 @@ class Utility(commands.Cog):
         err = cmd.stderr.decode('utf-8')
         res = cmd.stdout.decode('utf-8')
         if len(res) > 1850 or len(err) > 1850:
-            async with self.bot.session.post('https://hasteb.in/documents', data=err or res) as resp:
+            async with self.bot.session.post('https://hastebin.com/documents', data=err or res) as resp:
                 data = await resp.json()
-            await ctx.send(f"Output: <https://hasteb.in/{data['key']}.txt>")
+            await ctx.send(f"Output: <https://hastebin.com/{data['key']}.txt>")
         else:
             await ctx.send(f'```{err or res}```')
 
