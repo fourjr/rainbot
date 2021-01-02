@@ -73,7 +73,7 @@ class Logging(commands.Cog):
                     await log.send(f"```{payload.content}\n```")
             elif mode == 'member_join':
                 fmt = f"`{current_time}` {payload} ({payload.id}) has joined. "
-                delta = payload.created_at - datetime.utcnow()
+                delta = datetime.utcnow() - payload.created_at
                 if delta.total_seconds() < 60 * 60 * 24:
                     # joined in last day
                     fmt += f"Warning: account created {format_timedelta(delta)} ago"
