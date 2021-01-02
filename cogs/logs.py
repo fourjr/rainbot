@@ -6,7 +6,7 @@ from discord.ext import commands
 from discord.ext.commands import Cog
 
 from bot import rainbot
-from ext.utility import QuickId
+from ext.utility import QuickId, format_timedelta
 
 
 class Logging(commands.Cog):
@@ -72,7 +72,12 @@ class Logging(commands.Cog):
                     await log.send(f"`{current_time}` {payload.author} ({payload.author.id}): Message ({payload.id}) has been deleted in **#{payload.channel.name}** ({payload.channel.id})")
                     await log.send(f"```{payload.content}\n```")
             elif mode == 'member_join':
-                await log.send(f"`{current_time}` {payload} ({payload.id}) has joined.")
+                fmt = f"`{current_time}` {payload} ({payload.id}) has joined. "
+                delta = payload.created_at - datetime.utcnow()
+                if delta.total_seconds() < 60 * 60 * 24:
+                    # joined in last day
+                    fmt += f"Warning: account created {format_timedelta(delta)} ago"
+                await log.send(fmt)
             elif mode == 'member_remove':
                 await log.send(f"`{current_time}` {payload} ({payload.id}) has left the server.")
             elif mode == 'message_edit':
