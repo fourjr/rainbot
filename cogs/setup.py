@@ -287,13 +287,18 @@ class Setup(commands.Cog):
     async def setdetectionpunishments(self, ctx: commands.Context, detection_type: lower, key: lower, *, value: lower) -> None:
         """Sets punishment for the detections
 
-        Valid detections: filter, block_invite, english_only, mention_limit, spam_detection, repetitive_message, sexually_explicit, auto_purge_trickocord, max_lines, max_words, max_characters, caps_message
+        Valid detections: filters, regex_filters, block_invite, english_only, mention_limit, spam_detection, repetitive_message, sexually_explicit, auto_purge_trickocord, max_lines, max_words, max_characters, caps_message
 
         Valid keys: warn, mute, kick, ban, delete
 
         Warn accepts a number of warns to give to the user
         Kick, ban and delete accepts "yes/no"
-        Mute has to be set to a time, or none (do not use relative times).
+        Mute has to be set to a time, or none (mute indefinitely).
+
+        Examples:
+        - `!!setdetectionpunishments filters warn 1`
+        - `!!setdetectionpunishments block_invite kick yes`
+        - `!!setdetectionpunishments mention_limit mute 1d`
         """
         valid_detections = list(DEFAULT['detection_punishments'].keys())
 
@@ -349,7 +354,7 @@ class Setup(commands.Cog):
     async def setdetectionignore(self, ctx: commands.Context, detection_type: lower, channel: discord.TextChannel=None) -> None:
         """Ignores detections in specified channels
 
-        Valid detections: all, filter, block_invite, english_only, mention_limit, spam_detection, repetitive_message, sexually_explicit, auto_purge_trickocord, max_lines, max_words, max_characters, caps_message
+        Valid detections: all, filters, regex_filters, block_invite, english_only, mention_limit, spam_detection, repetitive_message, sexually_explicit, auto_purge_trickocord, max_lines, max_words, max_characters, caps_message
         Run without specifying channel to clear ignored channels
         """
         valid_detections = list(DEFAULT['ignored_channels'].keys())
