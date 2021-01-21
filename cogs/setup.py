@@ -45,9 +45,9 @@ class Setup(commands.Cog):
         try:
             await ctx.send(f'```json\n{json.dumps(guild_config, indent=2)}\n```')
         except discord.HTTPException:
-            async with self.bot.session.post('https://hastebin.com/documents', data=json.dumps(guild_config, indent=4)) as resp:
+            async with self.bot.session.post('https://hastebin.cc/documents', data=json.dumps(guild_config, indent=4)) as resp:
                 data = await resp.json()
-                await ctx.send(f"Your server's current configuration: https://hastebin.com/{data['key']}")
+                await ctx.send(f"Your server's current configuration: https://hastebin.cc/{data['key']}")
 
     @command(10, aliases=['import_config', 'import-config'])
     async def importconfig(self, ctx: commands.Context, *, url: str) -> None:
@@ -55,8 +55,8 @@ class Setup(commands.Cog):
 
         Generate one from https://fourjr.github.io/rainbot/"""
         if url.startswith('http'):
-            if url.startswith('https://hastebin.com') and 'raw' not in url:
-                url = 'https://hastebin.com/raw/' + url[18:]
+            if url.startswith('https://hastebin.cc') and 'raw' not in url:
+                url = 'https://hastebin.cc/raw/' + url[18:]
 
             async with self.bot.session.get(url) as resp:
                 try:

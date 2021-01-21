@@ -26,8 +26,8 @@ class Tags(commands.Cog):
         Complex usage: https://github.com/fourjr/rainbot/wiki/Tags
         """
         if value.startswith('http'):
-            if value.startswith('https://hastebin.com') and 'raw' not in value:
-                value = 'https://hastebin.com/raw/' + value[18:]
+            if value.startswith('https://hastebin.cc') and 'raw' not in value:
+                value = 'https://hastebin.cc/raw/' + value[18:]
 
             async with self.bot.session.get(value) as resp:
                 value = await resp.text()
