@@ -37,7 +37,7 @@ class Roles(commands.Cog):
     @selfrole.command(10)
     async def add(self, ctx: commands.Context, *, role: discord.Role) -> None:
         """Add a selfrole for users to give themselves"""
-        if role.position >= ctx.author.top_role.position:
+        if role.position >= ctx.author.top_role.position and ctx.author.id != ctx.guild.owner.id:
             await ctx.send('User has insufficient permissions')
             return
         await self.bot.db.update_guild_config(ctx.guild.id, {'$addToSet': {'selfroles': str(role.id)}})
@@ -68,7 +68,7 @@ class Roles(commands.Cog):
     @autorole.command(10, name='add')
     async def _add(self, ctx: commands.Context, *, role: discord.Role) -> None:
         """Add a role to the list of autoroles"""
-        if role.position >= ctx.author.top_role.position:
+        if role.position >= ctx.author.top_role.position and ctx.author.id != ctx.guild.owner.id:
             await ctx.send('User has insufficient permissions')
             return
         await self.bot.db.update_guild_config(ctx.guild.id, {'$addToSet': {'autoroles': str(role.id)}})
@@ -98,7 +98,7 @@ class Roles(commands.Cog):
     @reactionrole.command(10, name='add')
     async def add_(self, ctx: commands.Context, channel: discord.TextChannel, message_id: int, emoji: EmojiOrUnicode, role: discord.Role) -> None:
         """Add 1 role/emoji pair to a message"""
-        if role.position >= ctx.author.top_role.position:
+        if role.position >= ctx.author.top_role.position and ctx.author.id != ctx.guild.owner.id:
             await ctx.send('User has insufficient permissions')
             return
 
