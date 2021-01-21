@@ -53,8 +53,8 @@ class Roles(commands.Cog):
     @selfrole.command(0, name='list')
     async def _list(self, ctx: commands.Context) -> None:
         """Lists all possible selfroles"""
-        autoroles = (await self.bot.db.get_guild_config(ctx.guild.id)).autoroles
-        roles = [ctx.guild.get_role(int(r)).name for r in autoroles]
+        selfroles = (await self.bot.db.get_guild_config(ctx.guild.id)).selfroles
+        roles = [ctx.guild.get_role(int(r)).name for r in selfroles]
         if roles:
             await ctx.send('Selfroles:\n' + '\n'.join(roles))
         else:
