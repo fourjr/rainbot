@@ -76,7 +76,7 @@ class Roles(commands.Cog):
 
     @autorole.command(10, name='remove', aliases=['del', 'delete'])
     async def _remove(self, ctx: commands.Context, *, role: discord.Role) -> None:
-        """Remove a selfrole"""
+        """Remove an autorole"""
         await self.bot.db.update_guild_config(ctx.guild.id, {'$pull': {'autoroles': str(role.id)}})
         await ctx.send(self.bot.accept)
 
