@@ -186,12 +186,12 @@ class Utility(commands.Cog):
         for x in commands:
             proposed_fmt = fmt + f"`{prefix}{x.name}` {x.short_doc}\n"
             if len(proposed_fmt) > 1024:
-                em.add_field(name='Commands', value=fmt)
+                em.add_field(name='Commands', value=fmt, inline=False)
                 proposed_fmt = proposed_fmt[len(fmt):]
             fmt = proposed_fmt
 
         if fmt:
-            em.add_field(name='Commands', value=fmt)
+            em.add_field(name='Commands', value=fmt, inline=False)
 
         if em.fields:
             return em
