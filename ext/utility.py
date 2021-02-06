@@ -157,12 +157,13 @@ class SafeString(str):
             return SafeString('%s.%s}' % (self[:-1], name))
 
 
-def apply_vars(bot: 'rainbot', tag: str, message: discord.Message) -> str:
+def apply_vars(bot: 'rainbot', tag: str, message: discord.Message, user_input: str) -> str:
     return string.Formatter().vformat(tag, [], SafeFormat(
         invoked=message,
         guild=message.guild,
         channel=message.channel,
-        bot=bot.user
+        bot=bot.user,
+        input=user_input
     ))
 
 
@@ -318,3 +319,18 @@ class DummyContext:
 
         ret = await command.callback(*arguments, **kwargs)
         return ret
+
+
+class CannedStr(commands.Converter):
+    def __init__(self, additional_vars={}):
+        self.additional_vars = additional_vars
+
+    async def convert(self, ctx: commands.Context, argument: str) -> str:
+        guild_config = await ctx.bot.db.get_guild_config(ctx.guild.id)
+
+        canned = self.additional_vars.copy()
+        canned.update(guild_config.canned_variables)
+
+        return string.Formatter().vformat(argument, [], SafeFormat(
+            **canned
+        ))

@@ -185,6 +185,7 @@ DEFAULT: Dict[str, Any] = {
         'sexually_explicit': [],
         'caps_message': []
     },
+    'canned_variables': {},
     'ignored_channels_in_prod': [],
     'mute_role': None,
     'prefix': '!!'

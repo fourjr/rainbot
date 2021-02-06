@@ -196,7 +196,6 @@ class Setup(commands.Cog):
 
         to_push_levels = {'$each': copy.deepcopy(levels)}
 
-        print(levels)
         for i in levels:
             i['level'] = get_command_level(self.bot.get_command(i['command']), guild_config)
             i['command'] = i['command'].replace(' ', '_')
@@ -504,6 +503,16 @@ class Setup(commands.Cog):
             if i not in possibles:
                 return await ctx.send(f'{i} is not a valid type')
         await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'detections.sexually_explicit': types_}})
+
+        await ctx.send(self.bot.accept)
+
+    @command(10, aliases=['set-canned-variables', 'set_canned_variables'])
+    async def setcannedvariables(self, ctx: commands.Context, name: str, *, value: str=None) -> None:
+        """Set canned variables in reasons"""
+        if value is None:
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$unset': {f'canned_variables.{name}': value}})
+        else:
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'canned_variables.{name}': value}})
 
         await ctx.send(self.bot.accept)
 

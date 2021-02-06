@@ -65,31 +65,32 @@ class Tags(commands.Cog):
 
             if ctx.invoked_with in tags:
                 tag = guild_config.tags.get_kv('name', ctx.invoked_with)
-                await ctx.send(**self.format_message(tag.value, message))
+                user_input = message.content.replace(f'{ctx.prefix}{ctx.invoked_with}', '', 1).strip()
+                await ctx.send(**self.format_message(tag.value, message, user_input))
 
-    def apply_vars_dict(self, tag: Dict[str, Union[Any]], message: discord.Message) -> Dict[str, Union[Any]]:
+    def apply_vars_dict(self, tag: Dict[str, Union[Any]], message: discord.Message, user_input: str) -> Dict[str, Union[Any]]:
         for k, v in tag.items():
             if isinstance(v, dict):
-                tag[k] = self.apply_vars_dict(v, message)
+                tag[k] = self.apply_vars_dict(v, message, user_input)
             elif isinstance(v, str):
-                tag[k] = apply_vars(self.bot, v, message)
+                tag[k] = apply_vars(self.bot, v, message, user_input)
             elif isinstance(v, list):
-                tag[k] = [self.apply_vars_dict(_v, message) for _v in v]
+                tag[k] = [self.apply_vars_dict(_v, message, user_input) for _v in v]
             if k == 'timestamp':
                 tag[k] = v[:-1]
         return tag
 
-    def format_message(self, tag: str, message: discord.Message) -> Dict[str, Union[Any]]:
+    def format_message(self, tag: str, message: discord.Message, user_input: str) -> Dict[str, Union[Any]]:
         updated_tag: Dict[str, Union[Any]]
         try:
             updated_tag = json.loads(tag)
         except json.JSONDecodeError:
             # message is not embed
-            tag = apply_vars(self.bot, tag, message)
+            tag = apply_vars(self.bot, tag, message, user_input)
             updated_tag = {'content': tag}
         else:
             # message is embed
-            updated_tag = self.apply_vars_dict(updated_tag, message)
+            updated_tag = self.apply_vars_dict(updated_tag, message, user_input)
 
             if 'embed' in updated_tag:
                 updated_tag['embed'] = discord.Embed.from_dict(updated_tag['embed'])

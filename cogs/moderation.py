@@ -11,7 +11,7 @@ from bot import rainbot
 from ext.command import command, group
 from ext.database import DEFAULT, DBDict
 from ext.time import UserFriendlyTime
-from ext.utility import format_timedelta, get_perm_level, tryint, SafeFormat
+from ext.utility import format_timedelta, get_perm_level, tryint, SafeFormat, CannedStr
 
 MEMBER_ID_REGEX = re.compile(r'<@!?([0-9]+)>$')
 
@@ -204,7 +204,7 @@ class Moderation(commands.Cog):
             await ctx.send(fmt)
 
     @group(6, invoke_without_command=True, usage='\u200b')
-    async def warn(self, ctx: commands.Context, member: Union[MemberOrID, str]=None, *, reason: str=None) -> None:
+    async def warn(self, ctx: commands.Context, member: Union[MemberOrID, str]=None, *, reason: CannedStr=None) -> None:
         """Manage warns"""
         if isinstance(member, (discord.User, discord.Member)):
             if reason:
@@ -216,7 +216,7 @@ class Moderation(commands.Cog):
             await ctx.invoke(self.bot.get_command('help'), command_or_cog='warn')
 
     @warn.command(6, name='add')
-    async def add_(self, ctx: commands.Context, member: MemberOrID, *, reason: str) -> None:
+    async def add_(self, ctx: commands.Context, member: MemberOrID, *, reason: CannedStr) -> None:
         """Warn a user
 
         Can also be used as `warn <member> [reason]`"""
@@ -340,7 +340,7 @@ class Moderation(commands.Cog):
             await ctx.send(self.bot.accept)
 
     @command(6)
-    async def unmute(self, ctx: commands.Context, member: discord.Member, *, reason: str='No reason') -> None:
+    async def unmute(self, ctx: commands.Context, member: discord.Member, *, reason: CannedStr='No reason') -> None:
         """Unmutes a user"""
         if get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0] >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]:
             await ctx.send('User has insufficient permissions')
@@ -451,7 +451,7 @@ class Moderation(commands.Cog):
                 await ctx.send(f'Disabled slowmode on {channel.mention}')
 
     @command(7)
-    async def kick(self, ctx: commands.Context, member: discord.Member, *, reason: str=None) -> None:
+    async def kick(self, ctx: commands.Context, member: discord.Member, *, reason: CannedStr=None) -> None:
         """Kicks a user"""
         if get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0] >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]:
             await ctx.send('User has insufficient permissions')
@@ -463,7 +463,7 @@ class Moderation(commands.Cog):
             await self.send_log(ctx, member, reason)
 
     @command(7)
-    async def softban(self, ctx: commands.Context, member: discord.Member, *, reason: str=None) -> None:
+    async def softban(self, ctx: commands.Context, member: discord.Member, *, reason: CannedStr=None) -> None:
         """Bans then immediately unbans user (to purge messages)"""
         if get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0] >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]:
             await ctx.send('User has insufficient permissions')
@@ -476,7 +476,7 @@ class Moderation(commands.Cog):
             await self.send_log(ctx, member, reason)
 
     @command(7)
-    async def ban(self, ctx: commands.Context, member: MemberOrID, *, reason: str=None) -> None:
+    async def ban(self, ctx: commands.Context, member: MemberOrID, *, reason: CannedStr=None) -> None:
         """Swings the banhammer"""
         if get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0] >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]:
             await ctx.send('User has insufficient permissions')
@@ -487,7 +487,7 @@ class Moderation(commands.Cog):
             await self.send_log(ctx, member, reason)
 
     @command(7)
-    async def unban(self, ctx: commands.Context, member: MemberOrID, *, reason: str=None) -> None:
+    async def unban(self, ctx: commands.Context, member: MemberOrID, *, reason: CannedStr=None) -> None:
         """Unswing the banhammer"""
         await ctx.guild.unban(member, reason=reason)
         await ctx.send(self.bot.accept)
