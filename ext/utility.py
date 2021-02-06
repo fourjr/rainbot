@@ -90,9 +90,9 @@ def format_timedelta(delta: datetime.timedelta, *, assume_forever: bool=True) ->
             return '0 seconds'
 
     if isinstance(delta, datetime.timedelta):
-        delta = int(delta.total_seconds())
+        seconds = int(delta.total_seconds())
     else:
-        delta = int(delta)
+        seconds = int(delta)
 
     minutes, seconds = divmod(seconds, 60)
     hours, minutes = divmod(minutes, 60)
