@@ -14,7 +14,7 @@ from discord.ext import commands
 from discord.ext.commands import Cog
 from imagehash import average_hash
 from nudenet import NudeDetector
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 
 from bot import rainbot
 from ext.utility import UNICODE_EMOJI, Detection, detection, MessageWrapper
@@ -32,7 +32,6 @@ class Detections(commands.Cog):
         self.ENGLISH_REGEX = re.compile(r'(?:\(╯°□°\）╯︵ ┻━┻)|[ -~]|(?:' + UNICODE_EMOJI + r')|(?:\U00002018|\U00002019|\s)|[.!?\\\-\(\)]|ツ|¯|(?:┬─┬ ノ\( ゜-゜ノ\))')  # U2018 and U2019 are iOS quotes
 
         self.nude_detector = NudeDetector()
-        self.nude_graph = tf.get_default_graph()
 
         self.nude_image_cache: LFUCache[str, List[str]] = LFUCache(50)
 
@@ -111,13 +110,17 @@ class Detections(commands.Cog):
         for i in m.attachments:
             stream = io.BytesIO()
             await i.save(stream)
-            img = Image.open(stream)
-            image_hash = str(average_hash(img))
-            img.close()
+            try:
+                img = Image.open(stream)
+            except UnidentifiedImageError:
+                pass
+            else:
+                image_hash = str(average_hash(img))
+                img.close()
 
-            if image_hash in guild_config.detections.image_filters:
-                await m.detection.punish(self.bot, m, reason='Sent a filtered image')
-                break
+                if image_hash in guild_config.detections.image_filters:
+                    await m.detection.punish(self.bot, m, reason='Sent a filtered image')
+                    break
 
     @detection('block_invite')
     async def block_invite(self, m: MessageWrapper) -> None:
@@ -212,8 +215,7 @@ class Detections(commands.Cog):
         try:
             labels = self.nude_image_cache[image_hash]
         except KeyError:
-            with self.nude_graph.as_default():
-                result = self.nude_detector.detect(path, min_prob=0.8)
+            result = self.nude_detector.detect(path, min_prob=0.8)
             labels = []
 
             for i in result:

@@ -89,7 +89,12 @@ def format_timedelta(delta: datetime.timedelta, *, assume_forever: bool=True) ->
         else:
             return '0 seconds'
 
-    minutes, seconds = divmod(int(delta.total_seconds()), 60)
+    if isinstance(delta, datetime.timedelta):
+        delta = int(delta.total_seconds())
+    else:
+        delta = int(delta)
+
+    minutes, seconds = divmod(seconds, 60)
     hours, minutes = divmod(minutes, 60)
     days, hours = divmod(hours, 24)
     months, days = divmod(days, 30)
