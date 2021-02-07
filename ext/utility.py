@@ -2,7 +2,7 @@ from __future__ import annotations
 import random
 import re
 import string
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Callable, Optional, Tuple, Union, TYPE_CHECKING
 
 import discord
@@ -82,14 +82,14 @@ def random_color() -> int:
     return random.randint(0, 0xfffff)
 
 
-def format_timedelta(delta: datetime.timedelta, *, assume_forever: bool=True) -> str:
+def format_timedelta(delta: timedelta, *, assume_forever: bool=True) -> str:
     if not delta:
         if assume_forever:
             return 'forever'
         else:
             return '0 seconds'
 
-    if isinstance(delta, datetime.timedelta):
+    if isinstance(delta, timedelta):
         seconds = int(delta.total_seconds())
     else:
         seconds = int(delta)
