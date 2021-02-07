@@ -2,7 +2,7 @@ from __future__ import annotations
 import random
 import re
 import string
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any, Callable, Optional, Tuple, Union, TYPE_CHECKING
 
 import discord
