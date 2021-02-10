@@ -324,7 +324,7 @@ class Moderation(commands.Cog):
 
             await ctx.send(fmt)
 
-    @command(6, usage='<member> <duration> <reason>')
+    @command(6, usage='<member> [duration] [reason]')
     async def mute(self, ctx: commands.Context, member: discord.Member, *, time: UserFriendlyTime(default='No reason', assume_reason=True)=None) -> None:
         """Mutes a user"""
         if get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0] >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]:
@@ -479,7 +479,7 @@ class Moderation(commands.Cog):
             await ctx.send(self.bot.accept)
             await self.send_log(ctx, member, reason)
 
-    @command(7)
+    @command(7, usage='<member> [duration] [reason]')
     async def ban(self, ctx: commands.Context, member: MemberOrID, *, time: UserFriendlyTime(default='No reason', assume_reason=True)=None) -> None:
         """Swings the banhammer"""
         if get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0] >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]:
@@ -508,7 +508,7 @@ class Moderation(commands.Cog):
             await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {'tempbans': {'member': str(member.id), 'time': seconds}}})
             self.bot.loop.create_task(self.bot.unban(ctx.guild.id, member.id, seconds))
 
-    @command(7)
+    @command(7, usage='<member> [duration] [reason]')
     async def unban(self, ctx: commands.Context, member: MemberOrID, *, time: UserFriendlyTime(default='No reason', assume_reason=True)=None) -> None:
         """Unswing the banhammer"""
         if get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0] >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]:
