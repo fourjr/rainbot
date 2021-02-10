@@ -241,7 +241,7 @@ class rainbot(commands.Bot):
 
             try:
                 await guild.unban(discord.Object(member_id), reason=reason)
-            except discord.NotFound as e:
+            except discord.NotFound:
                 pass
             else:
                 if log_channel:
