@@ -242,7 +242,7 @@ class rainbot(commands.Bot):
             try:
                 await guild.unban(discord.Object(member_id), reason=reason)
             except discord.NotFound as e:
-                await ctx.send(f'Unable to unban user: {e}')
+                pass
             else:
                 if log_channel:
                     user = self.get_user(member_id)
