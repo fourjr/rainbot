@@ -119,6 +119,12 @@ class rainbot(commands.Bot):
             for m in d['mutes']:
                 self.loop.create_task(self.unmute(int(d['guild_id']), int(m['member']), m['time']))
 
+    async def setup_unbans(self) -> None:
+        data = self.db.coll.find({'tempbans': {'$exists': True, '$ne': []}})
+        async for d in data:
+            for m in d['tempbans']:
+                self.loop.create_task(self.unban(int(d['guild_id']), int(m['member']), m['time']))
+
     async def on_member_join(self, m: discord.Member) -> None:
         """Set up mutes if the member rejoined to bypass a mute"""
         if not self.dev_mode:
@@ -214,6 +220,39 @@ class rainbot(commands.Bot):
         pull: Dict[str, Any] = {'$pull': {'mutes': {'member': str(member_id)}}}
         if duration is not None:
             pull['$pull']['mutes']['time'] = duration
+        await self.db.update_guild_config(guild_id, pull)
+
+    async def unban(self, guild_id: int, member_id: int, duration: Optional[float], reason: str='Auto') -> None:
+        await self.wait_until_ready()
+        if duration is not None:
+            await asyncio.sleep(duration - time())
+
+        guild = self.get_guild(guild_id)
+
+        if guild:
+            guild_config = await self.db.get_guild_config(guild_id)
+            log_channel: Optional[discord.TextChannel] = self.get_channel(tryint(guild_config.modlog.member_unban))
+
+            current_time = datetime.utcnow()
+
+            offset = guild_config.time_offset
+            current_time += timedelta(hours=offset)
+            current_time_fmt = current_time.strftime('%H:%M:%S')
+
+            try:
+                await guild.unban(discord.Object(member_id), reason=reason)
+            except discord.NotFound as e:
+                await ctx.send(f'Unable to unban user: {e}')
+            else:
+                if log_channel:
+                    user = self.get_user(member_id)
+                    name = getattr(user, 'name', '(no name)')
+                    await log_channel.send(f"`{current_time_fmt}` {name} ({member_id}) has been unbanned. Reason: {reason}")
+
+        # set db
+        pull: Dict[str, Any] = {'$pull': {'tempbans': {'member': str(member_id)}}}
+        if duration is not None:
+            pull['$pull']['tempbans']['time'] = duration
         await self.db.update_guild_config(guild_id, pull)
 
 
