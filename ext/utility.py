@@ -82,7 +82,7 @@ def random_color() -> int:
     return random.randint(0, 0xfffff)
 
 
-def format_timedelta(delta: timedelta, *, assume_forever: bool=True) -> str:
+def format_timedelta(delta: Union[int, timedelta], *, assume_forever: bool=True) -> str:
     if not delta:
         if assume_forever:
             return 'forever'

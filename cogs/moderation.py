@@ -24,10 +24,13 @@ class MemberOrID(commands.IDConverter):
             result = await commands.MemberConverter().convert(ctx, argument)
         except commands.BadArgument:
             match = self._get_id_match(argument) or MEMBER_ID_REGEX.match(argument)
-            try:
-                result = await ctx.bot.fetch_user(int(match.group(1)))
-            except discord.NotFound as e:
-                raise commands.BadArgument(f'Member {argument} not found') from e
+            if match:
+                try:
+                    result = await ctx.bot.fetch_user(int(match.group(1)))
+                except discord.NotFound as e:
+                    raise commands.BadArgument(f'Member {argument} not found') from e
+            else:
+                raise commands.BadArgument(f'Member {argument} not found')
 
         return result
 
@@ -249,12 +252,17 @@ class Moderation(commands.Cog):
                         cmd = warn_punishments.get_kv('warn_number', closest).punishment
                         if cmd == 'ban':
                             cmd = 'bann'
+                        if cmd == 'mute':
+                            cmd = 'mut'
                         fmt += f' You will be {cmd}ed on warning {closest}.'
                 else:
                     punish = True
-                    cmd = warn_punishments.get_kv('warn_number', max(map(int, punishments))).punishment
+                    punishment = warn_punishments.get_kv('warn_number', max(map(int, punishments)))
+                    cmd = punishment.punishment
                     if cmd == 'ban':
                         cmd = 'bann'
+                    if cmd == 'mute':
+                        cmd = 'mut'
                     fmt += f' You have been {cmd}ed from the server.'
 
             try:
@@ -285,9 +293,20 @@ class Moderation(commands.Cog):
                 if punish:
                     if cmd == 'bann':
                         cmd = 'ban'
+                    if cmd == 'mut':
+                        cmd = 'mute'
                     ctx.command = self.bot.get_command(cmd)
                     ctx.author = ctx.guild.me
-                    await ctx.invoke(ctx.command, member, reason=f'Hit warn limit {num_warns}')
+
+                    if punishment.get('duration'):
+                        time = UserFriendlyTime(default=False)
+                        time.dt = ctx.message.created_at + timedelta(seconds=punishment.duration)
+                        time.arg = f'Hit warn limit {num_warns}'
+                        kwargs = {'time': time}
+                    else:
+                        kwargs = {'reason': f'Hit warn limit {num_warns}'}
+
+                    await ctx.invoke(ctx.command, member, **kwargs)
 
     @warn.command(6, name='remove', aliases=['delete', 'del'])
     async def remove_(self, ctx: commands.Context, case_number: int) -> None:
@@ -341,7 +360,9 @@ class Moderation(commands.Cog):
                     reason = time.arg
             await self.alert_user(ctx, member, reason, duration=format_timedelta(duration))
             await self.bot.mute(member, duration, reason=reason)
-            await ctx.send(self.bot.accept)
+            
+            if ctx.author != ctx.guild.me:
+                await ctx.send(self.bot.accept)
 
     @command(6)
     async def unmute(self, ctx: commands.Context, member: discord.Member, *, reason: CannedStr='No reason') -> None:
@@ -499,7 +520,8 @@ class Moderation(commands.Cog):
         await self.send_log(ctx, member, reason, duration)
 
         await ctx.guild.ban(member, reason=reason)
-        await ctx.send(self.bot.accept)
+        if ctx.author != ctx.guild.me:
+            await ctx.send(self.bot.accept)
 
         # log complete, save to DB
         if duration is not None:

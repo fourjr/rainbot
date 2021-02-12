@@ -469,27 +469,33 @@ class Setup(commands.Cog):
         await ctx.send(f"Filters: {', '.join([f'`{i}`' for i in guild_config.detections.filters])}")
 
     @command(10, aliases=['set-warn-punishment', 'set_warn_punishment'])
-    async def setwarnpunishment(self, ctx: commands.Context, limit: int, punishment=None) -> None:
+    async def setwarnpunishment(self, ctx: commands.Context, limit: int, punishment: str=None, *, time: UserFriendlyTime(default=False)=None) -> None:
         """Sets punishment after certain number of warns.
-        Punishments can be "kick", "ban" or "none".
+        Punishments can be "mute", "kick", "ban" or "none".
 
         Example: !!setwarnpunishment 5 kick
+        !!setwarnpunishment mute
+        !!setwarnpunishment mute 5h
 
         It is highly encouraged to add a final "ban" condition
         """
-        if punishment not in ('kick', 'ban', 'none'):
-            raise commands.BadArgument('Invalid punishment, pick from `kick`, `ban`, `none`.')
+        if punishment not in ('kick', 'ban', 'mute', 'none'):
+            raise commands.BadArgument('Invalid punishment, pick from "mute", "kick", "ban", "none".')
 
         if punishment == 'none' or punishment is None:
             await self.bot.db.update_guild_config(ctx.guild.id, {'$pull': {'warn_punishments': {'warn_number': limit}}})
         else:
+            duration = None
+            if time is not None and time.dt:
+                duration = (time.dt - ctx.message.created_at).total_seconds()
+
             guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
             if limit in [i['warn_number'] for i in guild_config['warn_punishments']]:
                 # overwrite
-                await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'warn_punishments.$[elem].punishment': punishment}}, array_filters=[{'elem.warn_number': limit}])
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'warn_punishments.$[elem].punishment': punishment, 'warn_punishments.$[elem].duration': duration}}, array_filters=[{'elem.warn_number': limit}])
             else:
                 # push
-                await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {'warn_punishments': {'warn_number': limit, 'punishment': punishment}}})
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$push': {'warn_punishments': {'warn_number': limit, 'punishment': punishment, 'duration': duration}}})
 
         await ctx.send(self.bot.accept)
 
