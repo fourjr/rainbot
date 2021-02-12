@@ -360,7 +360,7 @@ class Moderation(commands.Cog):
                     reason = time.arg
             await self.alert_user(ctx, member, reason, duration=format_timedelta(duration))
             await self.bot.mute(member, duration, reason=reason)
-            
+
             if ctx.author != ctx.guild.me:
                 await ctx.send(self.bot.accept)
 
