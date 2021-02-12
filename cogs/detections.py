@@ -136,7 +136,7 @@ class Detections(commands.Cog):
                     if not (invite.guild.id == m.guild.id or str(invite.guild.id) in guild_config.whitelisted_guilds):
                         await m.detection.punish(self.bot, m, reason=f'Advertising discord server `{invite.guild.name}` (<{invite.url}>)')
 
-    @detection('english_only', require_prod=False)
+    @detection('english_only', force_enable=True)
     async def english_only(self, m: MessageWrapper) -> None:
         english_text = ''.join(self.ENGLISH_REGEX.findall(m.content))
         if english_text != m.content:
