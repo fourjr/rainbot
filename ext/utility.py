@@ -265,7 +265,7 @@ class Detection:
             else:
                 delta = time.dt - message.created_at
                 try:
-                    await bot.mute(message.author, delta, reason=reason)
+                    await bot.mute(ctx.author, message.author, delta, reason=reason)
                 except discord.NotFound:
                     pass
 

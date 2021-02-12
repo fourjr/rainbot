@@ -137,9 +137,9 @@ class rainbot(commands.Bot):
                     user_mute = mute
 
             if user_mute:
-                await self.mute(m, user_mute['time'] - time(), 'Mute evasion', modify_db=False)
+                await self.mute(m.guild.me, m, user_mute['time'] - time(), 'Mute evasion', modify_db=False)
 
-    async def mute(self, member: discord.Member, delta: timedelta, reason: str, modify_db: bool=True) -> None:
+    async def mute(self, actor: discord.Member, member: discord.Member, delta: timedelta, reason: str, modify_db: bool=True) -> None:
         """Mutes a ``member`` for ``delta``"""
         guild_config = await self.db.get_guild_config(member.guild.id)
         mute_role = discord.utils.get(member.guild.roles, id=int(guild_config.mute_role or 0))
@@ -174,7 +174,7 @@ class rainbot(commands.Bot):
             current_time += timedelta(hours=offset)
             current_time_fmt = current_time.strftime('%H:%M:%S')
 
-            await log_channel.send(f"`{current_time_fmt}` Member {member} ({member.id}) has been muted for reason: {reason} for {format_timedelta(delta)}")
+            await log_channel.send(f"`{current_time_fmt}` {actor} has muted {member} ({member.id}), reason: {reason} for {format_timedelta(delta)}")
 
         if delta:
             duration = delta.total_seconds()
