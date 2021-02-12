@@ -186,7 +186,7 @@ class Detection:
         if self.require_guild and not message.guild:
             return False
 
-        if self.force_enable:
+        if self.force_enable and bot.dev_mode:
             return True
 
         if message.guild:
