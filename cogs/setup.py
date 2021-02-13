@@ -45,9 +45,12 @@ class Setup(commands.Cog):
         try:
             await ctx.send(f'```json\n{json.dumps(guild_config, indent=2)}\n```')
         except discord.HTTPException:
-            async with self.bot.session.post('https://hastebin.cc/documents', data=json.dumps(guild_config, indent=4)) as resp:
-                data = await resp.json()
-                await ctx.send(f"Your server's current configuration: https://hastebin.cc/{data['key']}")
+            async with self.bot.session.post('https://hastebin.cc/documents', json=guild_config) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    await ctx.send(f"Your server's current configuration: https://hastebin.cc/{data['key']}")
+                else:
+                    await ctx.send('Error occured in uploading config, try again later. Report this issue in the support server.')
 
     @command(10, aliases=['import_config', 'import-config'])
     async def importconfig(self, ctx: commands.Context, *, url: str) -> None:
