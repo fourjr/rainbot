@@ -79,7 +79,7 @@ class EventsAnnouncer(commands.Cog):
         return message
 
     @command(10, aliases=['set-announcement', 'set_announcement'])
-    async def setannouncement(self, ctx, event_type: str, channel: Union[discord.TextChannel, str.lower], *, message=None):
+    async def setannouncement(self, ctx, event_type: str, channel: Union[discord.TextChannel, str.lower]=None, *, message=None):
         """Sets up events announcer. Check [here](https://github.com/fourjr/rainbot/wiki/Events-Announcer)
         for complex usage.
 
