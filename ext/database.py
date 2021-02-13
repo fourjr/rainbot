@@ -194,6 +194,10 @@ DEFAULT: Dict[str, Any] = {
         'sexually_explicit': [],
         'caps_message': []
     },
+    'events_announce': {
+        'member_join': {},
+        'member_remove': {}
+    },
     'canned_variables': {},
     'ignored_channels_in_prod': [],
     'mute_role': None,
