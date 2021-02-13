@@ -84,7 +84,7 @@ class EventsAnnouncer(commands.Cog):
         for complex usage.
 
         Valid event types: member_join, member_remove
-        
+
         Set channel to "dm" to dm user
 
         Example usage: `eventsannounce #general Hello {member.name}`
@@ -92,7 +92,7 @@ class EventsAnnouncer(commands.Cog):
 
         if event_type not in DEFAULT['events_announce'].keys():
             raise commands.BadArgument(f'Invalid event, pick from {", ".join(DEFAULT["events_announce"].keys())}')
-        
+
         if not isinstance(channel, discord.TextChannel) and channel != 'dm':
             raise commands.BadArgument('Invalid channel, #mention a channel or "dm".')
 
@@ -149,6 +149,7 @@ class EventsAnnouncer(commands.Cog):
                     message = self.format_message(member, config['message'])
                     if message:
                         await channel.send(**message)
+
 
 def setup(bot):
     bot.add_cog(EventsAnnouncer(bot))
