@@ -224,34 +224,42 @@ class Setup(commands.Cog):
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_detection', 'set-detection'])
-    async def setdetection(self, ctx: commands.Context, detection_type: lower, value: str) -> None:
+    async def setdetection(self, ctx: commands.Context, detection_type: lower, value: str=None) -> None:
         """Sets or toggle the auto moderation types
 
-        Valid types: block_invite, english_only, mention_limit, spam_detection, repetitive_message, auto_purge_trickocord, max_lines, max_words, max_characters, caps_message_percent, caps_message_min_words
+        Valid types: block_invite, english_only, mention_limit, spam_detection, repetitive_message, auto_purge_trickocord, max_lines, max_words, max_characters, caps_message_percent, caps_message_min_words, repetitive_characters
         """
         if detection_type in ('block_invite', 'english_only', 'auto_purge_trickocord'):
-            await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'detections.{detection_type}': commands.core._convert_to_bool(value)}})
-            await ctx.send(self.bot.accept)
-        elif detection_type in ('mention_limit', 'spam_detection', 'repetitive_message', 'max_lines', 'max_words', 'max_characters', 'caps_message_percent', 'caps_message_min_words'):
-            # int or float
-            try:
-                value = float(value)
-                if value <= 0:
-                    raise ValueError
-            except ValueError:
+            if value is None:
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'detections.{detection_type}': value}})
+                await ctx.send(self.bot.accept)
+            else:
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'detections.{detection_type}': commands.core._convert_to_bool(value)}})
+                await ctx.send(self.bot.accept)
+        elif detection_type in ('mention_limit', 'spam_detection', 'repetitive_message', 'max_lines', 'max_words', 'max_characters', 'caps_message_percent', 'caps_message_min_words', 'repetitive_characters'):
+            if value is None:
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'detections.{detection_type}': value}})
+                await ctx.send(self.bot.accept)
+            else:
+                # int or float
                 try:
-                    value = int(value)
+                    value = float(value)
                     if value <= 0:
                         raise ValueError
-                except ValueError as e:
-                    raise commands.BadArgument(f'{value} (value) is not a valid number above 0') from e
+                except ValueError:
+                    try:
+                        value = int(value)
+                        if value <= 0:
+                            raise ValueError
+                    except ValueError as e:
+                        raise commands.BadArgument(f'{value} (value) is not a valid number above 0') from e
 
-            if detection_type in ('caps_message_percent'):
-                if value > 1:
-                    raise commands.BadArgument(f'{value} (value) should be between 1 and 0 as it is a percent.')
+                if detection_type in ('caps_message_percent'):
+                    if value > 1:
+                        raise commands.BadArgument(f'{value} (value) should be between 1 and 0 as it is a percent.')
 
-            await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'detections.{detection_type}': int(value)}})
-            await ctx.send(self.bot.accept)
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'detections.{detection_type}': int(value)}})
+                await ctx.send(self.bot.accept)
         else:
             raise commands.BadArgument('Invalid detection.')
 
@@ -286,7 +294,7 @@ class Setup(commands.Cog):
     async def setdetectionpunishments(self, ctx: commands.Context, detection_type: lower, key: lower, *, value: lower) -> None:
         """Sets punishment for the detections
 
-        Valid detections: filters, regex_filters, block_invite, english_only, mention_limit, spam_detection, repetitive_message, sexually_explicit, auto_purge_trickocord, max_lines, max_words, max_characters, caps_message
+        Valid detections: filters, regex_filters, block_invite, english_only, mention_limit, spam_detection, repetitive_message, sexually_explicit, auto_purge_trickocord, max_lines, max_words, max_characters, caps_message, repetitive_characters
 
         Valid keys: warn, mute, kick, ban, delete
 
@@ -353,7 +361,7 @@ class Setup(commands.Cog):
     async def setdetectionignore(self, ctx: commands.Context, detection_type: lower, channel: discord.TextChannel=None) -> None:
         """Ignores detections in specified channels
 
-        Valid detections: all, filters, regex_filters, block_invite, english_only, mention_limit, spam_detection, repetitive_message, sexually_explicit, auto_purge_trickocord, max_lines, max_words, max_characters, caps_message
+        Valid detections: all, filters, regex_filters, block_invite, english_only, mention_limit, spam_detection, repetitive_message, sexually_explicit, auto_purge_trickocord, max_lines, max_words, max_characters, caps_message, repetitive_characters
         Run without specifying channel to clear ignored channels
         """
         valid_detections = list(DEFAULT['ignored_channels'].keys())

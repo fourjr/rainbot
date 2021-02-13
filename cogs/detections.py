@@ -188,6 +188,18 @@ class Detections(commands.Cog):
             except KeyError:
                 pass
 
+    @detection('repetitive_characters', require_prod=False)
+    async def repetitive_characters(self, m: MessageWrapper) -> None:
+        guild_config = await self.bot.db.get_guild_config(m.guild.id)
+        limit = guild_config.detections.repetitive_characters
+
+        counter = Counter(m.content)
+        for c, n in counter.most_common(None):
+            if n > limit:
+                reason = f'Repetitive character detection ({n} > {limit} of {c} in message)'
+                await m.detection.punish(self.bot, m, reason=reason)
+                break
+
     @detection('caps_message', check_enabled=False)
     async def caps_message(self, m: MessageWrapper) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)

@@ -45,6 +45,7 @@ DEFAULT: Dict[str, Any] = {
         'mention_limit': None,
         'spam_detection': None,
         'repetitive_message': None,
+        'repetitive_characters': None,
         'max_lines': None,
         'max_words': None,
         'max_characters': None,
@@ -105,6 +106,13 @@ DEFAULT: Dict[str, Any] = {
         'repetitive_message': {
             "warn": 1,
             "mute": "10 minutes",
+            "kick": False,
+            "ban": False,
+            "delete": True
+        },
+        'repetitive_characters': {
+            "warn": 0,
+            "mute": None,
             "kick": False,
             "ban": False,
             "delete": True
@@ -179,6 +187,7 @@ DEFAULT: Dict[str, Any] = {
         'mention_limit': [],
         'spam_detection': [],
         'repetitive_message': [],
+        'repetitive_characters': [],
         'max_lines': [],
         'max_words': [],
         'max_characters': [],
@@ -198,6 +207,7 @@ RECOMMENDED_DETECTIONS: Dict[str, Any] = {
         'mention_limit': 5,
         'spam_detection': 5,
         'repetitive_message': 15,
+        'repetitive_characters': 8,
         'max_lines': 15,
         'max_words': 450,
         'sexually_explicit': [
@@ -265,6 +275,13 @@ RECOMMENDED_DETECTIONS: Dict[str, Any] = {
         'repetitive_message': {
             "warn": 1,
             "mute": "10 minutes",
+            "kick": False,
+            "ban": False,
+            "delete": True
+        },
+        'repetitive_characters': {
+            "warn": 0,
+            "mute": None,
             "kick": False,
             "ban": False,
             "delete": True
