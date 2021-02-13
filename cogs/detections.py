@@ -188,7 +188,7 @@ class Detections(commands.Cog):
             except KeyError:
                 pass
 
-    @detection('repetitive_characters', require_prod=False)
+    @detection('repetitive_characters')
     async def repetitive_characters(self, m: MessageWrapper) -> None:
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         limit = guild_config.detections.repetitive_characters
