@@ -220,7 +220,12 @@ class Detections(commands.Cog):
         return 0
 
     def get_nudenet_classifications(self, m, path) -> None:
-        img = Image.open(path)
+        try:
+            img = Image.open(path)
+        except UnidentifiedImageError:
+            os.remove(path)
+            return
+
         image_hash = str(average_hash(img))
         img.close()
 
