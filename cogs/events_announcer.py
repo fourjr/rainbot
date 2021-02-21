@@ -1,5 +1,6 @@
 import json
 import string
+from collections import defaultdict
 from typing import Union
 
 import discord
@@ -14,20 +15,26 @@ from ext.utility import SafeFormat, SafeString
 class EventsAnnouncer(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.invite_cache = {}
+        self.invite_cache = defaultdict(set)
         bot.loop.create_task(self.populate_invite_cache())
 
     async def populate_invite_cache(self):
         await self.bot.wait_until_ready()
         for g in self.bot.guilds:
-            self.invite_cache[g.id] = {i for i in await g.invites()}
+            try:
+                self.invite_cache[g.id] = {i for i in await g.invites()}
+            except discord.Forbidden:
+                pass
 
     async def get_used_invite(self, guild):
         """Checks which invite is used in join via the following strategies:
         1. Check if invite doesn't exist anymore
         2. Check invite uses
         """
-        update_invite_cache = {i for i in await guild.invites()}
+        try:
+            update_invite_cache = {i for i in await guild.invites()}
+        except discord.Forbidden:
+            return Box(default_box=True, default_box_attr='{unable to get invite}')
 
         for i in self.invite_cache[guild.id]:
             if i in update_invite_cache:
