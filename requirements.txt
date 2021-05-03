@@ -8,3 +8,4 @@ tensorflow~=2.4.1
 nudenet~=2.0.7
 imagehash~=4.1.0
 cachetools~=4.1.1
+emoji~=1.2.0
