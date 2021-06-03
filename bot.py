@@ -54,7 +54,7 @@ class rainbot(commands.Bot):
         except discord.LoginFailure:
             self.logger.error('Invalid token')
         except KeyboardInterrupt:
-            self.loop.run_until_complete(self.logout())
+            self.loop.run_until_complete(self.close())
         except Exception:
             self.logger.error('Fatal exception')
             traceback.print_exc(file=sys.stderr)
@@ -71,7 +71,7 @@ class rainbot(commands.Bot):
                     continue
                 try:
                     self.load_extension(f'cogs.{i.replace(".py", "")}')
-                except:
+                except Exception:
                     self.logger.exception(f'Failed to load cogs/{i}')
                 else:
                     self.logger.info(f'Loaded {i}')

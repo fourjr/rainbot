@@ -192,7 +192,10 @@ DEFAULT: Dict[str, Any] = {
         'max_words': [],
         'max_characters': [],
         'sexually_explicit': [],
-        'caps_message': []
+        'caps_message': [],
+        'message_delete': [],
+        'message_edit': [],
+        'channel_delete': [],
     },
     'events_announce': {
         'member_join': {},

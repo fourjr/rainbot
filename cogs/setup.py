@@ -386,6 +386,31 @@ class Setup(commands.Cog):
 
         await ctx.send(self.bot.accept)
 
+    @command(10, aliases=['set-log-ignore', 'set_log_ignore'])
+    async def setlogignore(self, ctx: commands.Context, detection_type: lower, channel: discord.TextChannel=None) -> None:
+        """Ignores detections in specified channels
+
+        Valid types: all, message_delete, message_edit, channel_delete
+        """
+        valid_logs = ['message_delete', 'message_edit', 'channel_delete']
+
+        if detection_type not in valid_logs + ["all"]:
+            raise commands.BadArgument('Invalid detection, pick one from below:\n all, ' + ', '.join(valid_logs))
+
+        if detection_type == 'all':
+            for i in valid_logs:
+                if channel is None:
+                    await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'ignored_channels.{i}': []}})
+                else:
+                    await self.bot.db.update_guild_config(ctx.guild.id, {'$addToSet': {f'ignored_channels.{i}': str(channel.id)}})
+        else:
+            if channel is None:
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {f'ignored_channels.{detection_type}': []}})
+            else:
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$addToSet': {f'ignored_channels.{detection_type}': str(channel.id)}})
+
+        await ctx.send(self.bot.accept)
+
     @group(8, invoke_without_command=True)
     async def regexfilter(self, ctx: commands.Context) -> None:
         """Controls the regex filter"""
