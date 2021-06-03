@@ -1,6 +1,7 @@
 from __future__ import annotations
 import random
 import re
+import emoji
 import string
 from datetime import timedelta
 from typing import Any, Callable, Optional, Tuple, Union, TYPE_CHECKING
@@ -17,10 +18,11 @@ if TYPE_CHECKING:
     from ext.command import RainCommand, RainGroup  # noqa: F401
 
 
-with open('ext/emojis.txt', encoding='utf8') as f:
-    UNICODE_EMOJI = '|'.join(map(re.escape, f.read().splitlines()))
-UNICODE_EMOJI_REGEX = re.compile(UNICODE_EMOJI)
+# with open('ext/emojis.txt', encoding='utf8') as f:
+#     UNICODE_EMOJI = '|'.join(map(re.escape, f.read().splitlines()))
 # File is parsed from js files from loading up discord
+UNICODE_EMOJI = '|'.join(re.escape(u) for u in emoji.UNICODE_EMOJI['en'].keys())
+UNICODE_EMOJI_REGEX = re.compile(UNICODE_EMOJI)
 
 
 __all__ = ('get_perm_level', 'format_timedelta')
