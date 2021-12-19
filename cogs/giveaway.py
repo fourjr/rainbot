@@ -58,7 +58,7 @@ class Giveaways(commands.Cog):
         if guild_config.giveaway.emoji_id:
             emoji_id = guild_config.giveaway.emoji_id
             try:
-                return f'giveaway:{int(emoji_id)}'
+                return int(emoji_id)
             except ValueError:
                 return emoji_id
         return None
@@ -182,7 +182,7 @@ class Giveaways(commands.Cog):
                 em.set_footer(text='End Time')
                 role = await self.role(ctx)
                 channel = await self.channel(ctx)
-                emoji = await self.emoji(ctx)
+                emoji_id = await self.emoji(ctx)
 
                 if isinstance(role, discord.Role):
                     message = await channel.send(role.mention, embed=em, allowed_mentions=AllowedMentions.all())
@@ -191,7 +191,7 @@ class Giveaways(commands.Cog):
                 else:
                     message = await channel.send(embed=em)
 
-                await message.add_reaction(emoji)
+                await message.add_reaction(f'giveaway:{emoji_id}')
 
                 await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'giveaway.message_id': str(message.id), 'giveaway.ended': False}})
 
