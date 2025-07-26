@@ -6,7 +6,8 @@ class WriteConcern(object):
         w: Optional[Union[int, str]] = ...,
         wtimeout: Optional[int] = ...,
         j: Optional[bool] = ...,
-        fsync: Optional[bool] = ...) -> None: ...
+        fsync: Optional[bool] = ...,
+    ) -> None: ...
     @property
     def is_server_default(self) -> bool: ...
     @property

@@ -6,30 +6,32 @@ from pymongo.server_description import ServerDescription
 from pymongo.server_selectors import Selection
 from pymongo.settings import TopologySettings
 
-
-TopologyType = NamedTuple('TopologyType', [
-    ('Single', int),
-    ('ReplicaSetNoPrimary', int),
-    ('ReplicaSetWithPrimary', int),
-    ('Sharded', int),
-    ('Unknown', int),
-])
+TopologyType = NamedTuple(
+    "TopologyType",
+    [
+        ("Single", int),
+        ("ReplicaSetNoPrimary", int),
+        ("ReplicaSetWithPrimary", int),
+        ("Sharded", int),
+        ("Unknown", int),
+    ],
+)
 TOPOLOGY_TYPE: TopologyType = ...
 
 class TopologyDescription(object):
     def __init__(
         self,
         topology_type: int,
-        server_descriptions: Mapping[Tuple[str, int],
-        ServerDescription],
+        server_descriptions: Mapping[Tuple[str, int], ServerDescription],
         replica_set_name: Optional[str],
         max_set_version: Optional[int],
         max_election_id: Optional[int],
-        topology_settings: TopologySettings) -> None: ...
+        topology_settings: TopologySettings,
+    ) -> None: ...
     def check_compatible(self) -> None: ...
     def has_server(self, address: Tuple[str, int]) -> bool: ...
-    def reset_server(self, address: Tuple[str, int]) -> 'TopologyDescription': ...
-    def reset(self) -> 'TopologyDescription': ...
+    def reset_server(self, address: Tuple[str, int]) -> "TopologyDescription": ...
+    def reset(self) -> "TopologyDescription": ...
     def server_descriptions(self) -> Dict[Tuple[str, int], ServerDescription]: ...
     @property
     def topology_type(self) -> int: ...
@@ -50,10 +52,11 @@ class TopologyDescription(object):
     def apply_selector(
         self,
         selector: Union[Selection, Callable[[Selection], Selection], _ServerMode],
-        address: Tuple[str, int]) -> List[ServerDescription]: ...
+        address: Tuple[str, int],
+    ) -> List[ServerDescription]: ...
     def has_readable_server(self, read_preference: _ServerMode = ...) -> bool: ...
     def has_writable_server(self) -> bool: ...
 
 def updated_topology_description(
-    topology_description: TopologyDescription,
-    server_description: ServerDescription) -> TopologyDescription: ...
+    topology_description: TopologyDescription, server_description: ServerDescription
+) -> TopologyDescription: ...

@@ -5,13 +5,16 @@
 import datetime
 from typing import Any, NamedTuple, Optional
 
-_options_base = NamedTuple('_options_base', [
-    ('document_class', type),
-    ('tz_aware', bool),
-    ('uuid_representation', int),
-    ('unicode_decode_error_handler', str),
-    ('tzinfo', datetime.tzinfo),
-])
+_options_base = NamedTuple(
+    "_options_base",
+    [
+        ("document_class", type),
+        ("tz_aware", bool),
+        ("uuid_representation", int),
+        ("unicode_decode_error_handler", str),
+        ("tzinfo", datetime.tzinfo),
+    ],
+)
 
 class CodecOptions(_options_base):
     def __new__(
@@ -20,7 +23,8 @@ class CodecOptions(_options_base):
         tz_aware: bool = ...,
         uuid_representation: int = ...,
         unicode_decode_error_handler: str = ...,
-        tzinfo: Optional[datetime.tzinfo] = ...) -> CodecOptions: ...
+        tzinfo: Optional[datetime.tzinfo] = ...,
+    ) -> CodecOptions: ...
     def with_options(self, **kwargs: Any) -> CodecOptions: ...
 
 DEFAULT_CODEC_OPTIONS: CodecOptions = ...

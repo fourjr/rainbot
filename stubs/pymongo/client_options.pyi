@@ -8,9 +8,10 @@ from pymongo.read_preferences import _ServerMode
 from pymongo.ssl_support import SSLContext
 from pymongo.write_concern import WriteConcern
 
-
 class ClientOptions(object):
-    def __init__(self, username: str, password: str, database: str, options: Dict[str, Any]) -> None: ...
+    def __init__(
+        self, username: str, password: str, database: str, options: Dict[str, Any]
+    ) -> None: ...
     @property
     def connect(self) -> bool: ...
     @property

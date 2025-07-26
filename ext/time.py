@@ -17,29 +17,32 @@ class plural:
 
     def __format__(self, format_spec: str) -> str:
         v = self.value
-        singular, sep, plural = format_spec.partition('|')
-        plural = plural or f'{singular}s'
+        singular, sep, plural = format_spec.partition("|")
+        plural = plural or f"{singular}s"
         if abs(v) != 1:
-            return f'{v} {plural}'
-        return f'{v} {singular}'
+            return f"{v} {plural}"
+        return f"{v} {singular}"
 
 
 class ShortTime:
-    compiled = re.compile("""(?:(?P<years>[0-9])(?:years?|y))?             # e.g. 2y
+    compiled = re.compile(
+        """(?:(?P<years>[0-9])(?:years?|y))?             # e.g. 2y
                              (?:(?P<months>[0-9]{1,2})(?:months?|mo))?     # e.g. 2months
                              (?:(?P<weeks>[0-9]{1,4})(?:weeks?|w))?        # e.g. 10w
                              (?:(?P<days>[0-9]{1,5})(?:days?|d))?          # e.g. 14d
                              (?:(?P<hours>[0-9]{1,5})(?:hours?|h))?        # e.g. 12h
                              (?:(?P<minutes>[0-9]{1,5})(?:minutes?|m))?    # e.g. 10m
                              (?:(?P<seconds>[0-9]{1,5})(?:seconds?|s))?    # e.g. 15s
-                          """, re.VERBOSE)
+                          """,
+        re.VERBOSE,
+    )
 
     def __init__(self, argument: str) -> None:
         match = self.compiled.fullmatch(argument)
         if match is None or not match.group(0):
-            raise commands.BadArgument('invalid time provided')
+            raise commands.BadArgument("invalid time provided")
 
-        data = {k: int(v) for k, v in match.groupdict(default='0').items()}
+        data = {k: int(v) for k, v in match.groupdict(default="0").items()}
         now = datetime.datetime.utcnow()
         self.dt = now + relativedelta(**data)
 
@@ -55,7 +58,9 @@ class HumanTime:
 
         if not status.hasTime:
             # replace it with the current time
-            dt = dt.replace(hour=now.hour, minute=now.minute, second=now.second, microsecond=now.microsecond)
+            dt = dt.replace(
+                hour=now.hour, minute=now.minute, second=now.second, microsecond=now.microsecond
+            )
 
         self.dt = dt
         self._past = dt < now
@@ -77,17 +82,24 @@ class FutureTime(Time):
         super().__init__(argument)
 
         if self._past:
-            raise commands.BadArgument('this time is in the past')
+            raise commands.BadArgument("this time is in the past")
 
 
 class UserFriendlyTime(commands.Converter):
     """That way quotes aren't absolutely necessary."""
-    def __init__(self, converter: commands.Converter=None, *, default: str=None, assume_reason: bool=False) -> None:
+
+    def __init__(
+        self,
+        converter: commands.Converter = None,
+        *,
+        default: str = None,
+        assume_reason: bool = False,
+    ) -> None:
         if isinstance(converter, type) and issubclass(converter, commands.Converter):
             converter = converter()
 
         if converter is not None and not isinstance(converter, commands.Converter):
-            raise TypeError('commands.Converter subclass necessary.')
+            raise TypeError("commands.Converter subclass necessary.")
 
         self.converter = converter
         self.default = default
@@ -95,11 +107,11 @@ class UserFriendlyTime(commands.Converter):
 
     async def check_constraints(self, ctx: commands.Context, now, remaining) -> UserFriendlyTime:
         if self.dt < now:
-            raise commands.BadArgument('This time is in the past.')
+            raise commands.BadArgument("This time is in the past.")
 
         if not remaining:
             if self.default is None:
-                raise commands.BadArgument('reason is a required parameter that is missing.')
+                raise commands.BadArgument("reason is a required parameter that is missing.")
             self.arg = self.default
         else:
             if self.converter is not None:
@@ -117,18 +129,18 @@ class UserFriendlyTime(commands.Converter):
             match = regex.match(argument)
             if match is not None and match.group(0):
                 data = {k: int(v) for k, v in match.groupdict(default=0).items()}
-                remaining = argument[match.end():].strip()
+                remaining = argument[match.end() :].strip()
                 self.dt = now + relativedelta(**data)
                 return await self.check_constraints(ctx, now, remaining)
 
             # apparently nlp does not like "from now"
             # it likes "from x" in other cases though so let me handle the 'now' case
-            if argument.endswith('from now'):
+            if argument.endswith("from now"):
                 argument = argument[:-8].strip()
 
-            if argument[0:2] == 'me':
+            if argument[0:2] == "me":
                 # starts with "me to", "me in", or "me at "
-                if argument[0:6] in ('me to ', 'me in ', 'me at '):
+                if argument[0:6] in ("me to ", "me in ", "me at "):
                     argument = argument[6:]
 
             elements = calendar.nlp(argument, sourceTime=now)
@@ -139,7 +151,9 @@ class UserFriendlyTime(commands.Converter):
                     self.arg = argument
                     return self
                 else:
-                    raise commands.BadArgument('Invalid time provided, try e.g. "tomorrow" or "3 days".')
+                    raise commands.BadArgument(
+                        'Invalid time provided, try e.g. "tomorrow" or "3 days".'
+                    )
 
             # handle the following cases:
             # "date time" foo
@@ -156,16 +170,22 @@ class UserFriendlyTime(commands.Converter):
                     self.arg = argument
                     return self
                 else:
-                    raise commands.BadArgument('Invalid time provided, try e.g. "tomorrow" or "3 days".')
+                    raise commands.BadArgument(
+                        'Invalid time provided, try e.g. "tomorrow" or "3 days".'
+                    )
 
             if begin not in (0, 1) and end != len(argument):
-                raise commands.BadArgument('Time is either in an inappropriate location, which '
-                                           'must be either at the end or beginning of your input, '
-                                           'or I just flat out did not understand what you meant. Sorry.')
+                raise commands.BadArgument(
+                    "Time is either in an inappropriate location, which "
+                    "must be either at the end or beginning of your input, "
+                    "or I just flat out did not understand what you meant. Sorry."
+                )
 
             if not status.hasTime:
                 # replace it with the current time
-                dt = dt.replace(hour=now.hour, minute=now.minute, second=now.second, microsecond=now.microsecond)
+                dt = dt.replace(
+                    hour=now.hour, minute=now.minute, second=now.second, microsecond=now.microsecond
+                )
 
             # if midnight is provided, just default to next day
             if status.accuracy == pdt.pdtContext.ACU_HALFDAY:
@@ -177,14 +197,14 @@ class UserFriendlyTime(commands.Converter):
                 if begin == 1:
                     # check if it's quoted:
                     if argument[0] != '"':
-                        raise commands.BadArgument('Expected quote before time input...')
+                        raise commands.BadArgument("Expected quote before time input...")
 
                     if not (end < len(argument) and argument[end] == '"'):
-                        raise commands.BadArgument('If the time is quoted, you must unquote it.')
+                        raise commands.BadArgument("If the time is quoted, you must unquote it.")
 
-                    remaining = argument[end + 1:].lstrip(' ,.!')
+                    remaining = argument[end + 1 :].lstrip(" ,.!")
                 else:
-                    remaining = argument[end:].lstrip(' ,.!')
+                    remaining = argument[end:].lstrip(" ,.!")
             elif len(argument) == end:
                 remaining = argument[:begin].strip()
 
@@ -193,19 +213,19 @@ class UserFriendlyTime(commands.Converter):
             raise
 
 
-def human_timedelta(dt, *, source: datetime.datetime=None, accuracy: int=None):
+def human_timedelta(dt, *, source: datetime.datetime = None, accuracy: int = None):
     now = source or datetime.datetime.utcnow()
     if dt > now:
         delta = relativedelta(dt, now)
-        suffix = ''
+        suffix = ""
     else:
         delta = relativedelta(now, dt)
-        suffix = ' ago'
+        suffix = " ago"
 
     if delta.microseconds and delta.seconds:
         delta = delta + relativedelta(seconds=+1)
 
-    attrs = ['years', 'months', 'days', 'hours', 'minutes', 'seconds']
+    attrs = ["years", "months", "days", "hours", "minutes", "seconds"]
 
     output = []
     for attr in attrs:
@@ -213,25 +233,25 @@ def human_timedelta(dt, *, source: datetime.datetime=None, accuracy: int=None):
         if not elem:
             continue
 
-        if attr == 'days':
+        if attr == "days":
             weeks = delta.weeks
             if weeks:
                 elem -= delta.weeks * 7
-                output.append(format(plural(weeks), 'week'))
+                output.append(format(plural(weeks), "week"))
 
         if elem > 1:
-            output.append(f'{elem} {attr}')
+            output.append(f"{elem} {attr}")
         else:
-            output.append(f'{elem} {attr[:-1]}')
+            output.append(f"{elem} {attr[:-1]}")
 
     if accuracy is not None:
         output = output[:accuracy]
 
     if len(output) == 0:
-        return 'now'
+        return "now"
     elif len(output) == 1:
         return output[0] + suffix
     elif len(output) == 2:
-        return f'{output[0]} and {output[1]}{suffix}'
+        return f"{output[0]} and {output[1]}{suffix}"
     else:
-        return f'{output[0]}, {output[1]} and {output[2]}{suffix}'
+        return f"{output[0]}, {output[1]} and {output[2]}{suffix}"

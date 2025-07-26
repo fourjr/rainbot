@@ -10,9 +10,11 @@ class DBRef:
     def __init__(
         self,
         collection: str,
-        id: Any, database: Optional[str] = ...,
+        id: Any,
+        database: Optional[str] = ...,
         _extra: Mapping[str, Any] = ...,
-        **kwargs: Any) -> None: ...
+        **kwargs: Any,
+    ) -> None: ...
     @property
     def collection(self) -> str: ...
     @property
