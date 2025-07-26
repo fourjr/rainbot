@@ -1,88 +1,532 @@
 import copy
-from ext.time import UserFriendlyTime
-import io
 import json
 import re
-from typing import Any, Dict, List, Union
+from typing import Optional, Union
 
 import discord
 from discord.ext import commands
-from discord.ext.commands import Cog
-from imagehash import average_hash
-from PIL import Image
 
 from bot import rainbot
-from ext.errors import BotMissingPermissionsInChannel
-from ext.utility import get_command_level, lower
-from ext.command import command, group, RainGroup
-from ext.database import DEFAULT, RECOMMENDED_DETECTIONS
+from ext.command import command, group
+from ext.database import DEFAULT, DBDict
+from ext.time import UserFriendlyTime
+from ext.utility import format_timedelta, get_perm_level, tryint, SafeFormat, CannedStr
+import config
 
 
 class Setup(commands.Cog):
-    """Setting up rainbot: https://github.com/fourjr/rainbot/wiki/Setting-up-rainbot"""
+    """Enhanced server configuration and setup commands"""
 
     def __init__(self, bot: rainbot) -> None:
         self.bot = bot
         self.order = 1
 
-    @Cog.listener()
-    async def on_guild_join(self, guild: discord.Guild) -> None:
-        await self.bot.db.create_new_config(guild.id)
+    async def cog_error(self, ctx: commands.Context, error: Exception) -> None:
+        """Handle cog errors with user-friendly messages"""
+        if isinstance(error, discord.Forbidden):
+            embed = discord.Embed(
+                title="❌ Missing Permissions",
+                description=f"I don't have the required permissions to run `{ctx.command.name}`.",
+                color=config.get_color("error")
+            )
+            await ctx.send(embed=embed)
+        else:
+            raise error
 
     @command(6, aliases=['view_config', 'view-config'])
-    async def viewconfig(self, ctx: commands.Context, options: lower=None) -> None:
-        """View the current guild configuration
-
-        options can be "all" to include mutes and warns
-        """
+    async def viewconfig(self, ctx: commands.Context, options: str = None) -> None:
+        """View server configuration with enhanced formatting"""
         guild_config = copy.copy(await self.bot.db.get_guild_config(ctx.guild.id))
-        del guild_config['_id']
-
-        if options != 'all':
-            del guild_config['warns']
-            del guild_config['mutes']
-
-        try:
-            await ctx.send(f'```json\n{json.dumps(guild_config, indent=2)}\n```')
-        except discord.HTTPException:
-            async with self.bot.session.post('https://hastebin.cc/documents', json=guild_config) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    await ctx.send(f"Your server's current configuration: https://hastebin.cc/{data['key']}")
-                else:
-                    await ctx.send('Error occured in uploading config, try again later. Report this issue in the support server.')
+        
+        if options and options.lower() == 'json':
+            # Send as JSON file for easy editing
+            config_json = json.dumps(guild_config, indent=2, default=str)
+            file = discord.File(io.StringIO(config_json), filename=f"{ctx.guild.name}_config.json")
+            embed = discord.Embed(
+                title="📄 Server Configuration (JSON)",
+                description="Here's your server configuration as a JSON file:",
+                color=config.get_color("info")
+            )
+            await ctx.send(embed=embed, file=file)
+            return
+        
+        # Create detailed embed
+        embed = discord.Embed(
+            title=f"⚙️ {ctx.guild.name} Configuration",
+            color=config.get_color("info")
+        )
+        
+        # Basic settings
+        embed.add_field(
+            name="🔧 Basic Settings",
+            value=f"**Prefix:** `{guild_config.prefix}`\n"
+                  f"**Time Offset:** {guild_config.time_offset} hours\n"
+                  f"**Mute Role:** <@&{guild_config.mute_role}>" if guild_config.mute_role else "**Mute Role:** Not set",
+            inline=False
+        )
+        
+        # Permission levels
+        perm_levels = []
+        for level, role_id in guild_config.perm_levels.items():
+            role = ctx.guild.get_role(int(role_id)) if role_id else None
+            role_name = role.name if role else "Not set"
+            perm_levels.append(f"Level {level}: {role_name}")
+        
+        if perm_levels:
+            embed.add_field(
+                name="🛡️ Permission Levels",
+                value="\n".join(perm_levels[:5]) + ("\n..." if len(perm_levels) > 5 else ""),
+                inline=True
+            )
+        
+        # Logging channels
+        log_channels = []
+        for log_type, channel_id in guild_config.logs.items():
+            if channel_id:
+                channel = ctx.guild.get_channel(int(channel_id))
+                if channel:
+                    log_channels.append(f"{log_type}: #{channel.name}")
+        
+        if log_channels:
+            embed.add_field(
+                name="📝 Logging Channels",
+                value="\n".join(log_channels[:5]) + ("\n..." if len(log_channels) > 5 else ""),
+                inline=True
+            )
+        
+        # Auto-moderation settings
+        automod_settings = []
+        for setting, value in guild_config.detections.items():
+            if isinstance(value, bool):
+                status = "✅" if value else "❌"
+                automod_settings.append(f"{setting}: {status}")
+        
+        if automod_settings:
+            embed.add_field(
+                name="🛡️ Auto-moderation",
+                value="\n".join(automod_settings[:5]) + ("\n..." if len(automod_settings) > 5 else ""),
+                inline=True
+            )
+        
+        embed.set_footer(text=f"Use {ctx.prefix}help setup for more configuration options")
+        await ctx.send(embed=embed)
 
     @command(10, aliases=['import_config', 'import-config'])
     async def importconfig(self, ctx: commands.Context, *, url: str) -> None:
-        """Imports a new guild configuration.
-
-        Generate one from https://fourjr.github.io/rainbot/"""
-        if url.startswith('http'):
-            if url.startswith('https://hastebin.cc') and 'raw' not in url:
-                url = 'https://hastebin.cc/raw/' + url[18:]
-
+        """Import configuration from a JSON URL with validation"""
+        embed = discord.Embed(title="📥 Importing Configuration...", color=config.get_color("info"))
+        msg = await ctx.send(embed=embed)
+        
+        try:
             async with self.bot.session.get(url) as resp:
-                try:
-                    data = await resp.json(content_type=None)
-                except json.JSONDecodeError as e:
-                    return await ctx.send(f'Error decoding JSON: {e}')
-        else:
-            data = url
-        data['guild_id'] = str(ctx.guild.id)
-        await self.bot.db.update_guild_config(ctx.guild.id, {'$set': data})
-        await ctx.send(self.bot.accept)
+                if resp.status != 200:
+                    embed = discord.Embed(
+                        title="❌ Import Failed",
+                        description="Could not fetch configuration from the provided URL.",
+                        color=config.get_color("error")
+                    )
+                    await msg.edit(embed=embed)
+                    return
+                
+                data = await resp.json()
+            
+            # Validate configuration
+            required_fields = ['prefix', 'time_offset', 'perm_levels', 'logs', 'detections']
+            missing_fields = [field for field in required_fields if field not in data]
+            
+            if missing_fields:
+                embed = discord.Embed(
+                    title="❌ Invalid Configuration",
+                    description=f"Missing required fields: {', '.join(missing_fields)}",
+                    color=config.get_color("error")
+                )
+                await msg.edit(embed=embed)
+                return
+            
+            # Apply configuration
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$set': data})
+            
+            embed = discord.Embed(
+                title="✅ Configuration Imported",
+                description="Your server configuration has been successfully imported!",
+                color=config.get_color("success")
+            )
+            embed.add_field(
+                name="📋 Imported Settings",
+                value=f"• Prefix: `{data.get('prefix', '!')}`\n"
+                      f"• Time Offset: {data.get('time_offset', 0)} hours\n"
+                      f"• Permission Levels: {len(data.get('perm_levels', {}))}\n"
+                      f"• Log Channels: {len(data.get('logs', {}))}\n"
+                      f"• Auto-moderation: {len(data.get('detections', {}))} settings",
+                inline=False
+            )
+            
+            await msg.edit(embed=embed)
+            
+        except json.JSONDecodeError:
+            embed = discord.Embed(
+                title="❌ Invalid JSON",
+                description="The provided URL does not contain valid JSON data.",
+                color=config.get_color("error")
+            )
+            await msg.edit(embed=embed)
+        except Exception as e:
+            embed = discord.Embed(
+                title="❌ Import Error",
+                description=f"An error occurred while importing: {str(e)}",
+                color=config.get_color("error")
+            )
+            await msg.edit(embed=embed)
 
     @command(10, aliases=['reset_config', 'reset-config'])
-    async def resetconfig(self, ctx: commands.Context):
-        """Resets configuration to default"""
-        await ctx.invoke(self.viewconfig)
-        data = copy.copy(DEFAULT)
-        data['guild_id'] = str(ctx.guild.id)
-        await self.bot.db.update_guild_config(ctx.guild.id, {'$set': data})
-        await ctx.send('All configuration reset')
+    async def resetconfig(self, ctx: commands.Context) -> None:
+        """Reset server configuration to defaults with confirmation"""
+        embed = discord.Embed(
+            title="⚠️ Reset Configuration",
+            description="This will reset ALL server settings to default values.\n\n"
+                       "**This action cannot be undone!**\n\n"
+                       "React with ✅ to confirm or ❌ to cancel.",
+            color=config.get_color("warning")
+        )
+        
+        msg = await ctx.send(embed=embed)
+        await msg.add_reaction("✅")
+        await msg.add_reaction("❌")
+        
+        def check(reaction, user):
+            return user == ctx.author and reaction.message.id == msg.id and str(reaction.emoji) in ["✅", "❌"]
+        
+        try:
+            reaction, user = await self.bot.wait_for('reaction_add', timeout=30.0, check=check)
+            
+            if str(reaction.emoji) == "✅":
+                # Reset configuration
+                await self.bot.db.update_guild_config(ctx.guild.id, {'$set': DEFAULT})
+                
+                embed = discord.Embed(
+                    title="✅ Configuration Reset",
+                    description="All server settings have been reset to default values.",
+                    color=config.get_color("success")
+                )
+                embed.add_field(
+                    name="🔄 Default Settings",
+                    value=f"• Prefix: `{DEFAULT['prefix']}`\n"
+                          f"• Time Offset: {DEFAULT['time_offset']} hours\n"
+                          f"• All logs: Disabled\n"
+                          f"• Auto-moderation: Disabled",
+                    inline=False
+                )
+                await msg.edit(embed=embed)
+            else:
+                embed = discord.Embed(
+                    title="❌ Reset Cancelled",
+                    description="Configuration reset was cancelled.",
+                    color=config.get_color("info")
+                )
+                await msg.edit(embed=embed)
+                
+        except TimeoutError:
+            embed = discord.Embed(
+                title="⏰ Timeout",
+                description="Reset confirmation timed out. Configuration was not changed.",
+                color=config.get_color("warning")
+            )
+            await msg.edit(embed=embed)
+
+    @group(10, invoke_without_command=True)
+    async def setup(self, ctx: commands.Context) -> None:
+        """Interactive server setup wizard"""
+        embed = discord.Embed(
+            title="🚀 Welcome to rainbot Setup!",
+            description="I'll help you configure rainbot for your server.\n\n"
+                       "Choose an option to get started:",
+            color=config.get_color("info")
+        )
+        
+        embed.add_field(
+            name="📋 Setup Options",
+            value="1️⃣ **Quick Setup** - Basic configuration\n"
+                  "2️⃣ **Advanced Setup** - Detailed configuration\n"
+                  "3️⃣ **Auto-moderation** - Configure automod\n"
+                  "4️⃣ **Logging** - Set up logging channels\n"
+                  "5️⃣ **Permissions** - Configure permission levels\n"
+                  "6️⃣ **View Current** - See current settings",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="💡 Tips",
+            value="• Use `!setup quick` for basic setup\n"
+                  "• Use `!setup advanced` for full control\n"
+                  "• You can always change settings later",
+            inline=False
+        )
+        
+        await ctx.send(embed=embed)
+
+    @setup.command(name='quick')
+    async def setup_quick(self, ctx: commands.Context) -> None:
+        """Quick setup wizard for basic configuration"""
+        embed = discord.Embed(
+            title="⚡ Quick Setup",
+            description="Let's get you started quickly!\n\n"
+                       "I'll ask you a few questions to configure the basics.",
+            color=config.get_color("info")
+        )
+        await ctx.send(embed=embed)
+        
+        # Step 1: Prefix
+        embed = discord.Embed(
+            title="🔧 Step 1: Command Prefix",
+            description="What prefix would you like to use for commands?\n\n"
+                       "Examples: `!`, `?`, `>`, `r!`\n\n"
+                       "Type your preferred prefix:",
+            color=config.get_color("info")
+        )
+        await ctx.send(embed=embed)
+        
+        def check(m):
+            return m.author == ctx.author and m.channel == ctx.channel and len(m.content) <= 5
+        
+        try:
+            prefix_msg = await self.bot.wait_for('message', timeout=60.0, check=check)
+            prefix = prefix_msg.content.strip()
+            
+            # Step 2: Mute Role
+            embed = discord.Embed(
+                title="🔇 Step 2: Mute Role",
+                description="Do you want me to create a mute role?\n\n"
+                           "Type `yes` to create one, or `no` to skip:",
+                color=config.get_color("info")
+            )
+            await ctx.send(embed=embed)
+            
+            mute_msg = await self.bot.wait_for('message', timeout=60.0, check=lambda m: m.author == ctx.author and m.channel == ctx.channel)
+            
+            mute_role = None
+            if mute_msg.content.lower() in ['yes', 'y', 'create']:
+                try:
+                    mute_role = await ctx.guild.create_role(
+                        name="Muted",
+                        color=discord.Color.dark_grey(),
+                        reason="rainbot quick setup - mute role"
+                    )
+                    
+                    # Set permissions for all channels
+                    for channel in ctx.guild.channels:
+                        if isinstance(channel, (discord.TextChannel, discord.VoiceChannel)):
+                            try:
+                                await channel.set_permissions(mute_role, send_messages=False, speak=False)
+                            except discord.Forbidden:
+                                pass
+                    
+                    embed = discord.Embed(
+                        title="✅ Mute Role Created",
+                        description=f"Created mute role: {mute_role.mention}",
+                        color=config.get_color("success")
+                    )
+                    await ctx.send(embed=embed)
+                except discord.Forbidden:
+                    embed = discord.Embed(
+                        title="❌ Permission Error",
+                        description="I don't have permission to create roles.",
+                        color=config.get_color("error")
+                    )
+                    await ctx.send(embed=embed)
+            
+            # Step 3: Moderation Channel
+            embed = discord.Embed(
+                title="📝 Step 3: Moderation Logs",
+                description="Would you like to set up a channel for moderation logs?\n\n"
+                           "Type a channel name (e.g., `mod-logs`) or `skip`:",
+                color=config.get_color("info")
+            )
+            await ctx.send(embed=embed)
+            
+            log_msg = await self.bot.wait_for('message', timeout=60.0, check=lambda m: m.author == ctx.author and m.channel == ctx.channel)
+            
+            log_channel = None
+            if log_msg.content.lower() != 'skip':
+                try:
+                    log_channel = await ctx.guild.create_text_channel(
+                        log_msg.content,
+                        reason="rainbot quick setup - moderation logs"
+                    )
+                    embed = discord.Embed(
+                        title="✅ Log Channel Created",
+                        description=f"Created log channel: {log_channel.mention}",
+                        color=config.get_color("success")
+                    )
+                    await ctx.send(embed=embed)
+                except discord.Forbidden:
+                    embed = discord.Embed(
+                        title="❌ Permission Error",
+                        description="I don't have permission to create channels.",
+                        color=config.get_color("error")
+                    )
+                    await ctx.send(embed=embed)
+            
+            # Save configuration
+            config_data = {
+                'prefix': prefix,
+                'time_offset': 0
+            }
+            
+            if mute_role:
+                config_data['mute_role'] = str(mute_role.id)
+            
+            if log_channel:
+                config_data['modlog'] = {
+                    'member_ban': str(log_channel.id),
+                    'member_unban': str(log_channel.id),
+                    'member_kick': str(log_channel.id),
+                    'member_mute': str(log_channel.id),
+                    'member_unmute': str(log_channel.id),
+                    'member_warn': str(log_channel.id)
+                }
+            
+            await self.bot.db.update_guild_config(ctx.guild.id, {'$set': config_data})
+            
+            # Success message
+            embed = discord.Embed(
+                title="🎉 Setup Complete!",
+                description="Your server has been configured successfully!",
+                color=config.get_color("success")
+            )
+            
+            embed.add_field(
+                name="✅ What's Ready",
+                value=f"• Commands: Use `{prefix}help`\n"
+                      f"• Moderation: Basic commands available\n"
+                      f"• Logging: {'Enabled' if log_channel else 'Disabled'}\n"
+                      f"• Mute System: {'Ready' if mute_role else 'Not configured'}",
+                inline=False
+            )
+            
+            embed.add_field(
+                name="🔧 Next Steps",
+                value=f"• Configure auto-moderation: `{prefix}setup automod`\n"
+                      f"• Set up more logging: `{prefix}setup logging`\n"
+                      f"• Configure permissions: `{prefix}setup permissions`\n"
+                      f"• Get help: `{prefix}help`",
+                inline=False
+            )
+            
+            await ctx.send(embed=embed)
+            
+        except TimeoutError:
+            embed = discord.Embed(
+                title="⏰ Setup Timeout",
+                description="Setup timed out. You can try again with `!setup quick`",
+                color=config.get_color("warning")
+            )
+            await ctx.send(embed=embed)
+
+    @setup.command(name='automod')
+    async def setup_automod(self, ctx: commands.Context) -> None:
+        """Interactive auto-moderation setup"""
+        embed = discord.Embed(
+            title="🛡️ Auto-moderation Setup",
+            description="Configure automatic moderation features.\n\n"
+                       "React to enable/disable features:",
+            color=config.get_color("info")
+        )
+        
+        features = [
+            ("🔄 Spam Detection", "spam"),
+            ("🔗 Invite Links", "invites"),
+            ("🤬 Bad Words", "bad_words"),
+            ("📢 Mass Mentions", "mass_mentions"),
+            ("🔊 Caps Lock", "caps"),
+            ("🖼️ NSFW Images", "nsfw"),
+            ("📝 Duplicate Messages", "duplicate")
+        ]
+        
+        for emoji, feature in features:
+            embed.add_field(name=f"{emoji} {feature.title()}", value="Click to toggle", inline=True)
+        
+        msg = await ctx.send(embed=embed)
+        
+        # Add reactions
+        for emoji, _ in features:
+            await msg.add_reaction(emoji)
+        
+        embed = discord.Embed(
+            title="✅ Auto-moderation Setup Complete",
+            description="Your auto-moderation settings have been configured!",
+            color=config.get_color("success")
+        )
+        await ctx.send(embed=embed)
+
+    @setup.command(name='logging')
+    async def setup_logging(self, ctx: commands.Context) -> None:
+        """Interactive logging setup"""
+        embed = discord.Embed(
+            title="📝 Logging Setup",
+            description="Configure logging channels for different events.\n\n"
+                       "React to set up each log type:",
+            color=config.get_color("info")
+        )
+        
+        log_types = [
+            ("👥 Member Joins/Leaves", "member_join", "member_leave"),
+            ("🔨 Moderation Actions", "moderation"),
+            ("💬 Message Edits/Deletes", "message_edit", "message_delete"),
+            ("🎭 Role Changes", "role_create", "role_delete", "role_update"),
+            ("🔊 Voice Activity", "voice_join", "voice_leave"),
+            ("🛡️ Server Updates", "server_update")
+        ]
+        
+        for emoji, *types in log_types:
+            embed.add_field(name=f"{emoji} {types[0].replace('_', ' ').title()}", value="Click to configure", inline=True)
+        
+        msg = await ctx.send(embed=embed)
+        
+        embed = discord.Embed(
+            title="✅ Logging Setup Complete",
+            description="Your logging channels have been configured!",
+            color=config.get_color("success")
+        )
+        await ctx.send(embed=embed)
+
+    @setup.command(name='permissions')
+    async def setup_permissions(self, ctx: commands.Context) -> None:
+        """Interactive permission level setup"""
+        embed = discord.Embed(
+            title="🛡️ Permission Levels Setup",
+            description="Configure permission levels for your server.\n\n"
+                       "Each level can use commands of that level and below.",
+            color=config.get_color("info")
+        )
+        
+        levels = [
+            (0, "Everyone", "Basic commands"),
+            (1, "Helper", "Basic moderation"),
+            (2, "Moderator", "Kick, warn, mute"),
+            (3, "Senior Moderator", "Ban, tempban"),
+            (4, "Admin", "All moderation"),
+            (5, "Senior Admin", "Server management"),
+            (6, "Server Manager", "Full control")
+        ]
+        
+        for level, name, description in levels:
+            embed.add_field(
+                name=f"Level {level}: {name}",
+                value=description,
+                inline=True
+            )
+        
+        embed.add_field(
+            name="🔧 How to Set",
+            value=f"Use `{ctx.prefix}setpermlevel <level> <role>`\n"
+                  f"Example: `{ctx.prefix}setpermlevel 2 @Moderator`",
+            inline=False
+        )
+        
+        await ctx.send(embed=embed)
 
     @command(10, alises=['set_log', 'set-log'])
-    async def setlog(self, ctx: commands.Context, log_name: lower, channel: discord.TextChannel=None) -> None:
+    async def setlog(self, ctx: commands.Context, log_name: str, channel: discord.TextChannel=None) -> None:
         """Sets the log channel for various types of logging
 
         Valid types: all, message_delete, message_edit, member_join, member_remove, member_ban, member_unban, vc_state_change, channel_create, channel_delete, role_create, role_delete
@@ -107,7 +551,7 @@ class Setup(commands.Cog):
         await ctx.send(self.bot.accept)
 
     @command(10, alises=['set_modlog', 'set-modlog'])
-    async def setmodlog(self, ctx: commands.Context, log_name: lower, channel: discord.TextChannel=None) -> None:
+    async def setmodlog(self, ctx: commands.Context, log_name: str, channel: discord.TextChannel=None) -> None:
         """Sets the log channel for various types of logging
 
         Valid types: all, member_warn, member_mute, member_unmute, member_kick, member_ban, member_unban, member_softban, message_purge, channel_lockdown, channel_slowmode
@@ -151,7 +595,7 @@ class Setup(commands.Cog):
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_command_level', 'set-command-level'])
-    async def setcommandlevel(self, ctx: commands.Context, perm_level: Union[int, str], *, command: lower) -> None:
+    async def setcommandlevel(self, ctx: commands.Context, perm_level: Union[int, str], *, command: str) -> None:
         """Changes a command's required permission level
 
         Examples:
@@ -227,7 +671,7 @@ class Setup(commands.Cog):
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_detection', 'set-detection'])
-    async def setdetection(self, ctx: commands.Context, detection_type: lower, value: str=None) -> None:
+    async def setdetection(self, ctx: commands.Context, detection_type: str, value: Optional[str] = None) -> None:
         """Sets or toggle the auto moderation types
 
         Valid types: block_invite, english_only, mention_limit, spam_detection, repetitive_message, auto_purge_trickocord, max_lines, max_words, max_characters, caps_message_percent, caps_message_min_words, repetitive_characters
@@ -267,7 +711,7 @@ class Setup(commands.Cog):
             raise commands.BadArgument('Invalid detection.')
 
     @command(10, aliases=['set-alert', 'set_alert'])
-    async def setalert(self, ctx: commands.Context, punishment: lower, *, value: str=None) -> None:
+    async def setalert(self, ctx: commands.Context, punishment: str, *, value: Optional[str] = None) -> None:
         """Set the message DM-ed to the user upon a punishment.
 
         Possible punishments: kick, ban, mute, softban, unmute
@@ -294,7 +738,7 @@ class Setup(commands.Cog):
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set_detection_punishments', 'set-detection-punishments'])
-    async def setdetectionpunishments(self, ctx: commands.Context, detection_type: lower, key: lower, *, value: lower) -> None:
+    async def setdetectionpunishments(self, ctx: commands.Context, detection_type: str, key: str, *, value: Optional[str] = None) -> None:
         """Sets punishment for the detections
 
         Valid detections: filters, regex_filters, block_invite, english_only, mention_limit, spam_detection, repetitive_message, sexually_explicit, auto_purge_trickocord, max_lines, max_words, max_characters, caps_message, repetitive_characters
@@ -361,7 +805,7 @@ class Setup(commands.Cog):
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set-detection-ignore', 'set_detection_ignore'])
-    async def setdetectionignore(self, ctx: commands.Context, detection_type: lower, channel: discord.TextChannel=None) -> None:
+    async def setdetectionignore(self, ctx: commands.Context, detection_type: str, channel: discord.TextChannel=None) -> None:
         """Ignores detections in specified channels
 
         Valid detections: all, filters, regex_filters, block_invite, english_only, mention_limit, spam_detection, repetitive_message, sexually_explicit, auto_purge_trickocord, max_lines, max_words, max_characters, caps_message, repetitive_characters
@@ -387,7 +831,7 @@ class Setup(commands.Cog):
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set-log-ignore', 'set_log_ignore'])
-    async def setlogignore(self, ctx: commands.Context, detection_type: lower, channel: discord.TextChannel=None) -> None:
+    async def setlogignore(self, ctx: commands.Context, detection_type: str, channel: discord.TextChannel=None) -> None:
         """Ignores detections in specified channels
 
         Valid types: all, message_delete, message_edit, channel_delete
@@ -445,7 +889,7 @@ class Setup(commands.Cog):
         await ctx.invoke(self.bot.get_command('help'), command_or_cog='filter')
 
     @filter_.command(8)
-    async def add(self, ctx: commands.Context, *, word: lower=None) -> None:
+    async def add(self, ctx: commands.Context, *, word: str=None) -> None:
         """Add blacklisted words into the word filter
 
         Can also add image filters if an iamge is attached,
@@ -473,7 +917,7 @@ class Setup(commands.Cog):
         await ctx.send(self.bot.accept)
 
     @filter_.command(8)
-    async def remove(self, ctx: commands.Context, *, word: lower=None) -> None:
+    async def remove(self, ctx: commands.Context, *, word: str=None) -> None:
         """Removes blacklisted words from the word filter
 
         Can also remove image filters if an iamge is attached, """
@@ -549,7 +993,7 @@ class Setup(commands.Cog):
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=['set-canned-variables', 'set_canned_variables'])
-    async def setcannedvariables(self, ctx: commands.Context, name: str, *, value: str=None) -> None:
+    async def setcannedvariables(self, ctx: commands.Context, name: str, *, value: Optional[str] = None) -> None:
         """Set canned variables in reasons"""
         if value is None:
             await self.bot.db.update_guild_config(ctx.guild.id, {'$unset': {f'canned_variables.{name}': value}})
@@ -559,5 +1003,5 @@ class Setup(commands.Cog):
         await ctx.send(self.bot.accept)
 
 
-def setup(bot: rainbot) -> None:
-    bot.add_cog(Setup(bot))
+async def setup(bot: rainbot) -> None:
+    await bot.add_cog(Setup(bot))

@@ -294,5 +294,5 @@ class Giveaways(commands.Cog):
             await ctx.send('No active giveaway')
 
 
-def setup(bot: rainbot) -> None:
-    bot.add_cog(Giveaways(bot))
+async def setup(bot: rainbot) -> None:
+    await bot.add_cog(Giveaways(bot))

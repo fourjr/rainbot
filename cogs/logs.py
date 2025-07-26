@@ -244,5 +244,5 @@ class Logging(commands.Cog):
             await self.send_log(log_channel, role, False, mode='channel_role_delete', extra='Role')
 
 
-def setup(bot: rainbot) -> None:
-    bot.add_cog(Logging(bot))
+async def setup(bot: rainbot) -> None:
+    await bot.add_cog(Logging(bot))

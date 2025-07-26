@@ -252,5 +252,5 @@ class Detections(commands.Cog):
                 break
 
 
-def setup(bot: rainbot) -> None:
-    bot.add_cog(Detections(bot))
+async def setup(bot: rainbot) -> None:
+    await bot.add_cog(Detections(bot))

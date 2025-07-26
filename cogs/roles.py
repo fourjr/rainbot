@@ -177,5 +177,5 @@ class Roles(commands.Cog):
                 await self.bot.db.update_guild_config(role.guild.id, {'$pull': {k: str(role.id)}})
 
 
-def setup(bot: rainbot) -> None:
-    bot.add_cog(Roles(bot))
+async def setup(bot: rainbot) -> None:
+    await bot.add_cog(Roles(bot))

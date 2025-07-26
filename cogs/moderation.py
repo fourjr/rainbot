@@ -562,5 +562,5 @@ class Moderation(commands.Cog):
             self.bot.loop.create_task(self.bot.unban(ctx.guild.id, member.id, seconds))
 
 
-def setup(bot: rainbot) -> None:
-    bot.add_cog(Moderation(bot))
+async def setup(bot: rainbot) -> None:
+    await bot.add_cog(Moderation(bot))

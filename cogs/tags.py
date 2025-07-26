@@ -99,5 +99,5 @@ class Tags(commands.Cog):
         return updated_tag
 
 
-def setup(bot: rainbot) -> None:
-    bot.add_cog(Tags(bot))
+async def setup(bot: rainbot) -> None:
+    await bot.add_cog(Tags(bot))
