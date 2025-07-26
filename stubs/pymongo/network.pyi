@@ -7,7 +7,6 @@ from pymongo.monitoring import _EventListeners
 from pymongo.read_concern import ReadConcern
 from pymongo.read_preferences import _ServerMode
 
-
 def command(
     sock: socket,
     dbname: str,
@@ -24,8 +23,11 @@ def command(
     max_bson_size: Optional[int] = ...,
     read_concern: ReadConcern = ...,
     parse_write_concern_error: bool = ...,
-    collation: Optional[Collation] = ...) -> Dict[str, Any]: ...
-def receive_message(sock: socket, operation: int, request_id: int, max_message_size: int = ...) -> bytes: ...
+    collation: Optional[Collation] = ...,
+) -> Dict[str, Any]: ...
+def receive_message(
+    sock: socket, operation: int, request_id: int, max_message_size: int = ...
+) -> bytes: ...
 
 class SocketChecker(object):
     def __init__(self) -> None: ...

@@ -34,7 +34,7 @@ class EventsAnnouncer(commands.Cog):
         try:
             update_invite_cache = {i for i in await guild.invites()}
         except discord.Forbidden:
-            return Box(default_box=True, default_box_attr='{unable to get invite}')
+            return Box(default_box=True, default_box_attr="{unable to get invite}")
 
         for i in self.invite_cache[guild.id]:
             if i in update_invite_cache:
@@ -46,15 +46,14 @@ class EventsAnnouncer(commands.Cog):
                 else:
                     if new_invite.uses > i.uses:
                         return new_invite
-        return Box(default_box=True, default_box_attr='{unable to get invite}')
+        return Box(default_box=True, default_box_attr="{unable to get invite}")
 
     def apply_vars(self, member, message, invite):
-        return string.Formatter().vformat(message, [], SafeFormat(
-            member=member,
-            guild=member.guild,
-            bot=self.bot.user,
-            invite=invite
-        ))
+        return string.Formatter().vformat(
+            message,
+            [],
+            SafeFormat(member=member, guild=member.guild, bot=self.bot.user, invite=invite),
+        )
 
     def apply_vars_dict(self, member, message, invite):
         for k, v in message.items():
@@ -64,7 +63,7 @@ class EventsAnnouncer(commands.Cog):
                 message[k] = self.apply_vars(member, v, invite)
             elif isinstance(v, list):
                 message[k] = [self.apply_vars_dict(member, _v, invite) for _v in v]
-            if k == 'timestamp':
+            if k == "timestamp":
                 message[k] = v[:-1]
         return message
 
@@ -74,19 +73,26 @@ class EventsAnnouncer(commands.Cog):
         except json.JSONDecodeError:
             # message is not embed
             message = self.apply_vars(member, message, invite)
-            message = {'content': message}
+            message = {"content": message}
         else:
             # message is embed
             message = self.apply_vars_dict(member, message, invite)
 
-            if any(i in message for i in ('embed', 'content')):
-                message['embed'] = discord.Embed.from_dict(message['embed'])
+            if any(i in message for i in ("embed", "content")):
+                message["embed"] = discord.Embed.from_dict(message["embed"])
             else:
                 message = None
         return message
 
-    @command(10, aliases=['set-announcement', 'set_announcement'])
-    async def setannouncement(self, ctx, event_type: str, channel: Union[discord.TextChannel, str.lower]=None, *, message=None):
+    @command(10, aliases=["set-announcement", "set_announcement"])
+    async def setannouncement(
+        self,
+        ctx,
+        event_type: str,
+        channel: Union[discord.TextChannel, str.lower] = None,
+        *,
+        message=None,
+    ):
         """Sets up events announcer. Check [here](https://github.com/fourjr/rainbot/wiki/Events-Announcer)
         for complex usage.
 
@@ -97,34 +103,52 @@ class EventsAnnouncer(commands.Cog):
         Example usage: `eventsannounce #general Hello {member.name}`
         """
 
-        if event_type not in DEFAULT['events_announce'].keys():
-            raise commands.BadArgument(f'Invalid event, pick from {", ".join(DEFAULT["events_announce"].keys())}')
+        if event_type not in DEFAULT["events_announce"].keys():
+            raise commands.BadArgument(
+                f'Invalid event, pick from {", ".join(DEFAULT["events_announce"].keys())}'
+            )
 
-        if not isinstance(channel, discord.TextChannel) and channel != 'dm':
+        if not isinstance(channel, discord.TextChannel) and channel != "dm":
             raise commands.BadArgument('Invalid channel, #mention a channel or "dm".')
 
         if message is None:
-            await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'events_announce': {event_type: {}}}})
+            await self.bot.db.update_guild_config(
+                ctx.guild.id, {"$set": {"events_announce": {event_type: {}}}}
+            )
             await ctx.send(self.bot.accept)
         else:
-            if message.startswith('https://') or message.startswith('http://'):
+            if message.startswith("https://") or message.startswith("http://"):
                 # message is a URL
-                if message.startswith('https://hastebin.cc/'):
-                    message = 'https://hastebin.cc/raw/' + message.split('/')[-1]
+                if message.startswith("https://hastebin.cc/"):
+                    message = "https://hastebin.cc/raw/" + message.split("/")[-1]
 
                 async with self.bot.session.get(message) as resp:
-                    message = await resp.text(encoding='utf8')
+                    message = await resp.text(encoding="utf8")
 
-            formatted_message = self.format_message(ctx.author, message, SafeString('{invite}'))
+            formatted_message = self.format_message(ctx.author, message, SafeString("{invite}"))
             if formatted_message:
-                if channel == 'dm':
+                if channel == "dm":
                     await ctx.author.send(**formatted_message)
                 else:
                     await channel.send(**formatted_message)
-                await self.bot.db.update_guild_config(ctx.guild.id, {'$set': {'events_announce': {event_type: {'channel_id': str(getattr(channel, 'id', None)), 'message': message}}}})
-                await ctx.send(f'Message sent to {getattr(channel, "mention", "DM")} for testing.\nNote: invites cannot be rendered in test message')
+                await self.bot.db.update_guild_config(
+                    ctx.guild.id,
+                    {
+                        "$set": {
+                            "events_announce": {
+                                event_type: {
+                                    "channel_id": str(getattr(channel, "id", None)),
+                                    "message": message,
+                                }
+                            }
+                        }
+                    },
+                )
+                await ctx.send(
+                    f'Message sent to {getattr(channel, "mention", "DM")} for testing.\nNote: invites cannot be rendered in test message'
+                )
             else:
-                await ctx.send('Invalid welcome message syntax.')
+                await ctx.send("Invalid welcome message syntax.")
 
     @commands.Cog.listener()
     async def on_member_join(self, member):
@@ -133,12 +157,12 @@ class EventsAnnouncer(commands.Cog):
             config = guild_config.events_announce.member_join
             invite = await self.get_used_invite(member.guild)
             if config:
-                if config['channel_id'] == 'dm':
+                if config["channel_id"] == "dm":
                     channel = member
                 else:
-                    channel = member.guild.get_channel(int(config['channel_id']))
+                    channel = member.guild.get_channel(int(config["channel_id"]))
                 if channel:
-                    message = self.format_message(member, config['message'], invite)
+                    message = self.format_message(member, config["message"], invite)
                     if message:
                         await channel.send(**message)
 
@@ -148,12 +172,12 @@ class EventsAnnouncer(commands.Cog):
             guild_config = await self.bot.db.get_guild_config(member.guild.id)
             config = guild_config.events_announce.member_remove
             if config:
-                if config['channel_id'] == 'dm':
+                if config["channel_id"] == "dm":
                     channel = member
                 else:
-                    channel = member.guild.get_channel(int(config['channel_id']))
+                    channel = member.guild.get_channel(int(config["channel_id"]))
                 if channel:
-                    message = self.format_message(member, config['message'])
+                    message = self.format_message(member, config["message"])
                     if message:
                         await channel.send(**message)
 

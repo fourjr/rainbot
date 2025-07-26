@@ -2,6 +2,7 @@ import contextlib
 import sys
 
 import sys
+
 if sys.version_info >= (3,):
     from queue import Queue
 else:
@@ -17,7 +18,6 @@ from pymongo.pool import Pool, SocketInfo
 from pymongo.response import Response
 from pymongo.server_description import ServerDescription
 
-
 class Server(object):
     def __init__(
         self,
@@ -26,21 +26,27 @@ class Server(object):
         monitor: Monitor,
         topology_id: Optional[ObjectId] = ...,
         listeners: Optional[_EventListeners] = ...,
-        events: Optional[Queue[Tuple[Callable[..., Any], Sequence[Any]]]] = ...) -> None: ...
+        events: Optional[Queue[Tuple[Callable[..., Any], Sequence[Any]]]] = ...,
+    ) -> None: ...
     def open(self) -> None: ...
     def reset(self) -> None: ...
     def close(self) -> None: ...
     def request_check(self) -> None: ...
-    def send_message(self, message: Tuple[int, bytes], all_credentials: Mapping[str, MongoCredential]) -> None: ...
+    def send_message(
+        self, message: Tuple[int, bytes], all_credentials: Mapping[str, MongoCredential]
+    ) -> None: ...
     def send_message_with_response(
         self,
         operation: Union[_Query, _GetMore],
         set_slave_okay: bool,
         all_credentials: Mapping[str, MongoCredential],
         listeners: _EventListeners,
-        exhaust: bool = ...) -> Response: ...
+        exhaust: bool = ...,
+    ) -> Response: ...
     @contextlib.contextmanager
-    def get_socket(self, all_credentials: Mapping[str, MongoCredential], checkout: bool = ...) -> Iterator[SocketInfo]: ...
+    def get_socket(
+        self, all_credentials: Mapping[str, MongoCredential], checkout: bool = ...
+    ) -> Iterator[SocketInfo]: ...
     @property
     def description(self) -> ServerDescription: ...
     @description.setter

@@ -20,7 +20,7 @@ DEFAULT_MUTE_ROLE = "Muted"
 PERMISSION_LEVELS = {
     0: "Everyone",
     1: "Helper",
-    2: "Moderator", 
+    2: "Moderator",
     3: "Senior Moderator",
     4: "Admin",
     5: "Senior Admin",
@@ -28,7 +28,7 @@ PERMISSION_LEVELS = {
     7: "Server Owner",
     8: "Bot Admin",
     9: "Bot Owner",
-    10: "Bot Developer"
+    10: "Bot Developer",
 }
 
 # Emoji Configuration
@@ -52,29 +52,23 @@ EMOJIS = {
     "link": "🔗",
     "stats": "📊",
     "ping": "🏓",
-    "help": "❓"
+    "help": "❓",
 }
 
 # Colors for embeds
 COLORS = {
     "success": 0x2ECC71,  # Green
-    "error": 0xE74C3C,    # Red
+    "error": 0xE74C3C,  # Red
     "warning": 0xF39C12,  # Orange
-    "info": 0x3498DB,     # Blue
-    "purple": 0x9B59B6,   # Purple
-    "dark": 0x2C3E50,     # Dark Blue
-    "light": 0xECF0F1,    # Light Gray
-    "default": 0x7289DA   # Discord Blue
+    "info": 0x3498DB,  # Blue
+    "purple": 0x9B59B6,  # Purple
+    "dark": 0x2C3E50,  # Dark Blue
+    "light": 0xECF0F1,  # Light Gray
+    "default": 0x7289DA,  # Discord Blue
 }
 
 # Cooldown Settings (in seconds)
-COOLDOWNS = {
-    "default": 3,
-    "moderation": 5,
-    "utility": 2,
-    "admin": 1,
-    "owner": 0
-}
+COOLDOWNS = {"default": 3, "moderation": 5, "utility": 2, "admin": 1, "owner": 0}
 
 # Logging Configuration
 LOGGING = {
@@ -82,7 +76,7 @@ LOGGING = {
     "format": "%(asctime)s:%(levelname)s:%(name)s: %(message)s",
     "file": "rainbot.log",
     "max_size": 10 * 1024 * 1024,  # 10MB
-    "backup_count": 5
+    "backup_count": 5,
 }
 
 # Database Configuration
@@ -90,7 +84,7 @@ DATABASE = {
     "connection_timeout": 30000,
     "server_selection_timeout": 5000,
     "max_pool_size": 100,
-    "min_pool_size": 0
+    "min_pool_size": 0,
 }
 
 # Auto-moderation Settings
@@ -101,7 +95,7 @@ AUTOMOD = {
     "max_caps_percentage": 70,
     "max_links_per_message": 3,
     "spam_threshold": 5,
-    "duplicate_threshold": 3
+    "duplicate_threshold": 3,
 }
 
 # Welcome Message Configuration
@@ -112,7 +106,7 @@ WELCOME_MESSAGE = {
     "embed_color": COLORS["success"],
     "show_quick_start": True,
     "show_features": True,
-    "show_links": True
+    "show_links": True,
 }
 
 # Support and Links
@@ -122,13 +116,13 @@ LINKS = {
     "documentation": "https://github.com/fourjr/rainbot/wiki",
     "github": "https://github.com/fourjr/rainbot",
     "top_gg": None,
-    "discord_bots": None
+    "discord_bots": None,
 }
 
 # Required Permissions
 REQUIRED_PERMISSIONS = [
     "manage_messages",
-    "kick_members", 
+    "kick_members",
     "ban_members",
     "manage_roles",
     "view_channel",
@@ -137,7 +131,7 @@ REQUIRED_PERMISSIONS = [
     "attach_files",
     "read_message_history",
     "use_external_emojis",
-    "add_reactions"
+    "add_reactions",
 ]
 
 # Optional Permissions (for enhanced features)
@@ -151,7 +145,7 @@ OPTIONAL_PERMISSIONS = [
     "priority_speaker",
     "stream",
     "connect",
-    "speak"
+    "speak",
 ]
 
 # Feature Flags
@@ -178,27 +172,27 @@ FEATURES = {
     "moderation_logs": True,
     "user_logs": True,
     "server_logs": True,
-    "voice_logs": True
+    "voice_logs": True,
 }
 
 # Development Settings
-DEV_MODE = os.name == 'nt'
-DEBUG_MODE = os.getenv('DEBUG', 'false').lower() == 'true'
+DEV_MODE = os.name == "nt"
+DEBUG_MODE = os.getenv("DEBUG", "false").lower() == "true"
 
 # Rate Limiting
 RATE_LIMITS = {
     "commands_per_minute": 60,
     "messages_per_minute": 100,
     "api_calls_per_minute": 50,
-    "database_queries_per_minute": 200
+    "database_queries_per_minute": 200,
 }
 
 # Cache Settings
 CACHE = {
     "guild_configs_ttl": 300,  # 5 minutes
-    "user_data_ttl": 600,      # 10 minutes
-    "command_usage_ttl": 3600, # 1 hour
-    "max_cache_size": 1000
+    "user_data_ttl": 600,  # 10 minutes
+    "command_usage_ttl": 3600,  # 1 hour
+    "max_cache_size": 1000,
 }
 
 # Backup Settings
@@ -207,7 +201,7 @@ BACKUP = {
     "interval_hours": 24,
     "max_backups": 7,
     "backup_path": "./backups/",
-    "compress_backups": True
+    "compress_backups": True,
 }
 
 # Monitoring and Analytics
@@ -217,7 +211,7 @@ MONITORING = {
     "track_errors": True,
     "track_performance": True,
     "track_guild_activity": True,
-    "metrics_retention_days": 30
+    "metrics_retention_days": 30,
 }
 
 # Security Settings
@@ -226,7 +220,7 @@ SECURITY = {
     "lockout_duration_minutes": 15,
     "require_2fa_for_admin": False,
     "log_suspicious_activity": True,
-    "rate_limit_sensitive_commands": True
+    "rate_limit_sensitive_commands": True,
 }
 
 # Localization
@@ -235,14 +229,14 @@ LOCALIZATION = {
     "supported_languages": ["en"],
     "fallback_language": "en",
     "date_format": "%Y-%m-%d %H:%M:%S",
-    "timezone": "UTC"
+    "timezone": "UTC",
 }
 
 # Webhook Settings (for external integrations)
 WEBHOOKS = {
     "enabled": False,
     "urls": {},
-    "events": ["guild_join", "guild_leave", "error", "command_usage"]
+    "events": ["guild_join", "guild_leave", "error", "command_usage"],
 }
 
 # API Settings (for future external API)
@@ -251,29 +245,35 @@ API = {
     "port": 8080,
     "host": "0.0.0.0",
     "rate_limit": 100,
-    "authentication_required": True
+    "authentication_required": True,
 }
+
 
 def get_emoji(name: str) -> str:
     """Get emoji by name"""
     return EMOJIS.get(name, "❓")
 
+
 def get_color(name: str) -> int:
     """Get color by name"""
     return COLORS.get(name, COLORS["default"])
+
 
 def get_permission_name(level: int) -> str:
     """Get permission level name"""
     return PERMISSION_LEVELS.get(level, "Unknown")
 
+
 def is_feature_enabled(feature: str) -> bool:
     """Check if a feature is enabled"""
     return FEATURES.get(feature, False)
+
 
 def get_required_permissions() -> List[str]:
     """Get list of required permissions"""
     return REQUIRED_PERMISSIONS.copy()
 
+
 def get_optional_permissions() -> List[str]:
     """Get list of optional permissions"""
-    return OPTIONAL_PERMISSIONS.copy() 
+    return OPTIONAL_PERMISSIONS.copy()

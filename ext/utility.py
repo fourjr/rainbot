@@ -21,30 +21,32 @@ if TYPE_CHECKING:
 # with open('ext/emojis.txt', encoding='utf8') as f:
 #     UNICODE_EMOJI = '|'.join(map(re.escape, f.read().splitlines()))
 # File is parsed from js files from loading up discord
-UNICODE_EMOJI = '|'.join(re.escape(u) for u in emoji.UNICODE_EMOJI['en'].keys())
+UNICODE_EMOJI = "|".join(re.escape(u) for u in emoji.UNICODE_EMOJI["en"].keys())
 UNICODE_EMOJI_REGEX = re.compile(UNICODE_EMOJI)
 
 
-__all__ = ('get_perm_level', 'format_timedelta')
+__all__ = ("get_perm_level", "format_timedelta")
 
 
-def get_perm_level(member: discord.Member, guild_config: 'DBDict') -> Tuple[int, Union[str, discord.Role, None]]:
+def get_perm_level(
+    member: discord.Member, guild_config: "DBDict"
+) -> Tuple[int, Union[str, discord.Role, None]]:
     # User is not in server
     highest_role: Union[str, discord.Role, None] = None
 
-    if not getattr(member, 'guild_permissions', None):
+    if not getattr(member, "guild_permissions", None):
         perm_level = 0
         highest_role = None
     elif member.id == member.guild.me.id:
         # if its the bot
         perm_level = 100
-        highest_role = 'Bot'
+        highest_role = "Bot"
     elif member.guild_permissions.administrator:
         perm_level = 15
-        highest_role = 'Administrator'
+        highest_role = "Administrator"
     elif member.guild_permissions.manage_guild:
         perm_level = 10
-        highest_role = 'Manage Server'
+        highest_role = "Manage Server"
     else:
         perm_level = 0
         highest_role = None
@@ -52,7 +54,7 @@ def get_perm_level(member: discord.Member, guild_config: 'DBDict') -> Tuple[int,
         perm_levels = [int(i.role_id) for i in guild_config.perm_levels]
         for i in reversed(member.roles):
             if i.id in perm_levels:
-                new_perm_level = guild_config.perm_levels.get_kv('role_id', str(i.id)).level
+                new_perm_level = guild_config.perm_levels.get_kv("role_id", str(i.id)).level
                 if new_perm_level > perm_level:
                     perm_level = new_perm_level
                     highest_role = i
@@ -60,11 +62,11 @@ def get_perm_level(member: discord.Member, guild_config: 'DBDict') -> Tuple[int,
     return (perm_level, highest_role)
 
 
-def get_command_level(cmd: Union['RainCommand', 'RainGroup'], guild_config: 'DBDict') -> int:
+def get_command_level(cmd: Union["RainCommand", "RainGroup"], guild_config: "DBDict") -> int:
     name = cmd.qualified_name
 
     try:
-        perm_level = guild_config.command_levels.get_kv('command', name).level
+        perm_level = guild_config.command_levels.get_kv("command", name).level
     except IndexError:
         perm_level = cmd.perm_level
 
@@ -78,19 +80,20 @@ def lower(argument: str) -> str:
 def owner() -> Callable:
     def predicate(ctx: commands.Context) -> bool:
         return ctx.author.id in ctx.bot.owners
+
     return check(predicate)
 
 
 def random_color() -> int:
-    return random.randint(0, 0xfffff)
+    return random.randint(0, 0xFFFFF)
 
 
-def format_timedelta(delta: Union[int, timedelta], *, assume_forever: bool=True) -> str:
+def format_timedelta(delta: Union[int, timedelta], *, assume_forever: bool = True) -> str:
     if not delta:
         if assume_forever:
-            return 'forever'
+            return "forever"
         else:
-            return '0 seconds'
+            return "0 seconds"
 
     if isinstance(delta, timedelta):
         seconds = int(delta.total_seconds())
@@ -103,19 +106,19 @@ def format_timedelta(delta: Union[int, timedelta], *, assume_forever: bool=True)
     months, days = divmod(days, 30)
     years, months = divmod(months, 12)
 
-    fmt = ''
+    fmt = ""
     if seconds:
-        fmt = f'{seconds} seconds ' + fmt
+        fmt = f"{seconds} seconds " + fmt
     if minutes:
-        fmt = f'{minutes} minutes ' + fmt
+        fmt = f"{minutes} minutes " + fmt
     if hours:
-        fmt = f'{hours} hours ' + fmt
+        fmt = f"{hours} hours " + fmt
     if days:
-        fmt = f'{days} days ' + fmt
+        fmt = f"{days} days " + fmt
     if months:
-        fmt = f'{months} months ' + fmt
+        fmt = f"{months} months " + fmt
     if years:
-        fmt = f'{years} years ' + fmt
+        fmt = f"{years} years " + fmt
 
     return fmt.strip()
 
@@ -128,7 +131,9 @@ def tryint(x: str) -> Union[str, int]:
 
 
 class EmojiOrUnicode(commands.Converter):
-    async def convert(self, ctx: commands.Context, argument: str) -> Union[discord.Emoji, UnicodeEmoji]:
+    async def convert(
+        self, ctx: commands.Context, argument: str
+    ) -> Union[discord.Emoji, UnicodeEmoji]:
         try:
             return await commands.EmojiConverter().convert(ctx, argument)
         except commands.BadArgument:
@@ -136,7 +141,7 @@ class EmojiOrUnicode(commands.Converter):
                 if UNICODE_EMOJI_REGEX.match(argument):
                     return UnicodeEmoji(argument)
                 else:
-                    raise commands.BadArgument('Invalid emoji provided')
+                    raise commands.BadArgument("Invalid emoji provided")
 
 
 class UnicodeEmoji:
@@ -149,7 +154,7 @@ class SafeFormat(dict):
         self.__dict = kw
 
     def __getitem__(self, name: str) -> Any:
-        return self.__dict.get(name, SafeString('{%s}' % name))
+        return self.__dict.get(name, SafeString("{%s}" % name))
 
 
 class SafeString(str):
@@ -157,21 +162,37 @@ class SafeString(str):
         try:
             return getattr(self, name)
         except AttributeError:
-            return SafeString('%s.%s}' % (self[:-1], name))
+            return SafeString("%s.%s}" % (self[:-1], name))
 
 
-def apply_vars(bot: 'rainbot', tag: str, message: discord.Message, user_input: str) -> str:
-    return string.Formatter().vformat(tag, [], SafeFormat(
-        invoked=message,
-        guild=message.guild,
-        channel=message.channel,
-        bot=bot.user,
-        input=user_input
-    ))
+def apply_vars(bot: "rainbot", tag: str, message: discord.Message, user_input: str) -> str:
+    return string.Formatter().vformat(
+        tag,
+        [],
+        SafeFormat(
+            invoked=message,
+            guild=message.guild,
+            channel=message.channel,
+            bot=bot.user,
+            input=user_input,
+        ),
+    )
 
 
 class Detection:
-    def __init__(self, func: Callable, *, name, check_enabled=True, require_user=None, allow_bot=False, require_prod=True, require_guild=True, require_attachment=False, force_enable=False):
+    def __init__(
+        self,
+        func: Callable,
+        *,
+        name,
+        check_enabled=True,
+        require_user=None,
+        allow_bot=False,
+        require_prod=True,
+        require_guild=True,
+        require_attachment=False,
+        force_enable=False,
+    ):
         self.callback = func
         self.name = name
         self.check_enabled = check_enabled
@@ -200,7 +221,10 @@ class Detection:
             if str(message.channel.id) in guild_config.ignored_channels[self.name]:
                 return False
 
-            if not bot.dev_mode and str(message.channel.id) in guild_config.ignored_channels_in_prod:
+            if (
+                not bot.dev_mode
+                and str(message.channel.id) in guild_config.ignored_channels_in_prod
+            ):
                 return False
 
             if get_perm_level(message.author, guild_config)[0] >= 5:
@@ -226,37 +250,39 @@ class Detection:
             message.detection = self
             cog.bot.loop.create_task(self.callback(cog, message))
 
-    async def punish(self, bot: rainbot, message: discord.Message, *, reason=None, purge_limit=None):
+    async def punish(
+        self, bot: rainbot, message: discord.Message, *, reason=None, purge_limit=None
+    ):
         ctx = DummyContext(await bot.get_context(message))
         ctx.author = message.guild.me  # bot
 
         guild_config = await bot.db.get_guild_config(message.guild.id)
         punishments = guild_config.detection_punishments[self.name]
 
-        reason = reason or f'Detection triggered: {self.name}'
+        reason = reason or f"Detection triggered: {self.name}"
 
         for _ in range(punishments.warn):
-            ctx.command = bot.get_command('warn add')
-            await ctx.invoke(bot.get_command('warn add'), member=message.author, reason=reason)
+            ctx.command = bot.get_command("warn add")
+            await ctx.invoke(bot.get_command("warn add"), member=message.author, reason=reason)
 
         if punishments.kick:
             try:
-                ctx.command = bot.get_command('kick')
-                await ctx.invoke(bot.get_command('kick'), member=message.author, reason=reason)
+                ctx.command = bot.get_command("kick")
+                await ctx.invoke(bot.get_command("kick"), member=message.author, reason=reason)
             except discord.NotFound:
                 pass
 
         if punishments.ban:
             try:
-                ctx.command = bot.get_command('ban')
-                await ctx.invoke(bot.get_command('ban'), member=message.author, reason=reason)
+                ctx.command = bot.get_command("ban")
+                await ctx.invoke(bot.get_command("ban"), member=message.author, reason=reason)
             except discord.NotFound:
                 pass
 
         if punishments.delete:
             if purge_limit:
-                ctx.command = bot.get_command('purge')
-                await ctx.invoke(bot.get_command('purge'), member=message.author, limit=purge_limit)
+                ctx.command = bot.get_command("purge")
+                await ctx.invoke(bot.get_command("purge"), member=message.author, limit=purge_limit)
             else:
                 try:
                     await message.delete()
@@ -265,7 +291,7 @@ class Detection:
 
         if punishments.mute:
             try:
-                time = await UserFriendlyTime(default='nil').convert(ctx, punishments.mute)
+                time = await UserFriendlyTime(default="nil").convert(ctx, punishments.mute)
             except commands.BadArgument:
                 # ignore as bad argument
                 pass
@@ -280,6 +306,7 @@ class Detection:
 def detection(name: str, **attrs: bool) -> Callable:
     def decorator(func: Callable) -> Detection:
         return Detection(func, name=name, **attrs)
+
     return decorator
 
 
@@ -315,7 +342,7 @@ class DummyContext:
         try:
             command = args[0]
         except IndexError:
-            raise TypeError('Missing command to invoke.') from None
+            raise TypeError("Missing command to invoke.") from None
 
         arguments = []
         if command.cog is not None:
@@ -338,6 +365,4 @@ class CannedStr(commands.Converter):
         canned = self.additional_vars.copy()
         canned.update(guild_config.canned_variables)
 
-        return string.Formatter().vformat(argument, [], SafeFormat(
-            **canned
-        ))
+        return string.Formatter().vformat(argument, [], SafeFormat(**canned))

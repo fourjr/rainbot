@@ -6,14 +6,15 @@ from typing import Any, Dict, Iterable, Iterator, List, Mapping, Optional, Tuple
 
 RE_TYPE: Any
 
-_Key = TypeVar('_Key')
-_Value = TypeVar('_Value')
+_Key = TypeVar("_Key")
+_Value = TypeVar("_Value")
 
 class SON(Dict[_Key, _Value]):
     def __init__(
         self,
         data: Optional[Union[Mapping[_Key, _Value], Iterable[Tuple[_Key, _Value]]]] = ...,
-        **kwargs: _Value) -> None: ...
+        **kwargs: _Value,
+    ) -> None: ...
     def __new__(cls, *args: Any, **kwargs: Any) -> SON[_Key, _Value]: ...
     def copy(self) -> SON[_Key, _Value]: ...
     def has_key(self, key: _Key) -> bool: ...

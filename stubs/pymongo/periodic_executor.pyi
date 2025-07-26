@@ -1,9 +1,14 @@
 import weakref
 from typing import Any, Callable, Optional
 
-
 class PeriodicExecutor(object):
-    def __init__(self, interval: int, min_interval: int, target: Callable[..., Any], name: Optional[str] = ...) -> None: ...
+    def __init__(
+        self,
+        interval: int,
+        min_interval: int,
+        target: Callable[..., Any],
+        name: Optional[str] = ...,
+    ) -> None: ...
     def open(self) -> None: ...
     def close(self, dummy: Optional[Any] = ...) -> None: ...
     def join(self, timeout: Optional[int] = ...) -> None: ...

@@ -5,7 +5,6 @@ from pymongo.monitor import Monitor
 from pymongo.pool import Pool, PoolOptions
 from pymongo.server_description import ServerDescription
 
-
 class TopologySettings(object):
     def __init__(
         self,
@@ -17,7 +16,8 @@ class TopologySettings(object):
         condition_class: Optional[threading.Condition] = ...,
         local_threshold_ms: int = ...,
         server_selection_timeout: int = ...,
-        heartbeat_frequency: int = ...) -> None: ...
+        heartbeat_frequency: int = ...,
+    ) -> None: ...
     @property
     def seeds(self) -> List[Tuple[str, int]]: ...
     @property
