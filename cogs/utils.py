@@ -15,7 +15,7 @@ from discord.ext import commands
 from ext.command import RainCommand, RainGroup, command
 from ext.paginator import Paginator
 from ext.utility import get_command_level, get_perm_level, owner
-from config import BOT_VERSION
+from config import BOT_VERSION, get_emoji
 
 if TYPE_CHECKING:
     from bot import rainbot
@@ -236,14 +236,14 @@ class Utility(commands.Cog):
         """Enhanced cog help formatting"""
         # Get cog descriptions for better formatting
         cog_descriptions = {
-            "Moderation": "🛡️ User management and moderation tools",
-            "Setup": "⚙️ Bot configuration and setup",
-            "Detections": "🔍 Content filtering and automod",
-            "Logs": "📝 Activity logging and monitoring",
-            "Roles": "🎭 Role management and automation",
-            "Tags": "🏷️ Custom commands and responses",
-            "Giveaway": "🎉 Giveaway management system",
-            "EventsAnnouncer": "📢 Member join/leave announcements",
+            "Moderation": f"{get_emoji('moderation')} User management and moderation tools",
+            "Setup": f"{get_emoji('setup')} Bot configuration and setup",
+            "Detections": f"{get_emoji('detections')} Content filtering and automod",
+            "Logs": f"{get_emoji('logs')} Activity logging and monitoring",
+            "Roles": f"{get_emoji('roles')} Role management and automation",
+            "Tags": f"{get_emoji('tags')} Custom commands and responses",
+            "Giveaway": f"{get_emoji('giveaway')} Giveaway management system",
+            "EventsAnnouncer": f"{get_emoji('events')} Member join/leave announcements",
         }
 
         cog_name = cog.__class__.__name__
@@ -290,13 +290,13 @@ class Utility(commands.Cog):
                     chunks = [value[i : i + 1024] for i in range(0, len(value), 1024)]
                     for i, chunk in enumerate(chunks):
                         em.add_field(
-                            name=f"🔧 Level {level} Commands"
+                            name=f"{get_emoji('tools')} Level {level} Commands"
                             + (f" (Part {i+1})" if len(chunks) > 1 else ""),
                             value=chunk,
                             inline=False,
                         )
                 else:
-                    em.add_field(name=f"🔧 Level {level} Commands", value=value, inline=False)
+                    em.add_field(name=f"{get_emoji('tools')} Level {level} Commands", value=value, inline=False)
 
         return em if em.fields else None
 
@@ -317,7 +317,7 @@ class Utility(commands.Cog):
 
                 if cmd.aliases:
                     em.add_field(
-                        name="🔄 Aliases", value=f"`{', '.join(cmd.aliases)}`", inline=True
+                        name=f"{get_emoji('aliases')} Aliases", value=f"`{', '.join(cmd.aliases)}`", inline=True
                     )
 
                 return em
@@ -335,7 +335,7 @@ class Utility(commands.Cog):
                         subcommands.append(f"• `{i.name}` - {i.short_doc or 'No description'}")
 
                 if subcommands:
-                    em.add_field(name="📋 Subcommands", value="\n".join(subcommands), inline=False)
+                    em.add_field(name=f"{get_emoji('subcommands')} Subcommands", value="\n".join(subcommands), inline=False)
                     return em
 
         return None
@@ -380,7 +380,7 @@ class Utility(commands.Cog):
                     cog_matches = difflib.get_close_matches(command_or_cog.title(), all_cogs, n=3)
 
                     embed = discord.Embed(
-                        title="❌ Command/Cog Not Found",
+                        title=f"{get_emoji('error')} Command/Cog Not Found",
                         description=f"Could not find `{command_or_cog}`",
                         color=discord.Color.red(),
                     )
@@ -393,7 +393,7 @@ class Utility(commands.Cog):
                             suggestions.extend([f"`{cog}`" for cog in cog_matches])
 
                         embed.add_field(
-                            name="💡 Did you mean?", value=", ".join(suggestions[:5]), inline=False
+                            name=f"{get_emoji('suggestions')} Did you mean?", value=", ".join(suggestions[:5]), inline=False
                         )
 
                     await ctx.send(content=error, embed=embed)
@@ -407,7 +407,7 @@ class Utility(commands.Cog):
         else:
             # Main help menu - optimized and cleaner
             embed = discord.Embed(
-                title="🤖 rainbot Help",
+                title=f"{get_emoji('bot')} rainbot Help",
                 description="A powerful moderation bot with automod and logging features",
                 color=discord.Color.blue(),
             )
@@ -453,19 +453,19 @@ class Utility(commands.Cog):
                     cog_mapping[str(i)] = cog  # Store mapping for later use
 
                 embed.add_field(
-                    name="📋 Available Categories", value="\n".join(cog_list), inline=False
+                    name=f"{get_emoji('available')} Available Categories", value="\n".join(cog_list), inline=False
                 )
                 
                 # Store the mapping in the embed for later reference
                 embed.add_field(
-                    name="🔍 Quick Access",
+                    name=f"{get_emoji('quick_access')} Quick Access",
                     value=f"Use `{prefix}help <number>` to quickly access a category\n"
                     f"Example: `{prefix}help 1` for Moderation",
                     inline=False,
                 )
 
             embed.add_field(
-                name="🔍 Quick Commands",
+                name=f"{get_emoji('quick')} Quick Commands",
                 value=f"• `{prefix}help <category>` - View category commands\n"
                 f"• `{prefix}help <command>` - Detailed command help\n"
                 f"• `{prefix}settings` - View server configuration\n"
@@ -474,7 +474,7 @@ class Utility(commands.Cog):
             )
 
             embed.add_field(
-                name="🔗 Resources",
+                name=f"{get_emoji('resources')} Resources",
                 value="[Support Server](https://discord.gg/zmdYe3ZVHG) • [Documentation](https://github.com/fourjr/rainbot/wiki)",
                 inline=False,
             )
@@ -504,7 +504,7 @@ class Utility(commands.Cog):
         number_int = int(number)
         if number_int < 1 or number_int > len(available_cogs):
             embed = discord.Embed(
-                title="❌ Invalid Category Number",
+                title=f"{get_emoji('error')} Invalid Category Number",
                 description=f"Please choose a number between 1 and {len(available_cogs)}",
                 color=discord.Color.red(),
             )
@@ -538,7 +538,7 @@ class Utility(commands.Cog):
     ) -> None:
         """Show settings for a specific category"""
         embed = discord.Embed(
-            title=f"⚙️ {category.title()} Settings",
+            title=f"{get_emoji('settings')} {category.title()} Settings",
             description=f"Configuration for {category}",
             color=discord.Color.blue(),
         )
@@ -559,7 +559,7 @@ class Utility(commands.Cog):
             self._add_general_settings(embed, config)
         else:
             embed = discord.Embed(
-                title="❌ Invalid Category",
+                title=f"{get_emoji('error')} Invalid Category",
                 description=f"Available categories: logs, modlog, detections, punishments, roles, giveaway, general",
                 color=discord.Color.red(),
             )
@@ -570,14 +570,14 @@ class Utility(commands.Cog):
     async def _show_all_settings(self, ctx: commands.Context, config: Any, prefix: str) -> None:
         """Show overview of all settings"""
         embed = discord.Embed(
-            title="⚙️ Server Settings Overview",
+            title=f"{get_emoji('settings')} Server Settings Overview",
             description="Current configuration for this server",
             color=discord.Color.blue(),
         )
 
         # General settings
         embed.add_field(
-            name="🔧 General",
+            name=f"{get_emoji('tools')} General",
             value=f"**Prefix:** `{config.prefix}`\n"
             f"**Mute Role:** {f'<@&{config.mute_role}>' if config.mute_role else 'Not set'}\n"
             f"**Time Offset:** {config.time_offset} hours",
@@ -587,7 +587,7 @@ class Utility(commands.Cog):
         # Logs summary
         logs_enabled = sum(1 for log in config.logs.values() if log is not None)
         embed.add_field(
-            name="📝 Logging",
+            name=f"{get_emoji('logs')} Logging",
             value=f"**Log Channels:** {logs_enabled}/11 enabled\n"
             f"**Modlog Channels:** {sum(1 for log in config.modlog.values() if log is not None)}/11 enabled",
             inline=True,
@@ -598,7 +598,7 @@ class Utility(commands.Cog):
             1 for det in config.detections.values() if det and det != [] and det is not None
         )
         embed.add_field(
-            name="🔍 Detections",
+            name=f"{get_emoji('detections')} Detections",
             value=f"**Active Filters:** {detections_enabled} enabled\n"
             f"**Custom Filters:** {len(config.detections.filters)} added\n"
             f"**Ignored Channels:** {sum(len(channels) for channels in config.ignored_channels.values())} total",
@@ -607,7 +607,7 @@ class Utility(commands.Cog):
 
         # Roles summary
         embed.add_field(
-            name="🎭 Roles",
+            name=f"{get_emoji('roles')} Roles",
             value=f"**Auto Roles:** {len(config.autoroles)} set\n"
             f"**Self Roles:** {len(config.selfroles)} available\n"
             f"**Reaction Roles:** {len(config.reaction_roles)} configured",
@@ -616,7 +616,7 @@ class Utility(commands.Cog):
 
         # Permissions summary
         embed.add_field(
-            name="🛡️ Permissions",
+            name=f"{get_emoji('permissions')} Permissions",
             value=f"**Custom Levels:** {len(config.perm_levels)} set\n"
             f"**Command Levels:** {len(config.command_levels)} customized\n"
             f"**Warn Punishments:** {len(config.warn_punishments)} configured",
@@ -626,7 +626,7 @@ class Utility(commands.Cog):
         # Giveaway summary
         if config.giveaway.channel_id:
             embed.add_field(
-                name="🎉 Giveaway",
+                name=f"{get_emoji('giveaway')} Giveaway",
                 value=f"**Channel:** <#{config.giveaway.channel_id}>\n"
                 f"**Role:** {f'<@&{config.giveaway.role_id}>' if config.giveaway.role_id else 'None'}\n"
                 f"**Status:** {'Ended' if config.giveaway.ended else 'Active'}",
@@ -634,7 +634,7 @@ class Utility(commands.Cog):
             )
 
         embed.add_field(
-            name="📋 Categories",
+            name=f"{get_emoji('categories')} Categories",
             value="• `logs` - Logging channels\n"
             "• `modlog` - Moderation logs\n"
             "• `detections` - Content filters\n"
@@ -661,9 +661,9 @@ class Utility(commands.Cog):
                 disabled_logs.append(f"• {log_type.replace('_', ' ').title()}")
 
         if enabled_logs:
-            embed.add_field(name="✅ Enabled Logs", value="\n".join(enabled_logs), inline=False)
+            embed.add_field(name=f"{get_emoji('enabled')} Enabled Logs", value="\n".join(enabled_logs), inline=False)
         if disabled_logs:
-            embed.add_field(name="❌ Disabled Logs", value="\n".join(disabled_logs), inline=False)
+            embed.add_field(name=f"{get_emoji('disabled')} Disabled Logs", value="\n".join(disabled_logs), inline=False)
 
     def _add_modlog_settings(self, embed: discord.Embed, config: Any) -> None:
         """Add modlog settings to embed"""
@@ -681,11 +681,11 @@ class Utility(commands.Cog):
 
         if enabled_modlogs:
             embed.add_field(
-                name="✅ Enabled Modlogs", value="\n".join(enabled_modlogs), inline=False
+                name=f"{get_emoji('enabled')} Enabled Modlogs", value="\n".join(enabled_modlogs), inline=False
             )
         if disabled_modlogs:
             embed.add_field(
-                name="❌ Disabled Modlogs", value="\n".join(disabled_modlogs), inline=False
+                name=f"{get_emoji('disabled')} Disabled Modlogs", value="\n".join(disabled_modlogs), inline=False
             )
 
     def _add_detections_settings(self, embed: discord.Embed, config: Any) -> None:
@@ -708,23 +708,23 @@ class Utility(commands.Cog):
 
         if enabled_detections:
             embed.add_field(
-                name="✅ Enabled Detections", value="\n".join(enabled_detections), inline=False
+                name=f"{get_emoji('enabled')} Enabled Detections", value="\n".join(enabled_detections), inline=False
             )
         if disabled_detections:
             embed.add_field(
-                name="❌ Disabled Detections", value="\n".join(disabled_detections), inline=False
+                name=f"{get_emoji('disabled')} Disabled Detections", value="\n".join(disabled_detections), inline=False
             )
 
         # Custom filters
         if detections.filters:
             embed.add_field(
-                name="🔧 Custom Filters",
+                name=f"{get_emoji('filters')} Custom Filters",
                 value=f"{len(detections.filters)} filters configured",
                 inline=True,
             )
         if detections.regex_filters:
             embed.add_field(
-                name="🔧 Regex Filters",
+                name=f"{get_emoji('regex')} Regex Filters",
                 value=f"{len(detections.regex_filters)} filters configured",
                 inline=True,
             )
@@ -748,7 +748,7 @@ class Utility(commands.Cog):
                     actions.append("Delete")
 
                 embed.add_field(
-                    name=f"🔨 {detection_type.replace('_', ' ').title()}",
+                    name=f"{get_emoji('punishments')} {detection_type.replace('_', ' ').title()}",
                     value=", ".join(actions) if actions else "No actions",
                     inline=True,
                 )
@@ -758,17 +758,17 @@ class Utility(commands.Cog):
         # Auto roles
         if config.autoroles:
             autoroles = [f"<@&{role_id}>" for role_id in config.autoroles]
-            embed.add_field(name="🤖 Auto Roles", value=", ".join(autoroles), inline=False)
+            embed.add_field(name=f"{get_emoji('autoroles')} Auto Roles", value=", ".join(autoroles), inline=False)
 
         # Self roles
         if config.selfroles:
             selfroles = [f"<@&{role_id}>" for role_id in config.selfroles]
-            embed.add_field(name="👤 Self Roles", value=", ".join(selfroles), inline=False)
+            embed.add_field(name=f"{get_emoji('selfroles')} Self Roles", value=", ".join(selfroles), inline=False)
 
         # Reaction roles
         if config.reaction_roles:
             embed.add_field(
-                name="🎭 Reaction Roles",
+                name=f"{get_emoji('reaction_roles')} Reaction Roles",
                 value=f"{len(config.reaction_roles)} configured",
                 inline=True,
             )
@@ -778,30 +778,30 @@ class Utility(commands.Cog):
         giveaway = config.giveaway
 
         if giveaway.channel_id:
-            embed.add_field(name="📺 Channel", value=f"<#{giveaway.channel_id}>", inline=True)
+            embed.add_field(name=f"{get_emoji('channel')} Channel", value=f"<#{giveaway.channel_id}>", inline=True)
         if giveaway.role_id:
-            embed.add_field(name="🎭 Role", value=f"<@&{giveaway.role_id}>", inline=True)
+            embed.add_field(name=f"{get_emoji('role')} Role", value=f"<@&{giveaway.role_id}>", inline=True)
         if giveaway.emoji_id:
-            embed.add_field(name="😀 Emoji", value=f"<:{giveaway.emoji_id}>", inline=True)
+            embed.add_field(name=f"{get_emoji('emoji')} Emoji", value=f"<:{giveaway.emoji_id}>", inline=True)
 
         embed.add_field(
-            name="📊 Status", value="Ended" if giveaway.ended else "Active", inline=True
+            name=f"{get_emoji('status')} Status", value="Ended" if giveaway.ended else "Active", inline=True
         )
 
     def _add_general_settings(self, embed: discord.Embed, config: Any) -> None:
         """Add general settings to embed"""
-        embed.add_field(name="🔧 Prefix", value=f"`{config.prefix}`", inline=True)
+        embed.add_field(name=f"{get_emoji('prefix')} Prefix", value=f"`{config.prefix}`", inline=True)
 
         if config.mute_role:
-            embed.add_field(name="🔇 Mute Role", value=f"<@&{config.mute_role}>", inline=True)
+            embed.add_field(name=f"{get_emoji('mute')} Mute Role", value=f"<@&{config.mute_role}>", inline=True)
         else:
-            embed.add_field(name="🔇 Mute Role", value="Not set", inline=True)
+            embed.add_field(name=f"{get_emoji('mute')} Mute Role", value="Not set", inline=True)
 
-        embed.add_field(name="⏰ Time Offset", value=f"{config.time_offset} hours", inline=True)
+        embed.add_field(name=f"{get_emoji('offset')} Time Offset", value=f"{config.time_offset} hours", inline=True)
 
         if config.whitelisted_guilds:
             embed.add_field(
-                name="✅ Whitelisted Guilds",
+                name=f"{get_emoji('whitelist')} Whitelisted Guilds",
                 value=f"{len(config.whitelisted_guilds)} guilds",
                 inline=True,
             )
@@ -812,13 +812,13 @@ class Utility(commands.Cog):
         stats = await self.bot.get_bot_stats()
 
         embed = discord.Embed(
-            title="🤖 About rainbot",
+            title=f"{get_emoji('bot')} About rainbot",
             description="A powerful moderation bot with automod and logging features",
             color=discord.Color.blue(),
         )
 
         embed.add_field(
-            name="📊 Statistics",
+            name=f"{get_emoji('stats')} Statistics",
             value=f"**Servers:** {stats['guilds']:,}\n"
             f"**Users:** {stats['users']:,}\n"
             f"**Commands Used:** {stats['commands_used']:,}\n"
@@ -832,7 +832,7 @@ class Utility(commands.Cog):
             embed.add_field(name="🔥 Top Commands", value=top_cmds, inline=True)
 
         embed.add_field(
-            name="🔗 Links",
+            name=f"{get_emoji('link')} Links",
             value=f"[Invite Bot](https://discord.com/oauth2/authorize?client_id={self.bot.user.id}&scope=bot&permissions=2013785334)\n"
             "[Support Server](https://discord.gg/zmdYe3ZVHG)\n"
             "[Documentation](https://github.com/fourjr/rainbot/wiki)",
@@ -847,13 +847,13 @@ class Utility(commands.Cog):
     async def invite(self, ctx: commands.Context) -> None:
         """Get bot invite link"""
         embed = discord.Embed(
-            title="🔗 Invite rainbot",
+            title=f"{get_emoji('invite')} Invite rainbot",
             description="Click the link below to add rainbot to your server!",
             color=discord.Color.green(),
             url=f"https://discord.com/oauth2/authorize?client_id={self.bot.user.id}&scope=bot&permissions=2013785334",
         )
         embed.add_field(
-            name="📋 Required Permissions",
+            name=f"{get_emoji('list')} Required Permissions",
             value="• Manage Messages\n• Kick Members\n• Ban Members\n• Manage Roles\n• View Channels\n• Send Messages\n• Embed Links\n• Attach Files\n• Read Message History\n• Use External Emojis",
             inline=False,
         )
@@ -865,7 +865,7 @@ class Utility(commands.Cog):
         guild = ctx.guild
 
         embed = discord.Embed(
-            title=f"📊 {guild.name}",
+            title=f"{get_emoji('stats')} {guild.name}",
             description=guild.description or "No description",
             color=discord.Color.blue(),
         )
@@ -904,10 +904,10 @@ class Utility(commands.Cog):
         """Show user's permission level"""
         perm_level = get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))
 
-        embed = discord.Embed(title="👤 Your Permission Level", color=discord.Color.blue())
+        embed = discord.Embed(title=f"{get_emoji('user')} Your Permission Level", color=discord.Color.blue())
 
-        embed.add_field(name="📊 Level", value=f"**{perm_level[0]}**", inline=True)
-        embed.add_field(name="📝 Role", value=f"**{perm_level[1]}**", inline=True)
+        embed.add_field(name=f"{get_emoji('level')} Level", value=f"**{perm_level[0]}**", inline=True)
+        embed.add_field(name=f"{get_emoji('book')} Role", value=f"**{perm_level[1]}**", inline=True)
 
         # Show what commands they can use
         available_commands = []
@@ -917,7 +917,7 @@ class Utility(commands.Cog):
 
         if available_commands:
             embed.add_field(
-                name="🔧 Available Commands",
+                name=f"{get_emoji('commands')} Available Commands",
                 value=f"You can use **{len(available_commands)}** commands",
                 inline=False,
             )
@@ -928,27 +928,27 @@ class Utility(commands.Cog):
     async def ping(self, ctx: commands.Context) -> None:
         """Enhanced ping command with detailed latency info"""
         start = datetime.utcnow()
-        msg = await ctx.send("🏓 Pinging...")
+        msg = await ctx.send(f"{get_emoji('ping')} Pinging...")
         end = datetime.utcnow()
 
         latency = (end - start).total_seconds() * 1000
 
-        embed = discord.Embed(title="🏓 Pong!", color=discord.Color.green())
+        embed = discord.Embed(title=f"{get_emoji('ping')} Pong!", color=discord.Color.green())
 
         embed.add_field(
-            name="🌐 WebSocket", value=f"`{self.bot.latency * 1000:.2f}ms`", inline=True
+            name=f"{get_emoji('websocket')} WebSocket", value=f"`{self.bot.latency * 1000:.2f}ms`", inline=True
         )
-        embed.add_field(name="💬 Message", value=f"`{latency:.2f}ms`", inline=True)
+        embed.add_field(name=f"{get_emoji('message')} Message", value=f"`{latency:.2f}ms`", inline=True)
 
         # Status indicators
         if self.bot.latency < 0.1:
-            status = "🟢 Excellent"
+            status = f"{get_emoji('excellent')} Excellent"
         elif self.bot.latency < 0.3:
-            status = "🟡 Good"
+            status = f"{get_emoji('good')} Good"
         else:
-            status = "🔴 Poor"
+            status = f"{get_emoji('poor')} Poor"
 
-        embed.add_field(name="📊 Status", value=status, inline=True)
+        embed.add_field(name=f"{get_emoji('status')} Status", value=status, inline=True)
 
         await msg.edit(content=None, embed=embed)
 
@@ -957,7 +957,7 @@ class Utility(commands.Cog):
         """Show detailed bot statistics"""
         stats = await self.bot.get_bot_stats()
 
-        embed = discord.Embed(title="📊 Bot Statistics", color=discord.Color.blue())
+        embed = discord.Embed(title=f"{get_emoji('stats')} Bot Statistics", color=discord.Color.blue())
 
         embed.add_field(
             name="🖥️ System",
@@ -1007,7 +1007,7 @@ class Utility(commands.Cog):
         process_memory = process.memory_info().rss / 1024 / 1024  # MB
         
         embed = discord.Embed(
-            title="🖥️ Server Health",
+            title=f"{get_emoji('system')} Server Health",
             description="Detailed system and bot information",
             color=discord.Color.blue(),
             timestamp=datetime.now()
@@ -1015,7 +1015,7 @@ class Utility(commands.Cog):
 
         # Bot Stats
         embed.add_field(
-            name="🤖 Bot Stats",
+            name=f"{get_emoji('bot')} Bot Stats",
             value=f"**Version:** `{BOT_VERSION}`\n"
             f"**Clusters:** `1 / 1`\n"
             f"**Servers:** `{len(self.bot.guilds):,}`\n"
@@ -1027,7 +1027,7 @@ class Utility(commands.Cog):
 
         # Server Stats
         embed.add_field(
-            name="🖥️ Server Stats",
+            name=f"{get_emoji('system')} Server Stats",
             value=f"**OS:** `{platform.system()} {platform.release()}`\n"
             f"**CPU:** `{platform.processor().split()[0]}`\n"
             f"**CPU Usage:** `{cpu_percent:.2f}%`\n"
@@ -1038,7 +1038,7 @@ class Utility(commands.Cog):
 
         # Process Info
         embed.add_field(
-            name="📊 Process Info",
+            name=f"{get_emoji('process')} Process Info",
             value=f"**Memory:** `{process_memory:.0f} MB`\n"
             f"**CPU:** `{process.cpu_percent():.2f}%`\n"
             f"**Threads:** `{process.num_threads()}`\n"
@@ -1048,7 +1048,7 @@ class Utility(commands.Cog):
 
         # Disk Info
         embed.add_field(
-            name="💾 Disk Usage",
+            name=f"{get_emoji('disk')} Disk Usage",
             value=f"**Used:** `{disk.used / 1024 / 1024 / 1024:.1f} GB`\n"
             f"**Free:** `{disk.free / 1024 / 1024 / 1024:.1f} GB`\n"
             f"**Total:** `{disk.total / 1024 / 1024 / 1024:.1f} GB`\n"
@@ -1060,7 +1060,7 @@ class Utility(commands.Cog):
         try:
             network = psutil.net_io_counters()
             embed.add_field(
-                name="🌐 Network",
+                name=f"{get_emoji('network')} Network",
                 value=f"**Bytes Sent:** `{network.bytes_sent / 1024 / 1024:.1f} MB`\n"
                 f"**Bytes Recv:** `{network.bytes_recv / 1024 / 1024:.1f} MB`\n"
                 f"**Packets Sent:** `{network.packets_sent:,}`\n"

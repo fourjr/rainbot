@@ -33,17 +33,27 @@ PERMISSION_LEVELS = {
 
 # Emoji Configuration
 EMOJIS = {
+    # Basic status
     "accept": "✅",
     "deny": "❌",
-    "loading": "⏳",
     "success": "✅",
     "error": "❌",
     "warning": "⚠️",
     "info": "ℹ️",
     "question": "❓",
+    "loading": "⏳",
     "clock": "🕐",
+    "timeout": "⏰",
+    
+    # Users and roles
     "user": "👤",
     "server": "🏠",
+    "bot": "🤖",
+    "human": "👤",
+    "role": "🎭",
+    "emoji": "😀",
+    
+    # Categories and features
     "settings": "⚙️",
     "shield": "🛡️",
     "hammer": "🔨",
@@ -53,6 +63,67 @@ EMOJIS = {
     "stats": "📊",
     "ping": "🏓",
     "help": "❓",
+    "detections": "🔍",
+    "logs": "📝",
+    "roles": "🎭",
+    "tags": "🏷️",
+    "giveaway": "🎉",
+    "events": "📢",
+    "setup": "⚙️",
+    "moderation": "🛡️",
+    
+    # Actions and tools
+    "tools": "🔧",
+    "list": "📋",
+    "search": "🔍",
+    "quick": "🔍",
+    "resources": "🔗",
+    "invite": "🔗",
+    "permissions": "🛡️",
+    "punishments": "🔨",
+    "filters": "🔧",
+    "regex": "🔧",
+    "autoroles": "🤖",
+    "selfroles": "👤",
+    "reaction_roles": "🎭",
+    "channel": "📺",
+    "status": "📊",
+    "mute": "🔇",
+    "prefix": "🔧",
+    "offset": "⏰",
+    "whitelist": "✅",
+    
+    # Status indicators
+    "excellent": "🟢",
+    "good": "🟡",
+    "poor": "🔴",
+    "enabled": "✅",
+    "disabled": "❌",
+    
+    # Network and system
+    "websocket": "🌐",
+    "message": "💬",
+    "process": "📊",
+    "disk": "💾",
+    "network": "🌐",
+    "system": "🖥️",
+    "cpu": "🖥️",
+    "ram": "💾",
+    "uptime": "⏰",
+    
+    # Commands and levels
+    "level": "📊",
+    "commands": "🔧",
+    "subcommands": "📋",
+    "aliases": "🔄",
+    "permission": "🔐",
+    
+    # Categories
+    "categories": "📋",
+    "available": "📋",
+    "quick_access": "🔍",
+    "tips": "💡",
+    "suggestions": "💡",
 }
 
 # Colors for embeds
