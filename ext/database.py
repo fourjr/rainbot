@@ -313,6 +313,9 @@ class DatabaseManager:
         self.users_data: Dict[int, DBDict] = {}
 
         self.loop = loop or asyncio.get_event_loop()
+
+    def start_change_listener(self) -> None:
+        """Start the change listener task"""
         self.loop.create_task(self.change_listener())
 
     async def change_listener(self) -> None:

@@ -53,7 +53,7 @@ class rainbot(commands.Bot):
         self.setup_logging()
 
         # Database and configuration
-        self.db = DatabaseManager(os.environ["mongo"], loop=self.loop)
+        self.db = None  # Will be initialized in setup_hook
         self.owners = list(map(int, os.getenv("owners", "").split(",")))
 
         # Bot statistics
@@ -88,6 +88,10 @@ class rainbot(commands.Bot):
     async def setup_hook(self) -> None:
         """Async setup hook for discord.py 2.x"""
         self.logger.info("🚀 Starting rainbot setup...")
+
+        # Initialize database
+        self.db = DatabaseManager(os.environ["mongo"], loop=self.loop)
+        self.db.start_change_listener()
 
         # Load extensions
         await self.load_extensions()
