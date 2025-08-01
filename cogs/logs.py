@@ -28,7 +28,9 @@ class Logging(commands.Cog):
                     pass
                 else:
                     if not messages:
-                        messages = [msg async for msg in i.history(limit=5)]  # get 5 messages if no messages are recent
+                        messages = [
+                            msg async for msg in i.history(limit=5)
+                        ]  # get 5 messages if no messages are recent
                     self.bot._connection._messages += messages
 
     async def check_enabled(self, guild_id: int, item: Any, channel_id: int = None):

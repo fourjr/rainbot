@@ -8,7 +8,7 @@ import textwrap
 import traceback
 from contextlib import redirect_stdout
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import discord
 from discord.ext import commands
@@ -233,8 +233,23 @@ class Utility(commands.Cog):
         self, ctx: commands.Context, prefix: str, cog: commands.Cog
     ) -> Optional[discord.Embed]:
         """Enhanced cog help formatting"""
+        # Get cog descriptions for better formatting
+        cog_descriptions = {
+            "Moderation": "🛡️ User management and moderation tools",
+            "Setup": "⚙️ Bot configuration and setup",
+            "Detections": "🔍 Content filtering and automod",
+            "Logs": "📝 Activity logging and monitoring",
+            "Roles": "🎭 Role management and automation",
+            "Tags": "🏷️ Custom commands and responses",
+            "Giveaway": "🎉 Giveaway management system",
+            "EventsAnnouncer": "📢 Member join/leave announcements",
+        }
+
+        cog_name = cog.__class__.__name__
+        description = cog_descriptions.get(cog_name, f"📚 {cog_name}")
+
         em = discord.Embed(
-            title=f"📚 {cog.__class__.__name__}",
+            title=description,
             description=cog.__doc__ or "No description available",
             color=discord.Color.blue(),
         )
@@ -259,21 +274,28 @@ class Utility(commands.Cog):
 
             for level in sorted(cmd_groups.keys()):
                 cmds = cmd_groups[level]
-                value = "\n".join(
-                    [f"`{prefix}{cmd.name}` - {cmd.short_doc or 'No description'}" for cmd in cmds]
-                )
+                # Create a cleaner command list
+                cmd_list = []
+                for cmd in cmds:
+                    cmd_desc = cmd.short_doc or "No description"
+                    # Truncate long descriptions
+                    if len(cmd_desc) > 50:
+                        cmd_desc = cmd_desc[:47] + "..."
+                    cmd_list.append(f"• `{prefix}{cmd.name}` - {cmd_desc}")
+
+                value = "\n".join(cmd_list)
                 if len(value) > 1024:
                     # Split into multiple fields if too long
                     chunks = [value[i : i + 1024] for i in range(0, len(value), 1024)]
                     for i, chunk in enumerate(chunks):
                         em.add_field(
-                            name=f"Commands (Level {level})"
+                            name=f"🔧 Level {level} Commands"
                             + (f" (Part {i+1})" if len(chunks) > 1 else ""),
                             value=chunk,
                             inline=False,
                         )
                 else:
-                    em.add_field(name=f"Commands (Level {level})", value=value, inline=False)
+                    em.add_field(name=f"🔧 Level {level} Commands", value=value, inline=False)
 
         return em if em.fields else None
 
@@ -288,7 +310,7 @@ class Utility(commands.Cog):
             if isinstance(cmd, RainCommand):
                 em = discord.Embed(
                     title=f"📖 {prefix}{cmd.signature}",
-                    description=f"{cmd.help}\n\n**Permission Level:** {cmd_level}",
+                    description=f"{cmd.help}\n\n**🔐 Permission Level:** {cmd_level}",
                     color=discord.Color.blue(),
                 )
 
@@ -302,14 +324,14 @@ class Utility(commands.Cog):
             elif isinstance(cmd, RainGroup):
                 em = discord.Embed(
                     title=f"📖 {prefix}{cmd.signature}",
-                    description=f"{cmd.help}\n\n**Permission Level:** {cmd_level}",
+                    description=f"{cmd.help}\n\n**🔐 Permission Level:** {cmd_level}",
                     color=discord.Color.blue(),
                 )
 
                 subcommands = []
                 for i in list(cmd.commands):
                     if await self.can_run(ctx, i):
-                        subcommands.append(f"`{i.name}` - {i.short_doc or 'No description'}")
+                        subcommands.append(f"• `{i.name}` - {i.short_doc or 'No description'}")
 
                 if subcommands:
                     em.add_field(name="📋 Subcommands", value="\n".join(subcommands), inline=False)
@@ -376,17 +398,17 @@ class Utility(commands.Cog):
                 em = await self.format_command_help(ctx, prefix, cmd)
                 await ctx.send(content=error, embed=em)
         else:
-            # Main help menu
+            # Main help menu - optimized and cleaner
             embed = discord.Embed(
                 title="🤖 rainbot Help",
-                description="Welcome to rainbot! Here are the available command categories:",
+                description="A powerful moderation bot with automod and logging features",
                 color=discord.Color.blue(),
             )
 
-            # Get available cogs
+            # Get available cogs with optimized filtering
             available_cogs = []
             for cog in self.bot.cogs.values():
-                if cog.__class__.__name__ != "Utility":  # Don't show utility in main help
+                if cog.__class__.__name__ != "Utility":
                     commands_list = list(cog.get_commands())
                     # Check if any commands can be run
                     can_run_commands = []
@@ -397,34 +419,342 @@ class Utility(commands.Cog):
                         available_cogs.append(cog)
 
             if available_cogs:
+                # Create a cleaner cog list with emojis and descriptions
+                cog_descriptions = {
+                    "Moderation": "🛡️ User management and moderation tools",
+                    "Setup": "⚙️ Bot configuration and setup",
+                    "Detections": "🔍 Content filtering and automod",
+                    "Logs": "📝 Activity logging and monitoring",
+                    "Roles": "🎭 Role management and automation",
+                    "Tags": "🏷️ Custom commands and responses",
+                    "Giveaway": "🎉 Giveaway management system",
+                    "EventsAnnouncer": "📢 Member join/leave announcements",
+                }
+
                 cog_list = []
                 for cog in available_cogs:
+                    cog_name = cog.__class__.__name__
+                    description = cog_descriptions.get(cog_name, f"📚 {cog_name}")
                     commands_list = list(cog.get_commands())
                     # Count commands that can be run
                     cmd_count = 0
                     for cmd in commands_list:
                         if await self.can_run(ctx, cmd):
                             cmd_count += 1
-                    cog_list.append(f"📚 **{cog.__class__.__name__}** - {cmd_count} commands")
+                    cog_list.append(f"{description} - **{cmd_count}** commands")
 
-                embed.add_field(name="📋 Categories", value="\n".join(cog_list), inline=False)
+                embed.add_field(
+                    name="📋 Available Categories", value="\n".join(cog_list), inline=False
+                )
 
             embed.add_field(
-                name="🔍 Usage",
-                value=f"Use `{prefix}help <category>` to see commands in a category\n"
-                f"Use `{prefix}help <command>` to see detailed help for a command",
+                name="🔍 Quick Commands",
+                value=f"• `{prefix}help <category>` - View category commands\n"
+                f"• `{prefix}help <command>` - Detailed command help\n"
+                f"• `{prefix}settings` - View server configuration\n"
+                f"• `{prefix}about` - Bot information",
                 inline=False,
             )
 
             embed.add_field(
-                name="🔗 Quick Links",
+                name="🔗 Resources",
                 value="[Support Server](https://discord.gg/zmdYe3ZVHG) • [Documentation](https://github.com/fourjr/rainbot/wiki)",
                 inline=False,
             )
 
-            embed.set_footer(text=f"Prefix: {prefix} | Total Commands: {len(list(self.bot.commands))}")
+            embed.set_footer(
+                text=f"Prefix: {prefix} | Use {prefix}help <category> for more details"
+            )
 
             await ctx.send(content=error, embed=embed)
+
+    @command(0, name="settings")
+    async def settings(self, ctx: commands.Context, category: str = None) -> None:
+        """View server configuration settings
+
+        Categories: logs, modlog, detections, punishments, roles, giveaway, general
+        """
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        prefix = guild_config.prefix
+
+        if category:
+            category = category.lower()
+            await self._show_category_settings(ctx, guild_config, category, prefix)
+        else:
+            await self._show_all_settings(ctx, guild_config, prefix)
+
+    async def _show_category_settings(
+        self, ctx: commands.Context, config: Any, category: str, prefix: str
+    ) -> None:
+        """Show settings for a specific category"""
+        embed = discord.Embed(
+            title=f"⚙️ {category.title()} Settings",
+            description=f"Configuration for {category}",
+            color=discord.Color.blue(),
+        )
+
+        if category == "logs":
+            self._add_logs_settings(embed, config)
+        elif category == "modlog":
+            self._add_modlog_settings(embed, config)
+        elif category == "detections":
+            self._add_detections_settings(embed, config)
+        elif category == "punishments":
+            self._add_punishments_settings(embed, config)
+        elif category == "roles":
+            self._add_roles_settings(embed, config)
+        elif category == "giveaway":
+            self._add_giveaway_settings(embed, config)
+        elif category == "general":
+            self._add_general_settings(embed, config)
+        else:
+            embed = discord.Embed(
+                title="❌ Invalid Category",
+                description=f"Available categories: logs, modlog, detections, punishments, roles, giveaway, general",
+                color=discord.Color.red(),
+            )
+
+        embed.set_footer(text=f"Use {prefix}settings <category> to view specific settings")
+        await ctx.send(embed=embed)
+
+    async def _show_all_settings(self, ctx: commands.Context, config: Any, prefix: str) -> None:
+        """Show overview of all settings"""
+        embed = discord.Embed(
+            title="⚙️ Server Settings Overview",
+            description="Current configuration for this server",
+            color=discord.Color.blue(),
+        )
+
+        # General settings
+        embed.add_field(
+            name="🔧 General",
+            value=f"**Prefix:** `{config.prefix}`\n"
+            f"**Mute Role:** {f'<@&{config.mute_role}>' if config.mute_role else 'Not set'}\n"
+            f"**Time Offset:** {config.time_offset} hours",
+            inline=True,
+        )
+
+        # Logs summary
+        logs_enabled = sum(1 for log in config.logs.values() if log is not None)
+        embed.add_field(
+            name="📝 Logging",
+            value=f"**Log Channels:** {logs_enabled}/11 enabled\n"
+            f"**Modlog Channels:** {sum(1 for log in config.modlog.values() if log is not None)}/11 enabled",
+            inline=True,
+        )
+
+        # Detections summary
+        detections_enabled = sum(
+            1 for det in config.detections.values() if det and det != [] and det is not None
+        )
+        embed.add_field(
+            name="🔍 Detections",
+            value=f"**Active Filters:** {detections_enabled} enabled\n"
+            f"**Custom Filters:** {len(config.detections.filters)} added\n"
+            f"**Ignored Channels:** {sum(len(channels) for channels in config.ignored_channels.values())} total",
+            inline=True,
+        )
+
+        # Roles summary
+        embed.add_field(
+            name="🎭 Roles",
+            value=f"**Auto Roles:** {len(config.autoroles)} set\n"
+            f"**Self Roles:** {len(config.selfroles)} available\n"
+            f"**Reaction Roles:** {len(config.reaction_roles)} configured",
+            inline=True,
+        )
+
+        # Permissions summary
+        embed.add_field(
+            name="🛡️ Permissions",
+            value=f"**Custom Levels:** {len(config.perm_levels)} set\n"
+            f"**Command Levels:** {len(config.command_levels)} customized\n"
+            f"**Warn Punishments:** {len(config.warn_punishments)} configured",
+            inline=True,
+        )
+
+        # Giveaway summary
+        if config.giveaway.channel_id:
+            embed.add_field(
+                name="🎉 Giveaway",
+                value=f"**Channel:** <#{config.giveaway.channel_id}>\n"
+                f"**Role:** {f'<@&{config.giveaway.role_id}>' if config.giveaway.role_id else 'None'}\n"
+                f"**Status:** {'Ended' if config.giveaway.ended else 'Active'}",
+                inline=True,
+            )
+
+        embed.add_field(
+            name="📋 Categories",
+            value="• `logs` - Logging channels\n"
+            "• `modlog` - Moderation logs\n"
+            "• `detections` - Content filters\n"
+            "• `punishments` - Auto punishments\n"
+            "• `roles` - Role management\n"
+            "• `giveaway` - Giveaway settings\n"
+            "• `general` - General settings",
+            inline=False,
+        )
+
+        embed.set_footer(text=f"Use {prefix}settings <category> for detailed view")
+        await ctx.send(embed=embed)
+
+    def _add_logs_settings(self, embed: discord.Embed, config: Any) -> None:
+        """Add logs settings to embed"""
+        logs = config.logs
+        enabled_logs = []
+        disabled_logs = []
+
+        for log_type, channel_id in logs.items():
+            if channel_id:
+                enabled_logs.append(f"• {log_type.replace('_', ' ').title()}: <#{channel_id}>")
+            else:
+                disabled_logs.append(f"• {log_type.replace('_', ' ').title()}")
+
+        if enabled_logs:
+            embed.add_field(name="✅ Enabled Logs", value="\n".join(enabled_logs), inline=False)
+        if disabled_logs:
+            embed.add_field(name="❌ Disabled Logs", value="\n".join(disabled_logs), inline=False)
+
+    def _add_modlog_settings(self, embed: discord.Embed, config: Any) -> None:
+        """Add modlog settings to embed"""
+        modlogs = config.modlog
+        enabled_modlogs = []
+        disabled_modlogs = []
+
+        for modlog_type, channel_id in modlogs.items():
+            if channel_id:
+                enabled_modlogs.append(
+                    f"• {modlog_type.replace('_', ' ').title()}: <#{channel_id}>"
+                )
+            else:
+                disabled_modlogs.append(f"• {modlog_type.replace('_', ' ').title()}")
+
+        if enabled_modlogs:
+            embed.add_field(
+                name="✅ Enabled Modlogs", value="\n".join(enabled_modlogs), inline=False
+            )
+        if disabled_modlogs:
+            embed.add_field(
+                name="❌ Disabled Modlogs", value="\n".join(disabled_modlogs), inline=False
+            )
+
+    def _add_detections_settings(self, embed: discord.Embed, config: Any) -> None:
+        """Add detections settings to embed"""
+        detections = config.detections
+        enabled_detections = []
+        disabled_detections = []
+
+        for detection_type, value in detections.items():
+            if value and value != [] and value is not None:
+                if isinstance(value, bool):
+                    status = "Enabled" if value else "Disabled"
+                elif isinstance(value, list):
+                    status = f"{len(value)} items"
+                else:
+                    status = str(value)
+                enabled_detections.append(f"• {detection_type.replace('_', ' ').title()}: {status}")
+            else:
+                disabled_detections.append(f"• {detection_type.replace('_', ' ').title()}")
+
+        if enabled_detections:
+            embed.add_field(
+                name="✅ Enabled Detections", value="\n".join(enabled_detections), inline=False
+            )
+        if disabled_detections:
+            embed.add_field(
+                name="❌ Disabled Detections", value="\n".join(disabled_detections), inline=False
+            )
+
+        # Custom filters
+        if detections.filters:
+            embed.add_field(
+                name="🔧 Custom Filters",
+                value=f"{len(detections.filters)} filters configured",
+                inline=True,
+            )
+        if detections.regex_filters:
+            embed.add_field(
+                name="🔧 Regex Filters",
+                value=f"{len(detections.regex_filters)} filters configured",
+                inline=True,
+            )
+
+    def _add_punishments_settings(self, embed: discord.Embed, config: Any) -> None:
+        """Add punishments settings to embed"""
+        punishments = config.detection_punishments
+
+        for detection_type, punishment in punishments.items():
+            if punishment:
+                actions = []
+                if punishment.get("warn", 0) > 0:
+                    actions.append(f"Warn: {punishment['warn']}")
+                if punishment.get("mute"):
+                    actions.append(f"Mute: {punishment['mute']}")
+                if punishment.get("kick"):
+                    actions.append("Kick")
+                if punishment.get("ban"):
+                    actions.append("Ban")
+                if punishment.get("delete"):
+                    actions.append("Delete")
+
+                embed.add_field(
+                    name=f"🔨 {detection_type.replace('_', ' ').title()}",
+                    value=", ".join(actions) if actions else "No actions",
+                    inline=True,
+                )
+
+    def _add_roles_settings(self, embed: discord.Embed, config: Any) -> None:
+        """Add roles settings to embed"""
+        # Auto roles
+        if config.autoroles:
+            autoroles = [f"<@&{role_id}>" for role_id in config.autoroles]
+            embed.add_field(name="🤖 Auto Roles", value=", ".join(autoroles), inline=False)
+
+        # Self roles
+        if config.selfroles:
+            selfroles = [f"<@&{role_id}>" for role_id in config.selfroles]
+            embed.add_field(name="👤 Self Roles", value=", ".join(selfroles), inline=False)
+
+        # Reaction roles
+        if config.reaction_roles:
+            embed.add_field(
+                name="🎭 Reaction Roles",
+                value=f"{len(config.reaction_roles)} configured",
+                inline=True,
+            )
+
+    def _add_giveaway_settings(self, embed: discord.Embed, config: Any) -> None:
+        """Add giveaway settings to embed"""
+        giveaway = config.giveaway
+
+        if giveaway.channel_id:
+            embed.add_field(name="📺 Channel", value=f"<#{giveaway.channel_id}>", inline=True)
+        if giveaway.role_id:
+            embed.add_field(name="🎭 Role", value=f"<@&{giveaway.role_id}>", inline=True)
+        if giveaway.emoji_id:
+            embed.add_field(name="😀 Emoji", value=f"<:{giveaway.emoji_id}>", inline=True)
+
+        embed.add_field(
+            name="📊 Status", value="Ended" if giveaway.ended else "Active", inline=True
+        )
+
+    def _add_general_settings(self, embed: discord.Embed, config: Any) -> None:
+        """Add general settings to embed"""
+        embed.add_field(name="🔧 Prefix", value=f"`{config.prefix}`", inline=True)
+
+        if config.mute_role:
+            embed.add_field(name="🔇 Mute Role", value=f"<@&{config.mute_role}>", inline=True)
+        else:
+            embed.add_field(name="🔇 Mute Role", value="Not set", inline=True)
+
+        embed.add_field(name="⏰ Time Offset", value=f"{config.time_offset} hours", inline=True)
+
+        if config.whitelisted_guilds:
+            embed.add_field(
+                name="✅ Whitelisted Guilds",
+                value=f"{len(config.whitelisted_guilds)} guilds",
+                inline=True,
+            )
 
     @command(0)
     async def about(self, ctx: commands.Context) -> None:

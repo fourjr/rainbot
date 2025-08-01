@@ -69,6 +69,7 @@ def lower(argument: str) -> str:
 def owner() -> Callable:
     def predicate(ctx: commands.Context) -> bool:
         return ctx.author.id in ctx.bot.owners
+
     return check(predicate)
 
 
@@ -86,12 +87,18 @@ def format_timedelta(delta: Union[int, timedelta], *, assume_forever: bool = Tru
     months, days = divmod(days, 30)
     years, months = divmod(months, 12)
     fmt = ""
-    if seconds: fmt = f"{seconds} seconds " + fmt
-    if minutes: fmt = f"{minutes} minutes " + fmt
-    if hours: fmt = f"{hours} hours " + fmt
-    if days: fmt = f"{days} days " + fmt
-    if months: fmt = f"{months} months " + fmt
-    if years: fmt = f"{years} years " + fmt
+    if seconds:
+        fmt = f"{seconds} seconds " + fmt
+    if minutes:
+        fmt = f"{minutes} minutes " + fmt
+    if hours:
+        fmt = f"{hours} hours " + fmt
+    if days:
+        fmt = f"{days} days " + fmt
+    if months:
+        fmt = f"{months} months " + fmt
+    if years:
+        fmt = f"{years} years " + fmt
     return fmt.strip()
 
 
@@ -185,7 +192,10 @@ class Detection:
                 return False
             if str(message.channel.id) in guild_config.ignored_channels[self.name]:
                 return False
-            if not bot.dev_mode and str(message.channel.id) in guild_config.ignored_channels_in_prod:
+            if (
+                not bot.dev_mode
+                and str(message.channel.id) in guild_config.ignored_channels_in_prod
+            ):
                 return False
             if get_perm_level(message.author, guild_config)[0] >= 5:
                 return False
@@ -254,6 +264,7 @@ class Detection:
 def detection(name: str, **attrs: bool) -> Callable:
     def decorator(func: Callable) -> Detection:
         return Detection(func, name=name, **attrs)
+
     return decorator
 
 
