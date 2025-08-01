@@ -833,7 +833,7 @@ class Utility(commands.Cog):
 
         embed.add_field(
             name="🔗 Links",
-            value="[Invite Bot](https://discord.com/oauth2/authorize?client_id=372748944448552961&scope=bot&permissions=2013785334)\n"
+            value=f"[Invite Bot](https://discord.com/oauth2/authorize?client_id={self.bot.user.id}&scope=bot&permissions=2013785334)\n"
             "[Support Server](https://discord.gg/zmdYe3ZVHG)\n"
             "[Documentation](https://github.com/fourjr/rainbot/wiki)",
             inline=False,
@@ -850,7 +850,7 @@ class Utility(commands.Cog):
             title="🔗 Invite rainbot",
             description="Click the link below to add rainbot to your server!",
             color=discord.Color.green(),
-            url="https://discord.com/oauth2/authorize?client_id=372748944448552961&scope=bot&permissions=2013785334",
+            url=f"https://discord.com/oauth2/authorize?client_id={self.bot.user.id}&scope=bot&permissions=2013785334",
         )
         embed.add_field(
             name="📋 Required Permissions",

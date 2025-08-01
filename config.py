@@ -111,7 +111,6 @@ WELCOME_MESSAGE = {
 
 # Support and Links
 LINKS = {
-    "invite": "https://discord.com/oauth2/authorize?client_id=372748944448552961&scope=bot&permissions=2013785334",
     "support": "https://discord.gg/zmdYe3ZVHG",
     "documentation": "https://github.com/fourjr/rainbot/wiki",
     "github": "https://github.com/fourjr/rainbot",
