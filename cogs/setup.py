@@ -539,7 +539,7 @@ class Setup(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @command(10, alises=["set_log", "set-log"])
+    @command(10, aliases=["set_log", "set-log"])
     async def setlog(
         self, ctx: commands.Context, log_name: str, channel: discord.TextChannel = None
     ) -> None:
@@ -572,7 +572,7 @@ class Setup(commands.Cog):
             )
         await ctx.send(self.bot.accept)
 
-    @command(10, alises=["set_modlog", "set-modlog"])
+    @command(10, aliases=["set_modlog", "set-modlog"])
     async def setmodlog(
         self, ctx: commands.Context, log_name: str, channel: discord.TextChannel = None
     ) -> None:
@@ -681,7 +681,7 @@ class Setup(commands.Cog):
                 levels.append({"command": cmd.parent.name, "level": int_perm_level})
             elif int_perm_level > parent_level:
                 cmd_level = get_command_level(cmd, guild_config)
-                all_levels = [get_command_level(c, guild_config) for c in cmd.parent.commands]
+                all_levels = [get_command_level(c, guild_config) for c in list(cmd.parent.commands)]
 
                 all_levels.remove(cmd_level)
                 all_levels.append(int_perm_level)

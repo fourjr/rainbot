@@ -76,7 +76,7 @@ Homepage = "https://github.com/fourjr/rainbot"
 Documentation = "https://github.com/fourjr/rainbot/wiki"
 Repository = "https://github.com/fourjr/rainbot"
 "Bug Tracker" = "https://github.com/fourjr/rainbot/issues"
-"Support Server" = "https://discord.gg/eXrDpGS"
+"Support Server" = "https://discord.gg/zmdYe3ZVHG"
 
 [project.scripts]
 rainbot = "bot:main"

@@ -33,8 +33,8 @@ PERMISSION_LEVELS = {
 
 # Emoji Configuration
 EMOJIS = {
-    "accept": "<:check:684169254618398735>",
-    "deny": "<:xmark:684169254551158881>",
+    "accept": "✅",
+    "deny": "❌",
     "loading": "⏳",
     "success": "✅",
     "error": "❌",
@@ -112,7 +112,7 @@ WELCOME_MESSAGE = {
 # Support and Links
 LINKS = {
     "invite": "https://discord.com/oauth2/authorize?client_id=372748944448552961&scope=bot&permissions=2013785334",
-    "support": "https://discord.gg/eXrDpGS",
+    "support": "https://discord.gg/zmdYe3ZVHG",
     "documentation": "https://github.com/fourjr/rainbot/wiki",
     "github": "https://github.com/fourjr/rainbot",
     "top_gg": None,

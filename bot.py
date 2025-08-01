@@ -494,7 +494,7 @@ class rainbot(commands.Bot):
 
         embed.add_field(
             name="🔗 Links",
-            value="[Support Server](https://discord.gg/eXrDpGS) • [Documentation](https://github.com/fourjr/rainbot/wiki)",
+            value="[Support Server](https://discord.gg/zmdYe3ZVHG) • [Documentation](https://github.com/fourjr/rainbot/wiki)",
             inline=False,
         )
 

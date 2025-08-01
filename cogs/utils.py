@@ -306,7 +306,7 @@ class Utility(commands.Cog):
                 )
 
                 subcommands = []
-                for i in cmd.commands:
+                for i in list(cmd.commands):
                     if await self.can_run(ctx, i):
                         subcommands.append(f"`{i.name}` - {i.short_doc or 'No description'}")
 
@@ -338,7 +338,7 @@ class Utility(commands.Cog):
                 cog = self.bot.get_cog(command_or_cog.title())
                 if not cog:
                     # Try fuzzy search
-                    all_commands = [c.qualified_name for c in self.bot.commands]
+                    all_commands = [c.qualified_name for c in list(self.bot.commands)]
                     all_cogs = [cog.__class__.__name__ for cog in self.bot.cogs.values()]
 
                     # Find closest match
@@ -386,15 +386,17 @@ class Utility(commands.Cog):
             available_cogs = []
             for cog in self.bot.cogs.values():
                 if cog.__class__.__name__ != "Utility":  # Don't show utility in main help
-                    has_commands = any(await self.can_run(ctx, cmd) for cmd in cog.get_commands())
+                    commands_list = list(cog.get_commands())
+                    has_commands = any(await self.can_run(ctx, cmd) for cmd in commands_list)
                     if has_commands:
                         available_cogs.append(cog)
 
             if available_cogs:
                 cog_list = []
                 for cog in available_cogs:
+                    commands_list = list(cog.get_commands())
                     cmd_count = len(
-                        [cmd for cmd in cog.get_commands() if await self.can_run(ctx, cmd)]
+                        [cmd for cmd in commands_list if await self.can_run(ctx, cmd)]
                     )
                     cog_list.append(f"📚 **{cog.__class__.__name__}** - {cmd_count} commands")
 
@@ -409,11 +411,11 @@ class Utility(commands.Cog):
 
             embed.add_field(
                 name="🔗 Quick Links",
-                value="[Support Server](https://discord.gg/eXrDpGS) • [Documentation](https://github.com/fourjr/rainbot/wiki)",
+                value="[Support Server](https://discord.gg/zmdYe3ZVHG) • [Documentation](https://github.com/fourjr/rainbot/wiki)",
                 inline=False,
             )
 
-            embed.set_footer(text=f"Prefix: {prefix} | Total Commands: {len(self.bot.commands)}")
+            embed.set_footer(text=f"Prefix: {prefix} | Total Commands: {len(list(self.bot.commands))}")
 
             await ctx.send(content=error, embed=embed)
 
@@ -445,7 +447,7 @@ class Utility(commands.Cog):
         embed.add_field(
             name="🔗 Links",
             value="[Invite Bot](https://discord.com/oauth2/authorize?client_id=372748944448552961&scope=bot&permissions=2013785334)\n"
-            "[Support Server](https://discord.gg/eXrDpGS)\n"
+            "[Support Server](https://discord.gg/zmdYe3ZVHG)\n"
             "[Documentation](https://github.com/fourjr/rainbot/wiki)",
             inline=False,
         )
@@ -522,7 +524,7 @@ class Utility(commands.Cog):
 
         # Show what commands they can use
         available_commands = []
-        for cmd in self.bot.commands:
+        for cmd in list(self.bot.commands):
             if await self.can_run(ctx, cmd):
                 available_commands.append(cmd.qualified_name)
 

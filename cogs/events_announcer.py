@@ -4,7 +4,14 @@ from collections import defaultdict
 from typing import Union
 
 import discord
-from box import Box
+try:
+    from box import Box
+except ImportError:
+    # Fallback if box module is not available
+    class Box:
+        def __init__(self, default_box=True, default_box_attr=None):
+            self.default_box = default_box
+            self.default_box_attr = default_box_attr
 from discord.ext import commands
 
 from ext.command import command

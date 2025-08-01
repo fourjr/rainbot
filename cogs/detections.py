@@ -37,7 +37,11 @@ class Detections(commands.Cog):
             + r")|(?:‘|’|“|”|\s)|[.!?\\\-\(\)]|ツ|¯|(?:┬─┬ ノ\( ゜-゜ノ\))"
         )
 
-        self.nude_detector = NudeDetector()
+        try:
+            self.nude_detector = NudeDetector()
+        except Exception as e:
+            print(f"Warning: Failed to initialize NudeDetector: {e}")
+            self.nude_detector = None
 
         self.nude_image_cache: LFUCache[str, List[str]] = LFUCache(50)
 
@@ -62,6 +66,9 @@ class Detections(commands.Cog):
 
     @detection("sexually_explicit", require_attachment=True)
     async def sexually_explicit(self, m: MessageWrapper) -> None:
+        if not self.nude_detector:
+            return
+            
         for i in m.attachments:
             if (
                 i.filename.endswith(".png")
@@ -253,6 +260,9 @@ class Detections(commands.Cog):
         return 0
 
     def get_nudenet_classifications(self, m, path) -> None:
+        if not self.nude_detector:
+            return
+            
         try:
             img = Image.open(path)
         except UnidentifiedImageError:
