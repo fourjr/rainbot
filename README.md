@@ -288,7 +288,7 @@ rainbot/
 ## 🔗 Links
 
 - **[Invite Bot](https://discord.com/oauth2/authorize?client_id=372748944448552961&scope=bot&permissions=2013785334)** - Add to your server
-- **[Support Server](https://discord.gg/eXrDpGS)** - Get help and support
+- **[Support Server](https://discord.gg/zmdYe3ZVHG)** - Get help and support
 - **[Documentation](https://github.com/fourjr/rainbot/wiki)** - Detailed guides
 - **[GitHub](https://github.com/fourjr/rainbot)** - Source code
 
@@ -307,7 +307,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 If you need help:
 1. Check the [documentation](https://github.com/fourjr/rainbot/wiki)
-2. Join our [support server](https://discord.gg/eXrDpGS)
+2. Join our [support server](https://discord.gg/zmdYe3ZVHG)
 3. Create an [issue](https://github.com/fourjr/rainbot/issues) on GitHub
 
 

@@ -34,7 +34,7 @@ class Tags(commands.Cog):
             async with self.bot.session.get(value) as resp:
                 value = await resp.text()
 
-        if name in [i.qualified_name for i in self.bot.commands]:
+        if name in [i.qualified_name for i in list(self.bot.commands)]:
             await ctx.send("Name is already a pre-existing bot command")
         else:
             await self.bot.db.update_guild_config(

@@ -23,14 +23,14 @@ class Logging(commands.Cog):
         for i in self.bot.get_all_channels():
             if isinstance(i, discord.TextChannel):
                 try:
-                    messages = await i.history(limit=30, after=after).flatten()
+                    messages = [msg async for msg in i.history(limit=30, after=after)]
                 except discord.Forbidden:
                     pass
                 else:
                     if not messages:
-                        messages = await i.history(
-                            limit=5
-                        ).flatten()  # get 5 messages if no messages are recent
+                        messages = [
+                            msg async for msg in i.history(limit=5)
+                        ]  # get 5 messages if no messages are recent
                     self.bot._connection._messages += messages
 
     async def check_enabled(self, guild_id: int, item: Any, channel_id: int = None):

@@ -53,7 +53,7 @@ class rainbot(commands.Bot):
         self.setup_logging()
 
         # Database and configuration
-        self.db = DatabaseManager(os.environ["mongo"], loop=self.loop)
+        self.db = None  # Will be initialized in setup_hook
         self.owners = list(map(int, os.getenv("owners", "").split(",")))
 
         # Bot statistics
@@ -88,6 +88,10 @@ class rainbot(commands.Bot):
     async def setup_hook(self) -> None:
         """Async setup hook for discord.py 2.x"""
         self.logger.info("🚀 Starting rainbot setup...")
+
+        # Initialize database
+        self.db = DatabaseManager(os.environ["mongo"], loop=self.loop)
+        self.db.start_change_listener()
 
         # Load extensions
         await self.load_extensions()
@@ -172,7 +176,7 @@ class rainbot(commands.Bot):
 
         # Set bot status
         activity = discord.Activity(
-            type=discord.ActivityType.watching, name=f"{len(self.guilds)} servers | !help"
+            type=discord.ActivityType.watching, name=f"{len(self.guilds)} servers | !!help"
         )
         await self.change_presence(activity=activity)
 
@@ -490,7 +494,7 @@ class rainbot(commands.Bot):
 
         embed.add_field(
             name="🔗 Links",
-            value="[Support Server](https://discord.gg/eXrDpGS) • [Documentation](https://github.com/fourjr/rainbot/wiki)",
+            value="[Support Server](https://discord.gg/zmdYe3ZVHG) • [Documentation](https://github.com/fourjr/rainbot/wiki)",
             inline=False,
         )
 
