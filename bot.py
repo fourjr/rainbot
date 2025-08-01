@@ -38,8 +38,8 @@ class rainbot(commands.Bot):
         )
 
         # Emoji constants
-        self.accept = "<:check:684169254618398735>"
-        self.deny = "<:xmark:684169254551158881>"
+        self.accept = "✅"
+        self.deny = "❌"
         self.loading = "⏳"
         self.success = "✅"
         self.error = "❌"
@@ -534,3 +534,38 @@ if __name__ == "__main__":
     except Exception as e:
         console.print(f"[bold red]❌ Critical error: {e}[/bold red]")
         sys.exit(1)
+# Inside the on_message method...
+
+async def on_message(self, message: discord.Message) -> None:
+    """Enhanced message handling with statistics"""
+    if not message.author.bot and message.guild:
+        ctx = await self.get_context(message)
+        if ctx.command:
+            # Track command usage
+            cmd_name = ctx.command.qualified_name
+            self.command_usage[cmd_name] = self.command_usage.get(cmd_name, 0) + 1
+
+            # Add loading reaction for better UX
+            try:
+                await message.add_reaction(self.loading)
+            except discord.Forbidden:
+                pass
+
+            try:
+                await self.invoke(ctx)
+                # If invoke succeeds, add success reaction
+                try:
+                    await message.remove_reaction(self.loading, self.user)
+                    await message.add_reaction(self.success)
+                except discord.Forbidden:
+                    pass
+            except Exception as e:
+                # If there's an error, handle it here
+                self.logger.error(f"Error in command {cmd_name}: {e}")
+                try:
+                    await message.remove_reaction(self.loading, self.user)
+                    await message.add_reaction(self.error)
+                except discord.Forbidden:
+                    pass
+                # Re-raise the error after handling
+                raise
