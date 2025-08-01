@@ -222,7 +222,9 @@ class Utility(commands.Cog):
         can_run = True
         if cmd.checks:
             try:
-                can_run = await discord.utils.async_all(predicate(ctx) for predicate in cmd.checks)
+                # Convert generator to list of awaitables
+                checks = [predicate(ctx) for predicate in cmd.checks]
+                can_run = await discord.utils.async_all(checks)
             except commands.CheckFailure:
                 can_run = False
         return can_run
@@ -386,7 +388,11 @@ class Utility(commands.Cog):
             for cog in self.bot.cogs.values():
                 if cog.__class__.__name__ != "Utility":  # Don't show utility in main help
                     commands_list = list(cog.get_commands())
-                    has_commands = any(await self.can_run(ctx, cmd) for cmd in commands_list)
+                    # Check if any commands can be run
+                    can_run_commands = []
+                    for cmd in commands_list:
+                        can_run_commands.append(await self.can_run(ctx, cmd))
+                    has_commands = any(can_run_commands)
                     if has_commands:
                         available_cogs.append(cog)
 
@@ -394,9 +400,11 @@ class Utility(commands.Cog):
                 cog_list = []
                 for cog in available_cogs:
                     commands_list = list(cog.get_commands())
-                    cmd_count = len(
-                        [cmd for cmd in commands_list if await self.can_run(ctx, cmd)]
-                    )
+                    # Count commands that can be run
+                    cmd_count = 0
+                    for cmd in commands_list:
+                        if await self.can_run(ctx, cmd):
+                            cmd_count += 1
                     cog_list.append(f"📚 **{cog.__class__.__name__}** - {cmd_count} commands")
 
                 embed.add_field(name="📋 Categories", value="\n".join(cog_list), inline=False)
