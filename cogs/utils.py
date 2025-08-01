@@ -15,6 +15,7 @@ from discord.ext import commands
 from ext.command import RainCommand, RainGroup, command
 from ext.paginator import Paginator
 from ext.utility import get_command_level, get_perm_level, owner
+from config import BOT_VERSION
 
 if TYPE_CHECKING:
     from bot import rainbot
@@ -355,6 +356,12 @@ class Utility(commands.Cog):
         prefix = (await self.bot.db.get_guild_config(ctx.guild.id)).prefix
 
         if command_or_cog:
+            # Check if it's a number first
+            if command_or_cog.isdigit():
+                # Handle numbered category access
+                await self._handle_numbered_help(ctx, command_or_cog, prefix, error)
+                return
+            
             # Search for command or cog
             cmd = self.bot.get_command(command_or_cog.lower())
             if not cmd:
@@ -432,7 +439,8 @@ class Utility(commands.Cog):
                 }
 
                 cog_list = []
-                for cog in available_cogs:
+                cog_mapping = {}  # Store cog to number mapping
+                for i, cog in enumerate(available_cogs, 1):
                     cog_name = cog.__class__.__name__
                     description = cog_descriptions.get(cog_name, f"📚 {cog_name}")
                     commands_list = list(cog.get_commands())
@@ -441,10 +449,19 @@ class Utility(commands.Cog):
                     for cmd in commands_list:
                         if await self.can_run(ctx, cmd):
                             cmd_count += 1
-                    cog_list.append(f"{description} - **{cmd_count}** commands")
+                    cog_list.append(f"**{i}.** {description} - **{cmd_count}** commands")
+                    cog_mapping[str(i)] = cog  # Store mapping for later use
 
                 embed.add_field(
                     name="📋 Available Categories", value="\n".join(cog_list), inline=False
+                )
+                
+                # Store the mapping in the embed for later reference
+                embed.add_field(
+                    name="🔍 Quick Access",
+                    value=f"Use `{prefix}help <number>` to quickly access a category\n"
+                    f"Example: `{prefix}help 1` for Moderation",
+                    inline=False,
                 )
 
             embed.add_field(
@@ -467,6 +484,39 @@ class Utility(commands.Cog):
             )
 
             await ctx.send(content=error, embed=embed)
+
+    async def _handle_numbered_help(self, ctx: commands.Context, number: str, prefix: str, error: str = None) -> None:
+        """Handle numbered category access for help command"""
+        # Get available cogs
+        available_cogs = []
+        for cog in self.bot.cogs.values():
+            if cog.__class__.__name__ != "Utility":
+                commands_list = list(cog.get_commands())
+                # Check if any commands can be run
+                can_run_commands = []
+                for cmd in commands_list:
+                    can_run_commands.append(await self.can_run(ctx, cmd))
+                has_commands = any(can_run_commands)
+                if has_commands:
+                    available_cogs.append(cog)
+
+        # Check if number is valid
+        number_int = int(number)
+        if number_int < 1 or number_int > len(available_cogs):
+            embed = discord.Embed(
+                title="❌ Invalid Category Number",
+                description=f"Please choose a number between 1 and {len(available_cogs)}",
+                color=discord.Color.red(),
+            )
+            await ctx.send(content=error, embed=embed)
+            return
+
+        # Get the cog for this number
+        selected_cog = available_cogs[number_int - 1]
+        
+        # Show the cog help
+        em = await self.format_cog_help(ctx, prefix, selected_cog)
+        await ctx.send(content=error, embed=em)
 
     @command(0, name="settings")
     async def settings(self, ctx: commands.Context, category: str = None) -> None:
@@ -931,6 +981,97 @@ class Utility(commands.Cog):
             top_cmds = "\n".join([f"• {cmd}: {count}" for cmd, count in stats["top_commands"]])
             embed.add_field(name="🔥 Top Commands", value=top_cmds, inline=False)
 
+        await ctx.send(embed=embed)
+
+    @command(0, name="serverhealth", hidden=True)
+    async def serverhealth(self, ctx: commands.Context) -> None:
+        """Secret command to show server health information"""
+        import psutil
+        import platform
+        from datetime import datetime, timedelta
+
+        # Get system information
+        cpu_percent = psutil.cpu_percent(interval=1)
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+        
+        # Get uptime
+        boot_time = datetime.fromtimestamp(psutil.boot_time())
+        uptime = datetime.now() - boot_time
+        
+        # Get bot uptime
+        bot_uptime = datetime.now() - self.bot.start_time if hasattr(self.bot, 'start_time') else timedelta(0)
+        
+        # Get process info
+        process = psutil.Process()
+        process_memory = process.memory_info().rss / 1024 / 1024  # MB
+        
+        embed = discord.Embed(
+            title="🖥️ Server Health",
+            description="Detailed system and bot information",
+            color=discord.Color.blue(),
+            timestamp=datetime.now()
+        )
+
+        # Bot Stats
+        embed.add_field(
+            name="🤖 Bot Stats",
+            value=f"**Version:** `{BOT_VERSION}`\n"
+            f"**Clusters:** `1 / 1`\n"
+            f"**Shards:** `{len(self.bot.shards)} / {len(self.bot.shards)}`\n"
+            f"**Servers:** `{len(self.bot.guilds):,}`\n"
+            f"**Users:** `{len(self.bot.users):,}`\n"
+            f"**Ping:** `{self.bot.latency * 1000:.0f}ms`\n"
+            f"**Bot Uptime:** `{str(bot_uptime).split('.')[0]}`",
+            inline=True
+        )
+
+        # Server Stats
+        embed.add_field(
+            name="🖥️ Server Stats",
+            value=f"**OS:** `{platform.system()} {platform.release()}`\n"
+            f"**CPU:** `{platform.processor().split()[0]}`\n"
+            f"**CPU Usage:** `{cpu_percent:.2f}%`\n"
+            f"**RAM Usage:** `{memory.used / 1024 / 1024 / 1024:.2f} GB / {memory.total / 1024 / 1024 / 1024:.1f} GB`\n"
+            f"**System Uptime:** `{str(uptime).split('.')[0]}`",
+            inline=True
+        )
+
+        # Process Info
+        embed.add_field(
+            name="📊 Process Info",
+            value=f"**Memory:** `{process_memory:.0f} MB`\n"
+            f"**CPU:** `{process.cpu_percent():.2f}%`\n"
+            f"**Threads:** `{process.num_threads()}`\n"
+            f"**Status:** `{process.status()}`",
+            inline=True
+        )
+
+        # Disk Info
+        embed.add_field(
+            name="💾 Disk Usage",
+            value=f"**Used:** `{disk.used / 1024 / 1024 / 1024:.1f} GB`\n"
+            f"**Free:** `{disk.free / 1024 / 1024 / 1024:.1f} GB`\n"
+            f"**Total:** `{disk.total / 1024 / 1024 / 1024:.1f} GB`\n"
+            f"**Usage:** `{(disk.used / disk.total) * 100:.1f}%`",
+            inline=True
+        )
+
+        # Network Info
+        try:
+            network = psutil.net_io_counters()
+            embed.add_field(
+                name="🌐 Network",
+                value=f"**Bytes Sent:** `{network.bytes_sent / 1024 / 1024:.1f} MB`\n"
+                f"**Bytes Recv:** `{network.bytes_recv / 1024 / 1024:.1f} MB`\n"
+                f"**Packets Sent:** `{network.packets_sent:,}`\n"
+                f"**Packets Recv:** `{network.packets_recv:,}`",
+                inline=True
+            )
+        except:
+            pass
+
+        embed.set_footer(text="Secret command - Server health monitoring")
         await ctx.send(embed=embed)
 
     @commands.Cog.listener()
