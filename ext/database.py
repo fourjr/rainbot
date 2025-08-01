@@ -1,22 +1,3 @@
-class DBList(list):
-    # ... existing code ...
-
-    def __getitem__(self, index: Union[int, slice]) -> Any:
-        try:
-            item = super().__getitem__(index)
-        except IndexError:
-            item = tryget(self._default, index)
-
-        if isinstance(item, dict):
-            return DBDict(item, _default=tryget(self._default, index))
-        elif isinstance(item, list):
-            return DBList(item, _default=tryget(self._default, index))
-
-        return item
-
-    # Adding `def to_dict()` to transform `DBList` into a `DBDict` if needed
-    def to_dict(self) -> DBDict:
-        return DBDict((str(i), x) for i, x in enumerate(self))
 from __future__ import annotations
 
 import asyncio
