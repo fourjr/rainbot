@@ -296,7 +296,11 @@ class Utility(commands.Cog):
                             inline=False,
                         )
                 else:
-                    em.add_field(name=f"{get_emoji('tools')} Level {level} Commands", value=value, inline=False)
+                    em.add_field(
+                        name=f"{get_emoji('tools')} Level {level} Commands",
+                        value=value,
+                        inline=False,
+                    )
 
         return em if em.fields else None
 
@@ -317,7 +321,9 @@ class Utility(commands.Cog):
 
                 if cmd.aliases:
                     em.add_field(
-                        name=f"{get_emoji('aliases')} Aliases", value=f"`{', '.join(cmd.aliases)}`", inline=True
+                        name=f"{get_emoji('aliases')} Aliases",
+                        value=f"`{', '.join(cmd.aliases)}`",
+                        inline=True,
                     )
 
                 return em
@@ -335,7 +341,11 @@ class Utility(commands.Cog):
                         subcommands.append(f"• `{i.name}` - {i.short_doc or 'No description'}")
 
                 if subcommands:
-                    em.add_field(name=f"{get_emoji('subcommands')} Subcommands", value="\n".join(subcommands), inline=False)
+                    em.add_field(
+                        name=f"{get_emoji('subcommands')} Subcommands",
+                        value="\n".join(subcommands),
+                        inline=False,
+                    )
                     return em
 
         return None
@@ -361,7 +371,7 @@ class Utility(commands.Cog):
                 # Handle numbered category access
                 await self._handle_numbered_help(ctx, command_or_cog, prefix, error)
                 return
-            
+
             # Search for command or cog
             cmd = self.bot.get_command(command_or_cog.lower())
             if not cmd:
@@ -393,7 +403,9 @@ class Utility(commands.Cog):
                             suggestions.extend([f"`{cog}`" for cog in cog_matches])
 
                         embed.add_field(
-                            name=f"{get_emoji('suggestions')} Did you mean?", value=", ".join(suggestions[:5]), inline=False
+                            name=f"{get_emoji('suggestions')} Did you mean?",
+                            value=", ".join(suggestions[:5]),
+                            inline=False,
                         )
 
                     await ctx.send(content=error, embed=embed)
@@ -453,9 +465,11 @@ class Utility(commands.Cog):
                     cog_mapping[str(i)] = cog  # Store mapping for later use
 
                 embed.add_field(
-                    name=f"{get_emoji('available')} Available Categories", value="\n".join(cog_list), inline=False
+                    name=f"{get_emoji('available')} Available Categories",
+                    value="\n".join(cog_list),
+                    inline=False,
                 )
-                
+
                 # Store the mapping in the embed for later reference
                 embed.add_field(
                     name=f"{get_emoji('quick_access')} Quick Access",
@@ -485,7 +499,9 @@ class Utility(commands.Cog):
 
             await ctx.send(content=error, embed=embed)
 
-    async def _handle_numbered_help(self, ctx: commands.Context, number: str, prefix: str, error: str = None) -> None:
+    async def _handle_numbered_help(
+        self, ctx: commands.Context, number: str, prefix: str, error: str = None
+    ) -> None:
         """Handle numbered category access for help command"""
         # Get available cogs
         available_cogs = []
@@ -513,7 +529,7 @@ class Utility(commands.Cog):
 
         # Get the cog for this number
         selected_cog = available_cogs[number_int - 1]
-        
+
         # Show the cog help
         em = await self.format_cog_help(ctx, prefix, selected_cog)
         await ctx.send(content=error, embed=em)
@@ -661,9 +677,17 @@ class Utility(commands.Cog):
                 disabled_logs.append(f"• {log_type.replace('_', ' ').title()}")
 
         if enabled_logs:
-            embed.add_field(name=f"{get_emoji('enabled')} Enabled Logs", value="\n".join(enabled_logs), inline=False)
+            embed.add_field(
+                name=f"{get_emoji('enabled')} Enabled Logs",
+                value="\n".join(enabled_logs),
+                inline=False,
+            )
         if disabled_logs:
-            embed.add_field(name=f"{get_emoji('disabled')} Disabled Logs", value="\n".join(disabled_logs), inline=False)
+            embed.add_field(
+                name=f"{get_emoji('disabled')} Disabled Logs",
+                value="\n".join(disabled_logs),
+                inline=False,
+            )
 
     def _add_modlog_settings(self, embed: discord.Embed, config: Any) -> None:
         """Add modlog settings to embed"""
@@ -681,11 +705,15 @@ class Utility(commands.Cog):
 
         if enabled_modlogs:
             embed.add_field(
-                name=f"{get_emoji('enabled')} Enabled Modlogs", value="\n".join(enabled_modlogs), inline=False
+                name=f"{get_emoji('enabled')} Enabled Modlogs",
+                value="\n".join(enabled_modlogs),
+                inline=False,
             )
         if disabled_modlogs:
             embed.add_field(
-                name=f"{get_emoji('disabled')} Disabled Modlogs", value="\n".join(disabled_modlogs), inline=False
+                name=f"{get_emoji('disabled')} Disabled Modlogs",
+                value="\n".join(disabled_modlogs),
+                inline=False,
             )
 
     def _add_detections_settings(self, embed: discord.Embed, config: Any) -> None:
@@ -708,11 +736,15 @@ class Utility(commands.Cog):
 
         if enabled_detections:
             embed.add_field(
-                name=f"{get_emoji('enabled')} Enabled Detections", value="\n".join(enabled_detections), inline=False
+                name=f"{get_emoji('enabled')} Enabled Detections",
+                value="\n".join(enabled_detections),
+                inline=False,
             )
         if disabled_detections:
             embed.add_field(
-                name=f"{get_emoji('disabled')} Disabled Detections", value="\n".join(disabled_detections), inline=False
+                name=f"{get_emoji('disabled')} Disabled Detections",
+                value="\n".join(disabled_detections),
+                inline=False,
             )
 
         # Custom filters
@@ -758,12 +790,20 @@ class Utility(commands.Cog):
         # Auto roles
         if config.autoroles:
             autoroles = [f"<@&{role_id}>" for role_id in config.autoroles]
-            embed.add_field(name=f"{get_emoji('autoroles')} Auto Roles", value=", ".join(autoroles), inline=False)
+            embed.add_field(
+                name=f"{get_emoji('autoroles')} Auto Roles",
+                value=", ".join(autoroles),
+                inline=False,
+            )
 
         # Self roles
         if config.selfroles:
             selfroles = [f"<@&{role_id}>" for role_id in config.selfroles]
-            embed.add_field(name=f"{get_emoji('selfroles')} Self Roles", value=", ".join(selfroles), inline=False)
+            embed.add_field(
+                name=f"{get_emoji('selfroles')} Self Roles",
+                value=", ".join(selfroles),
+                inline=False,
+            )
 
         # Reaction roles
         if config.reaction_roles:
@@ -778,26 +818,44 @@ class Utility(commands.Cog):
         giveaway = config.giveaway
 
         if giveaway.channel_id:
-            embed.add_field(name=f"{get_emoji('channel')} Channel", value=f"<#{giveaway.channel_id}>", inline=True)
+            embed.add_field(
+                name=f"{get_emoji('channel')} Channel",
+                value=f"<#{giveaway.channel_id}>",
+                inline=True,
+            )
         if giveaway.role_id:
-            embed.add_field(name=f"{get_emoji('role')} Role", value=f"<@&{giveaway.role_id}>", inline=True)
+            embed.add_field(
+                name=f"{get_emoji('role')} Role", value=f"<@&{giveaway.role_id}>", inline=True
+            )
         if giveaway.emoji_id:
-            embed.add_field(name=f"{get_emoji('emoji')} Emoji", value=f"<:{giveaway.emoji_id}>", inline=True)
+            embed.add_field(
+                name=f"{get_emoji('emoji')} Emoji", value=f"<:{giveaway.emoji_id}>", inline=True
+            )
 
         embed.add_field(
-            name=f"{get_emoji('status')} Status", value="Ended" if giveaway.ended else "Active", inline=True
+            name=f"{get_emoji('status')} Status",
+            value="Ended" if giveaway.ended else "Active",
+            inline=True,
         )
 
     def _add_general_settings(self, embed: discord.Embed, config: Any) -> None:
         """Add general settings to embed"""
-        embed.add_field(name=f"{get_emoji('prefix')} Prefix", value=f"`{config.prefix}`", inline=True)
+        embed.add_field(
+            name=f"{get_emoji('prefix')} Prefix", value=f"`{config.prefix}`", inline=True
+        )
 
         if config.mute_role:
-            embed.add_field(name=f"{get_emoji('mute')} Mute Role", value=f"<@&{config.mute_role}>", inline=True)
+            embed.add_field(
+                name=f"{get_emoji('mute')} Mute Role", value=f"<@&{config.mute_role}>", inline=True
+            )
         else:
             embed.add_field(name=f"{get_emoji('mute')} Mute Role", value="Not set", inline=True)
 
-        embed.add_field(name=f"{get_emoji('offset')} Time Offset", value=f"{config.time_offset} hours", inline=True)
+        embed.add_field(
+            name=f"{get_emoji('offset')} Time Offset",
+            value=f"{config.time_offset} hours",
+            inline=True,
+        )
 
         if config.whitelisted_guilds:
             embed.add_field(
@@ -904,9 +962,13 @@ class Utility(commands.Cog):
         """Show user's permission level"""
         perm_level = get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))
 
-        embed = discord.Embed(title=f"{get_emoji('user')} Your Permission Level", color=discord.Color.blue())
+        embed = discord.Embed(
+            title=f"{get_emoji('user')} Your Permission Level", color=discord.Color.blue()
+        )
 
-        embed.add_field(name=f"{get_emoji('level')} Level", value=f"**{perm_level[0]}**", inline=True)
+        embed.add_field(
+            name=f"{get_emoji('level')} Level", value=f"**{perm_level[0]}**", inline=True
+        )
         embed.add_field(name=f"{get_emoji('book')} Role", value=f"**{perm_level[1]}**", inline=True)
 
         # Show what commands they can use
@@ -936,9 +998,13 @@ class Utility(commands.Cog):
         embed = discord.Embed(title=f"{get_emoji('ping')} Pong!", color=discord.Color.green())
 
         embed.add_field(
-            name=f"{get_emoji('websocket')} WebSocket", value=f"`{self.bot.latency * 1000:.2f}ms`", inline=True
+            name=f"{get_emoji('websocket')} WebSocket",
+            value=f"`{self.bot.latency * 1000:.2f}ms`",
+            inline=True,
         )
-        embed.add_field(name=f"{get_emoji('message')} Message", value=f"`{latency:.2f}ms`", inline=True)
+        embed.add_field(
+            name=f"{get_emoji('message')} Message", value=f"`{latency:.2f}ms`", inline=True
+        )
 
         # Status indicators
         if self.bot.latency < 0.1:
@@ -957,7 +1023,9 @@ class Utility(commands.Cog):
         """Show detailed bot statistics"""
         stats = await self.bot.get_bot_stats()
 
-        embed = discord.Embed(title=f"{get_emoji('stats')} Bot Statistics", color=discord.Color.blue())
+        embed = discord.Embed(
+            title=f"{get_emoji('stats')} Bot Statistics", color=discord.Color.blue()
+        )
 
         embed.add_field(
             name="🖥️ System",
@@ -993,24 +1061,28 @@ class Utility(commands.Cog):
         # Get system information
         cpu_percent = psutil.cpu_percent(interval=1)
         memory = psutil.virtual_memory()
-        disk = psutil.disk_usage('/')
-        
+        disk = psutil.disk_usage("/")
+
         # Get uptime
         boot_time = datetime.fromtimestamp(psutil.boot_time())
         uptime = datetime.now() - boot_time
-        
+
         # Get bot uptime
-        bot_uptime = datetime.now() - self.bot.start_time if hasattr(self.bot, 'start_time') else timedelta(0)
-        
+        bot_uptime = (
+            datetime.now() - self.bot.start_time
+            if hasattr(self.bot, "start_time")
+            else timedelta(0)
+        )
+
         # Get process info
         process = psutil.Process()
         process_memory = process.memory_info().rss / 1024 / 1024  # MB
-        
+
         embed = discord.Embed(
             title=f"{get_emoji('system')} Server Health",
             description="Detailed system and bot information",
             color=discord.Color.blue(),
-            timestamp=datetime.now()
+            timestamp=datetime.now(),
         )
 
         # Bot Stats
@@ -1022,7 +1094,7 @@ class Utility(commands.Cog):
             f"**Users:** `{len(self.bot.users):,}`\n"
             f"**Ping:** `{self.bot.latency * 1000:.0f}ms`\n"
             f"**Bot Uptime:** `{str(bot_uptime).split('.')[0]}`",
-            inline=True
+            inline=True,
         )
 
         # Server Stats
@@ -1033,7 +1105,7 @@ class Utility(commands.Cog):
             f"**CPU Usage:** `{cpu_percent:.2f}%`\n"
             f"**RAM Usage:** `{memory.used / 1024 / 1024 / 1024:.2f} GB / {memory.total / 1024 / 1024 / 1024:.1f} GB`\n"
             f"**System Uptime:** `{str(uptime).split('.')[0]}`",
-            inline=True
+            inline=True,
         )
 
         # Process Info
@@ -1043,7 +1115,7 @@ class Utility(commands.Cog):
             f"**CPU:** `{process.cpu_percent():.2f}%`\n"
             f"**Threads:** `{process.num_threads()}`\n"
             f"**Status:** `{process.status()}`",
-            inline=True
+            inline=True,
         )
 
         # Disk Info
@@ -1053,7 +1125,7 @@ class Utility(commands.Cog):
             f"**Free:** `{disk.free / 1024 / 1024 / 1024:.1f} GB`\n"
             f"**Total:** `{disk.total / 1024 / 1024 / 1024:.1f} GB`\n"
             f"**Usage:** `{(disk.used / disk.total) * 100:.1f}%`",
-            inline=True
+            inline=True,
         )
 
         # Network Info
@@ -1065,7 +1137,7 @@ class Utility(commands.Cog):
                 f"**Bytes Recv:** `{network.bytes_recv / 1024 / 1024:.1f} MB`\n"
                 f"**Packets Sent:** `{network.packets_sent:,}`\n"
                 f"**Packets Recv:** `{network.packets_recv:,}`",
-                inline=True
+                inline=True,
             )
         except:
             pass

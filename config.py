@@ -44,7 +44,6 @@ EMOJIS = {
     "loading": "⏳",
     "clock": "🕐",
     "timeout": "⏰",
-    
     # Users and roles
     "user": "👤",
     "server": "🏠",
@@ -52,7 +51,6 @@ EMOJIS = {
     "human": "👤",
     "role": "🎭",
     "emoji": "😀",
-    
     # Categories and features
     "settings": "⚙️",
     "shield": "🛡️",
@@ -71,7 +69,6 @@ EMOJIS = {
     "events": "📢",
     "setup": "⚙️",
     "moderation": "🛡️",
-    
     # Actions and tools
     "tools": "🔧",
     "list": "📋",
@@ -92,14 +89,12 @@ EMOJIS = {
     "prefix": "🔧",
     "offset": "⏰",
     "whitelist": "✅",
-    
     # Status indicators
     "excellent": "🟢",
     "good": "🟡",
     "poor": "🔴",
     "enabled": "✅",
     "disabled": "❌",
-    
     # Network and system
     "websocket": "🌐",
     "message": "💬",
@@ -110,14 +105,12 @@ EMOJIS = {
     "cpu": "🖥️",
     "ram": "💾",
     "uptime": "⏰",
-    
     # Commands and levels
     "level": "📊",
     "commands": "🔧",
     "subcommands": "📋",
     "aliases": "🔄",
     "permission": "🔐",
-    
     # Categories
     "categories": "📋",
     "available": "📋",

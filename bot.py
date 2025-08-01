@@ -557,6 +557,7 @@ if __name__ == "__main__":
         sys.exit(1)
 # Inside the on_message method...
 
+
 async def on_message(self, message: discord.Message) -> None:
     """Enhanced message handling with statistics"""
     if message.author.bot or not message.guild:
