@@ -238,13 +238,12 @@ class Utility(commands.Cog):
         )
 
         commands_list = []
-        for i in inspect.getmembers(
-            cog, predicate=lambda x: isinstance(x, (RainCommand, RainGroup))
-        ):
-            if i[1].parent:
+        # Get commands using cog.get_commands() instead of inspect.getmembers()
+        for cmd in list(cog.get_commands()):
+            if cmd.parent:
                 continue
-            if await self.can_run(ctx, i[1]):
-                commands_list.append(i[1])
+            if await self.can_run(ctx, cmd):
+                commands_list.append(cmd)
 
         if commands_list:
             # Group commands by permission level
