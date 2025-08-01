@@ -176,7 +176,7 @@ class rainbot(commands.Bot):
 
         # Set bot status
         activity = discord.Activity(
-            type=discord.ActivityType.watching, name=f"{len(self.guilds)} servers | !help"
+            type=discord.ActivityType.watching, name=f"{len(self.guilds)} servers | !!help"
         )
         await self.change_presence(activity=activity)
 
