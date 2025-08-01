@@ -1018,7 +1018,6 @@ class Utility(commands.Cog):
             name="🤖 Bot Stats",
             value=f"**Version:** `{BOT_VERSION}`\n"
             f"**Clusters:** `1 / 1`\n"
-            f"**Shards:** `{len(self.bot.shards)} / {len(self.bot.shards)}`\n"
             f"**Servers:** `{len(self.bot.guilds):,}`\n"
             f"**Users:** `{len(self.bot.users):,}`\n"
             f"**Ping:** `{self.bot.latency * 1000:.0f}ms`\n"
