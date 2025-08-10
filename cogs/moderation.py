@@ -403,7 +403,13 @@ class Moderation(commands.Cog):
         *,
         time: UserFriendlyTime = None,
     ) -> None:
-        """Mutes a user"""
+        """Mute a member for an optional duration and reason.
+
+        Usage:
+        - `!!mute @User 10m Spamming`
+        - `!!mute 123456789012345678 1h`  (by ID)
+        - `!!mute @User`  (indefinite mute)
+        """
         if (
             get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
             >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]
@@ -425,11 +431,37 @@ class Moderation(commands.Cog):
             if ctx.author != ctx.guild.me:
                 await ctx.send(self.bot.accept)
 
+    @command(6, name="muted")
+    async def muted(self, ctx: commands.Context) -> None:
+        """List currently muted members for this server.
+
+        Example: `!!muted`
+        """
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        mutes = getattr(guild_config, "mutes", [])
+        if not mutes:
+            await ctx.send("No active mutes.")
+            return
+        lines = []
+        for entry in mutes:
+            user_id = int(entry.get("member", 0))
+            until = entry.get("time")
+            member = ctx.guild.get_member(user_id) or self.bot.get_user(user_id)
+            name = getattr(member, "mention", f"`{user_id}`")
+            if until:
+                lines.append(f"• {name} until <t:{int(until)}:F>")
+            else:
+                lines.append(f"• {name} (indefinite)")
+        await ctx.send("Active mutes:\n" + "\n".join(lines))
+
     @command(6)
     async def unmute(
         self, ctx: commands.Context, member: discord.Member, *, reason: CannedStr = "No reason"
     ) -> None:
-        """Unmutes a user"""
+        """Unmute a previously muted member.
+
+        Example: `!!unmute @User Apologized`
+        """
         if (
             get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
             >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]
@@ -442,7 +474,12 @@ class Moderation(commands.Cog):
 
     @command(6, aliases=["clean", "prune"], usage="<limit> [member]")
     async def purge(self, ctx: commands.Context, limit: int, *, member: MemberOrID = None) -> None:
-        """Deletes messages in bulk"""
+        """Bulk delete messages in the current channel.
+
+        Usage:
+        - `!!purge 50`  (delete last 50 messages)
+        - `!!purge 100 @User`  (delete up to 100 messages from a specific user)
+        """
         count = min(2000, limit)
         try:
             await ctx.message.delete()
@@ -489,6 +526,12 @@ class Moderation(commands.Cog):
 
     @command(6)
     async def lockdown(self, ctx: commands.Context, channel: discord.TextChannel = None) -> None:
+        """Toggle send permissions for @everyone in a channel.
+
+        Examples:
+        - `!!lockdown` (toggle current channel)
+        - `!!lockdown #general`
+        """
         channel = channel or ctx.channel
         overwrite = channel.overwrites_for(ctx.guild.default_role)
 
@@ -513,13 +556,13 @@ class Moderation(commands.Cog):
         *,
         time: UserFriendlyTime,
     ) -> None:
-        """Enables slowmode, max 6h
+        """Enable or disable channel slowmode (max 6h).
 
         Examples:
-        !!slowmode 2h
-        !!slowmode 2h #general
-        !!slowmode off
-        !!slowmode 0s #general
+        - `!!slowmode 2h`
+        - `!!slowmode 2h #general`
+        - `!!slowmode off`
+        - `!!slowmode 0s #general`
         """
         duration = timedelta()
         channel = ctx.channel
@@ -552,7 +595,10 @@ class Moderation(commands.Cog):
     async def kick(
         self, ctx: commands.Context, member: discord.Member, *, reason: CannedStr = None
     ) -> None:
-        """Kicks a user"""
+        """Kick a member from the server.
+
+        Example: `!!kick @User Spamming`
+        """
         if (
             get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
             >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]
@@ -569,7 +615,10 @@ class Moderation(commands.Cog):
     async def softban(
         self, ctx: commands.Context, member: discord.Member, *, reason: CannedStr = None
     ) -> None:
-        """Bans then immediately unbans user (to purge messages)"""
+        """Ban then immediately unban to purge messages.
+
+        Example: `!!softban @User Advertising`
+        """
         if (
             get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
             >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]
@@ -591,7 +640,12 @@ class Moderation(commands.Cog):
         *,
         time: UserFriendlyTime = None,
     ) -> None:
-        """Swings the banhammer"""
+        """Ban a member, optionally as a tempban.
+
+        Examples:
+        - `!!ban @User 7d Toxic behavior`
+        - `!!ban 123456789012345678 Spamming`
+        """
         if (
             get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
             >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]
@@ -632,7 +686,12 @@ class Moderation(commands.Cog):
         *,
         time: UserFriendlyTime = None,
     ) -> None:
-        """Unswing the banhammer"""
+        """Unban a user by name#discriminator or ID.
+
+        Examples:
+        - `!!unban 123456789012345678`
+        - `!!unban user#0001 Appeal accepted`
+        """
         if (
             get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
             >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]

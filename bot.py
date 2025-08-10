@@ -213,7 +213,16 @@ class rainbot(commands.Bot):
                 except discord.Forbidden:
                     pass
 
-                await self.invoke(ctx)
+                # If user invoked a bare command without required args, show help instead
+                try:
+                    await self.invoke(ctx)
+                except commands.MissingRequiredArgument:
+                    try:
+                        await ctx.invoke(
+                            self.get_command("help"), command_or_cog=ctx.command.qualified_name
+                        )
+                    except Exception:
+                        pass
 
                 # Remove loading reaction and add success reaction
                 try:

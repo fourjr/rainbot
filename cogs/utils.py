@@ -288,16 +288,15 @@ class Utility(commands.Cog):
 
             for level in sorted(cmd_groups.keys()):
                 cmds = cmd_groups[level]
-                # Create a cleaner command list
-                cmd_list = []
+                # Keep category view concise to avoid cutoff
+                lines: list[str] = []
                 for cmd in cmds:
                     cmd_desc = cmd.short_doc or "No description"
-                    # Truncate long descriptions
-                    if len(cmd_desc) > 50:
-                        cmd_desc = cmd_desc[:47] + "..."
-                    cmd_list.append(f"• `{prefix}{cmd.name}` - {cmd_desc}")
+                    if len(cmd_desc) > 80:
+                        cmd_desc = cmd_desc[:77] + "..."
+                    lines.append(f"• `{prefix}{cmd.name}` — {cmd_desc}")
 
-                value = "\n".join(cmd_list)
+                value = "\n".join(lines)
                 if len(value) > 1024:
                     # Split into multiple fields if too long
                     chunks = [value[i : i + 1024] for i in range(0, len(value), 1024)]
@@ -326,11 +325,24 @@ class Utility(commands.Cog):
 
         if await self.can_run(ctx, cmd) and cmd.enabled:
             if isinstance(cmd, RainCommand):
+                usage = cmd.usage or cmd.signature.replace(cmd.name, f"{cmd.name}")
+                example = f"{prefix}{usage}" if usage else f"{prefix}{cmd.name}"
                 em = discord.Embed(
                     title=f"📖 {prefix}{cmd.signature}",
-                    description=f"{cmd.help}\n\n**🔐 Permission Level:** {cmd_level}",
+                    description=(cmd.help or "No description provided."),
                     color=discord.Color.blue(),
                 )
+                em.add_field(name="🔐 Permission Level", value=str(cmd_level), inline=True)
+                em.add_field(
+                    name="📌 Usage",
+                    value=(
+                        f"`{prefix}{cmd.name} {cmd.usage}`"
+                        if cmd.usage
+                        else f"`{prefix}{cmd.name}`"
+                    ),
+                    inline=False,
+                )
+                em.add_field(name="💡 Example", value=f"`{example}`", inline=False)
 
                 if cmd.aliases:
                     em.add_field(
@@ -344,14 +356,19 @@ class Utility(commands.Cog):
             elif isinstance(cmd, RainGroup):
                 em = discord.Embed(
                     title=f"📖 {prefix}{cmd.signature}",
-                    description=f"{cmd.help}\n\n**🔐 Permission Level:** {cmd_level}",
+                    description=(cmd.help or "No description provided."),
                     color=discord.Color.blue(),
                 )
+                em.add_field(name="🔐 Permission Level", value=str(cmd_level), inline=True)
 
                 subcommands = []
                 for i in list(cmd.commands):
                     if await self.can_run(ctx, i):
-                        subcommands.append(f"• `{i.name}` - {i.short_doc or 'No description'}")
+                        usage = i.usage or i.signature.replace(i.name, f"{i.name}")
+                        example = f"{prefix}{i.name} {i.usage}" if i.usage else f"{prefix}{i.name}"
+                        subcommands.append(
+                            f"• `{i.name}` - {i.short_doc or 'No description'}\n  Usage: `{prefix}{i.name}{(' ' + i.usage) if i.usage else ''}`\n  Example: `{example}`"
+                        )
 
                 if subcommands:
                     em.add_field(
