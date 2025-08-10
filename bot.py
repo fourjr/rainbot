@@ -569,7 +569,7 @@ class rainbot(commands.Bot):
             current_time_fmt = f"<t:{int(current_time.timestamp())}:T>"
 
             await log_channel.send(
-                f"`{current_time_fmt}` {actor} has muted {member} ({member.id}), reason: {reason} for {format_timedelta(delta)}"
+                f"{current_time_fmt} {actor} has muted {member} ({member.id}), reason: {reason} for {format_timedelta(delta)}"
             )
 
         if delta:
