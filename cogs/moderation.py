@@ -54,7 +54,10 @@ class Moderation(commands.Cog):
     async def alert_user(self, ctx: commands.Context, member, reason, *, duration=None) -> None:
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         offset = guild_config.time_offset
-        current_time = (ctx.message.created_at + timedelta(hours=offset)).strftime("%H:%M:%S")
+        # Discord relative/local timestamp for display in user's locale
+        current_time = (
+            f"<t:{int((ctx.message.created_at + timedelta(hours=offset)).timestamp())}:T>"
+        )
 
         if guild_config.alert[ctx.command.name]:
             fmt = string.Formatter().vformat(
@@ -79,7 +82,9 @@ class Moderation(commands.Cog):
     async def send_log(self, ctx: commands.Context, *args) -> None:
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         offset = guild_config.time_offset
-        current_time = (ctx.message.created_at + timedelta(hours=offset)).strftime("%H:%M:%S")
+        current_time = (
+            f"<t:{int((ctx.message.created_at + timedelta(hours=offset)).timestamp())}:T>"
+        )
 
         modlogs = DBDict(
             {i: tryint(guild_config.modlog[i]) for i in guild_config.modlog if i},
@@ -155,9 +160,8 @@ class Moderation(commands.Cog):
         async def timestamp(created):
             delta = format_timedelta(ctx.message.created_at - created)
             guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-            created += timedelta(hours=guild_config.time_offset)
-
-            return f"{delta} ago ({created.strftime('%H:%M:%S')})"
+            created = created + timedelta(hours=guild_config.time_offset)
+            return f"{delta} ago (<t:{int(created.timestamp())}:T>)"
 
         created = await timestamp(member.created_at)
         joined = await timestamp(member.joined_at)
@@ -201,9 +205,7 @@ class Moderation(commands.Cog):
             notes = guild_data.notes
 
             guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-            current_date = (
-                ctx.message.created_at + timedelta(hours=guild_config.time_offset)
-            ).strftime("%Y-%m-%d")
+            current_date = f"<t:{int((ctx.message.created_at + timedelta(hours=guild_config.time_offset)).timestamp())}:D>"
             if len(notes) == 0:
                 case_number = 1
             else:
@@ -322,9 +324,7 @@ class Moderation(commands.Cog):
                     await ctx.send("The user has PMs disabled or blocked the bot.")
             finally:
                 guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-                current_date = (
-                    ctx.message.created_at + timedelta(hours=guild_config.time_offset)
-                ).strftime("%Y-%m-%d")
+                current_date = f"<t:{int((ctx.message.created_at + timedelta(hours=guild_config.time_offset)).timestamp())}:D>"
                 if len(guild_warns) == 0:
                     case_number = 1
                 else:

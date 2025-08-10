@@ -847,9 +847,7 @@ class Utility(commands.Cog):
                 emoji_display = f"<:giveaway:{emoji_value}>"
             else:
                 emoji_display = str(emoji_value)
-            embed.add_field(
-                name=f"{get_emoji('emoji')} Emoji", value=emoji_display, inline=True
-            )
+            embed.add_field(name=f"{get_emoji('emoji')} Emoji", value=emoji_display, inline=True)
 
         embed.add_field(
             name=f"{get_emoji('status')} Status",
@@ -954,7 +952,7 @@ class Utility(commands.Cog):
         embed.add_field(name="👑 Owner", value=guild.owner.mention, inline=True)
         embed.add_field(name="🆔 ID", value=guild.id, inline=True)
         embed.add_field(
-            name="📅 Created", value=guild.created_at.strftime("%B %d, %Y"), inline=True
+            name="📅 Created", value=f"<t:{int(guild.created_at.timestamp())}:D>", inline=True
         )
 
         # Member stats

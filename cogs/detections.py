@@ -59,7 +59,11 @@ class Detections(commands.Cog):
             dev_guild_id = getattr(self.bot, "dev_guild_id", None)
             if dev_guild_id and m.guild and m.guild.id != dev_guild_id:
                 return
-        if (self.bot.dev_mode and getattr(self.bot, "dev_guild_id", None) and (m.guild and m.guild.id != getattr(self.bot, "dev_guild_id", None))) or m.type != discord.MessageType.default:
+        if (
+            self.bot.dev_mode
+            and getattr(self.bot, "dev_guild_id", None)
+            and (m.guild and m.guild.id != getattr(self.bot, "dev_guild_id", None))
+        ) or m.type != discord.MessageType.default:
             return
 
         for func in self.detections:

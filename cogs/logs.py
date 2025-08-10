@@ -74,7 +74,8 @@ class Logging(commands.Cog):
 
         guild_config = await self.bot.db.get_guild_config(guild_id)
         current_time += timedelta(hours=guild_config.time_offset)
-        current_time = current_time.strftime("%H:%M:%S")
+        # Use Discord local time tag in messages
+        current_time = f"<t:{int(current_time.timestamp())}:T>"
 
         if raw:
             if mode == "bulk":

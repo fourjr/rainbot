@@ -94,9 +94,15 @@ class rainbot(commands.Bot):
                 log_file = config.LOGGING.get("file", "rainbot.log")
                 max_bytes = int(config.LOGGING.get("max_size", 10 * 1024 * 1024))
                 backup_count = int(config.LOGGING.get("backup_count", 5))
-                file_handler = RotatingFileHandler(log_file, maxBytes=max_bytes, backupCount=backup_count)
+                file_handler = RotatingFileHandler(
+                    log_file, maxBytes=max_bytes, backupCount=backup_count
+                )
                 file_handler.setFormatter(
-                    logging.Formatter(config.LOGGING.get("format", "%(asctime)s:%(levelname)s:%(name)s: %(message)s"))
+                    logging.Formatter(
+                        config.LOGGING.get(
+                            "format", "%(asctime)s:%(levelname)s:%(name)s: %(message)s"
+                        )
+                    )
                 )
                 self.logger.addHandler(file_handler)
             except Exception as e:
@@ -129,6 +135,20 @@ class rainbot(commands.Bot):
                 # Ignore invalid IDs but log once bot logger is ready
                 pass
         return owners
+
+    async def _resolve_channel(
+        self, channel_id: Optional[int]
+    ) -> Optional[discord.abc.Messageable]:
+        if not channel_id:
+            return None
+        try:
+            channel = self.get_channel(channel_id)
+            if channel is None:
+                channel = await self.fetch_channel(channel_id)
+            return channel  # type: ignore[return-value]
+        except Exception as e:
+            self.logger.debug(f"Failed to resolve channel {channel_id}: {e}")
+            return None
 
     async def setup_hook(self) -> None:
         """Async setup hook for discord.py 2.x"""
@@ -233,6 +253,14 @@ class rainbot(commands.Bot):
         )
         await self.change_presence(activity=activity)
 
+        # Resolve configured channels and log results
+        err = await self._resolve_channel(self.ERROR_CHANNEL_ID)
+        join = await self._resolve_channel(self.GUILD_JOIN_CHANNEL_ID)
+        leave = await self._resolve_channel(self.GUILD_REMOVE_CHANNEL_ID)
+        self.logger.info(
+            f"Channels: error={'ok' if err else 'missing'} join={'ok' if join else 'missing'} leave={'ok' if leave else 'missing'}"
+        )
+
     async def on_command_error(self, ctx: commands.Context, e: Exception) -> None:
         """Enhanced error handling with user-friendly messages"""
         e = getattr(e, "original", e)
@@ -299,16 +327,21 @@ class rainbot(commands.Bot):
 
         # Always report to error channel
         try:
-            error_channel = self.get_channel(self.ERROR_CHANNEL_ID) or await self.fetch_channel(
-                self.ERROR_CHANNEL_ID
-            )
+            if not self.ERROR_CHANNEL_ID:
+                return
+            error_channel = self.get_channel(self.ERROR_CHANNEL_ID)
+            if error_channel is None:
+                # fetch_channel may fail if lacking permissions or wrong ID
+                error_channel = await self.fetch_channel(self.ERROR_CHANNEL_ID)
             embed = discord.Embed(
                 title="⚠️ Command Error",
                 color=discord.Color.red(),
                 timestamp=datetime.utcnow(),
             )
             embed.add_field(name="Guild", value=f"{ctx.guild.name} ({ctx.guild.id})", inline=False)
-            embed.add_field(name="Channel", value=f"#{ctx.channel} ({ctx.channel.id})", inline=False)
+            embed.add_field(
+                name="Channel", value=f"#{ctx.channel} ({ctx.channel.id})", inline=False
+            )
             embed.add_field(name="User", value=f"{ctx.author} ({ctx.author.id})", inline=False)
             embed.add_field(
                 name="Command",
@@ -317,9 +350,9 @@ class rainbot(commands.Bot):
             )
             embed.add_field(name="Error", value=f"{type(e).__name__}: {e}", inline=False)
             await error_channel.send(embed=embed)
-        except Exception:
+        except Exception as send_err:
             # Avoid recursive failures
-            pass
+            self.logger.debug(f"Failed to send error report: {send_err}")
 
     async def on_error(self, event_method: str, /, *args, **kwargs) -> None:  # type: ignore[override]
         # Fallback handler for unexpected errors in listeners
@@ -328,9 +361,9 @@ class rainbot(commands.Bot):
         try:
             if not self.ERROR_CHANNEL_ID:
                 return
-            error_channel = self.get_channel(self.ERROR_CHANNEL_ID) or await self.fetch_channel(
-                self.ERROR_CHANNEL_ID
-            )
+            error_channel = await self._resolve_channel(self.ERROR_CHANNEL_ID)
+            if not error_channel:
+                return
             embed = discord.Embed(
                 title="🔥 Unhandled Error",
                 description=f"Event: `{event_method}`",
@@ -343,8 +376,8 @@ class rainbot(commands.Bot):
                 inline=False,
             )
             await error_channel.send(embed=embed)
-        except Exception:
-            pass
+        except Exception as e:
+            self.logger.debug(f"Failed to send unhandled error: {e}")
 
     async def on_guild_join(self, guild: discord.Guild) -> None:
         # Prepare embed with server info
@@ -367,20 +400,22 @@ class rainbot(commands.Bot):
         embed.add_field(name="Members", value=f"{guild.member_count}", inline=True)
         if humans is not None and bots is not None:
             embed.add_field(name="Humans/Bots", value=f"{humans}/{bots}", inline=True)
+        # Use Discord local timestamp tag for client-local display
         embed.add_field(
             name="Created",
-            value=guild.created_at.strftime("%Y-%m-%d %H:%M UTC"),
+            value=f"<t:{int(guild.created_at.timestamp())}:F>",
             inline=False,
         )
         if guild.icon:
             embed.set_thumbnail(url=guild.icon.url)
         try:
-            dest = self.get_channel(self.GUILD_JOIN_CHANNEL_ID) or await self.fetch_channel(
-                self.GUILD_JOIN_CHANNEL_ID
-            )
-            await dest.send(embed=embed)
-        except Exception:
-            pass
+            dest = await self._resolve_channel(self.GUILD_JOIN_CHANNEL_ID)
+            if dest:
+                await dest.send(embed=embed)
+            else:
+                self.logger.debug("Join channel not resolved; skipping announce")
+        except Exception as e:
+            self.logger.debug(f"Failed to send join announce: {e}")
 
     async def on_guild_remove(self, guild: discord.Guild) -> None:
         # Prepare embed with server info on leave
@@ -396,22 +431,27 @@ class rainbot(commands.Bot):
         embed.add_field(name="Name", value=f"{guild.name}", inline=True)
         embed.add_field(name="ID", value=f"{guild.id}", inline=True)
         if owner:
-            embed.add_field(name="Owner", value=f"{owner} ({getattr(owner, 'id', 'N/A')})", inline=False)
-        embed.add_field(name="Members", value=f"{getattr(guild, 'member_count', 'N/A')}", inline=True)
+            embed.add_field(
+                name="Owner", value=f"{owner} ({getattr(owner, 'id', 'N/A')})", inline=False
+            )
+        embed.add_field(
+            name="Members", value=f"{getattr(guild, 'member_count', 'N/A')}", inline=True
+        )
         embed.add_field(
             name="Created",
-            value=guild.created_at.strftime("%Y-%m-%d %H:%M UTC"),
+            value=f"<t:{int(guild.created_at.timestamp())}:F>",
             inline=False,
         )
         if guild.icon:
             embed.set_thumbnail(url=guild.icon.url)
         try:
-            dest = self.get_channel(self.GUILD_REMOVE_CHANNEL_ID) or await self.fetch_channel(
-                self.GUILD_REMOVE_CHANNEL_ID
-            )
-            await dest.send(embed=embed)
-        except Exception:
-            pass
+            dest = await self._resolve_channel(self.GUILD_REMOVE_CHANNEL_ID)
+            if dest:
+                await dest.send(embed=embed)
+            else:
+                self.logger.debug("Leave channel not resolved; skipping announce")
+        except Exception as e:
+            self.logger.debug(f"Failed to send leave announce: {e}")
 
     async def setup_unmutes(self) -> None:
         """Setup unmute tasks with better error handling"""
@@ -510,11 +550,9 @@ class rainbot(commands.Bot):
         # mute complete, log it
         log_channel: discord.TextChannel = self.get_channel(tryint(guild_config.modlog.member_mute))
         if log_channel:
-            current_time = datetime.utcnow()
-
-            offset = guild_config.time_offset
-            current_time += timedelta(hours=offset)
-            current_time_fmt = current_time.strftime("%H:%M:%S")
+            # Use Discord local time tag; still honor guild time_offset
+            current_time = datetime.utcnow() + timedelta(hours=guild_config.time_offset)
+            current_time_fmt = f"<t:{int(current_time.timestamp())}:T>"
 
             await log_channel.send(
                 f"`{current_time_fmt}` {actor} has muted {member} ({member.id}), reason: {reason} for {format_timedelta(delta)}"
@@ -554,11 +592,8 @@ class rainbot(commands.Bot):
                 tryint(guild_config.modlog.member_unmute)
             )
 
-            current_time = datetime.utcnow()
-
-            offset = guild_config.time_offset
-            current_time += timedelta(hours=offset)
-            current_time_fmt = current_time.strftime("%H:%M:%S")
+            current_time = datetime.utcnow() + timedelta(hours=guild_config.time_offset)
+            current_time_fmt = f"<t:{int(current_time.timestamp())}:T>"
 
             if member:
                 if mute_role in member.roles:
@@ -596,10 +631,8 @@ class rainbot(commands.Bot):
                     tryint(guild_config.modlog.member_unban)
                 )
 
-                current_time = datetime.utcnow()
-                offset = guild_config.time_offset
-                current_time += timedelta(hours=offset)
-                current_time_fmt = current_time.strftime("%H:%M:%S")
+                current_time = datetime.utcnow() + timedelta(hours=guild_config.time_offset)
+                current_time_fmt = f"<t:{int(current_time.timestamp())}:T>"
 
                 try:
                     await guild.unban(discord.Object(member_id), reason=reason)
@@ -682,7 +715,9 @@ if __name__ == "__main__":
             console.print("[bold green]🚀 Starting rainbot...[/bold green]")
             token = os.getenv("token")
             if not token:
-                console.print("[bold red]❌ Discord token not configured in environment (.env token)[/bold red]")
+                console.print(
+                    "[bold red]❌ Discord token not configured in environment (.env token)[/bold red]"
+                )
                 bot.logger.error("Missing Discord token")
                 return
             await bot.start(token)
