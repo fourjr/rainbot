@@ -1,17 +1,28 @@
 import copy
 import json
+import io
 import re
-from typing import Optional, Union
+from typing import Optional, Union, List, Dict, Any
 
 import discord
 from discord.ext import commands
 
 from bot import rainbot
-from ext.command import command, group
-from ext.database import DEFAULT, DBDict
+from ext.command import command, group, RainGroup
+from ext.database import DEFAULT, DBDict, RECOMMENDED_DETECTIONS
 from ext.time import UserFriendlyTime
-from ext.utility import format_timedelta, get_perm_level, tryint, SafeFormat, CannedStr
+from ext.utility import (
+    format_timedelta,
+    get_perm_level,
+    tryint,
+    SafeFormat,
+    CannedStr,
+    get_command_level,
+)
+from ext.errors import BotMissingPermissionsInChannel
 import config
+from PIL import Image
+from imagehash import average_hash
 
 
 class Setup(commands.Cog):
@@ -33,9 +44,15 @@ class Setup(commands.Cog):
         else:
             raise error
 
-    @command(6, aliases=["view_config", "view-config"])
+    @command(6, aliases=["view_config", "view-config"], usage="[json]")
     async def viewconfig(self, ctx: commands.Context, options: str = None) -> None:
-        """View server configuration with enhanced formatting"""
+        """View server configuration or get a downloadable JSON.
+
+        Usage: `!!viewconfig [json]`
+        Examples:
+        - `!!viewconfig`
+        - `!!viewconfig json`
+        """
         guild_config = copy.copy(await self.bot.db.get_guild_config(ctx.guild.id))
 
         if options and options.lower() == "json":
@@ -56,21 +73,26 @@ class Setup(commands.Cog):
         )
 
         # Basic settings
+        mute_role_text = (
+            f"**Mute Role:** <@&{guild_config.mute_role}>"
+            if guild_config.mute_role
+            else "**Mute Role:** Not set"
+        )
         embed.add_field(
             name="🔧 Basic Settings",
             value=(
                 f"**Prefix:** `{guild_config.prefix}`\n"
                 f"**Time Offset:** {guild_config.time_offset} hours\n"
-                f"**Mute Role:** <@&{guild_config.mute_role}>"
-                if guild_config.mute_role
-                else "**Mute Role:** Not set"
+                f"{mute_role_text}"
             ),
             inline=False,
         )
 
         # Permission levels
         perm_levels = []
-        for level, role_id in guild_config.perm_levels.items():
+        for entry in guild_config.perm_levels:
+            role_id = getattr(entry, "role_id", None)
+            level = getattr(entry, "level", None)
             role = ctx.guild.get_role(int(role_id)) if role_id else None
             role_name = role.name if role else "Not set"
             perm_levels.append(f"Level {level}: {role_name}")
@@ -115,9 +137,12 @@ class Setup(commands.Cog):
         embed.set_footer(text=f"Use {ctx.prefix}help setup for more configuration options")
         await ctx.send(embed=embed)
 
-    @command(10, aliases=["import_config", "import-config"])
+    @command(10, aliases=["import_config", "import-config"], usage="<url>")
     async def importconfig(self, ctx: commands.Context, *, url: str) -> None:
-        """Import configuration from a JSON URL with validation"""
+        """Import configuration from a JSON URL with validation.
+
+        Example: `!!importconfig https://hastebin.cc/raw/abcdef`
+        """
         embed = discord.Embed(title="📥 Importing Configuration...", color=config.get_color("info"))
         msg = await ctx.send(embed=embed)
 
@@ -182,9 +207,28 @@ class Setup(commands.Cog):
             )
             await msg.edit(embed=embed)
 
-    @command(10, aliases=["reset_config", "reset-config"])
+    @command(10, aliases=["export_config", "export-config"])
+    async def exportconfig(self, ctx: commands.Context) -> None:
+        """Export current server configuration as a JSON attachment.
+
+        Example: `!!exportconfig`
+        """
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        data = json.dumps(guild_config, indent=2, default=str)
+        file = discord.File(io.StringIO(data), filename=f"{ctx.guild.id}_config.json")
+        embed = discord.Embed(
+            title="📤 Export Configuration",
+            description="Attached is your server configuration in JSON format.",
+            color=config.get_color("info"),
+        )
+        await ctx.send(embed=embed, file=file)
+
+    @command(10, aliases=["reset_config", "reset-config"], usage="(interactive)")
     async def resetconfig(self, ctx: commands.Context) -> None:
-        """Reset server configuration to defaults with confirmation"""
+        """Reset server configuration to defaults with confirmation.
+
+        Example: `!!resetconfig` and confirm with ✅
+        """
         embed = discord.Embed(
             title="⚠️ Reset Configuration",
             description="This will reset ALL server settings to default values.\n\n"
@@ -447,17 +491,17 @@ class Setup(commands.Cog):
         )
 
         features = [
-            ("🔄 Spam Detection", "spam"),
-            ("🔗 Invite Links", "invites"),
-            ("🤬 Bad Words", "bad_words"),
-            ("📢 Mass Mentions", "mass_mentions"),
-            ("🔊 Caps Lock", "caps"),
-            ("🖼️ NSFW Images", "nsfw"),
-            ("📝 Duplicate Messages", "duplicate"),
+            ("🔄", "Spam Detection"),
+            ("🔗", "Invite Links"),
+            ("🤬", "Bad Words"),
+            ("📢", "Mass Mentions"),
+            ("🔊", "Caps Lock"),
+            ("🖼️", "NSFW Images"),
+            ("📝", "Duplicate Messages"),
         ]
 
-        for emoji, feature in features:
-            embed.add_field(name=f"{emoji} {feature.title()}", value="Click to toggle", inline=True)
+        for emoji, label in features:
+            embed.add_field(name=f"{emoji} {label}", value="Click to toggle", inline=True)
 
         msg = await ctx.send(embed=embed)
 
@@ -539,13 +583,18 @@ class Setup(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @command(10, aliases=["set_log", "set-log"])
+    @command(10, aliases=["set_log", "set-log"], usage="<event|all> <#channel|off>")
     async def setlog(
         self, ctx: commands.Context, log_name: str, channel: discord.TextChannel = None
     ) -> None:
-        """Sets the log channel for various types of logging
+        """Configure the log channel for message/server events.
 
         Valid types: all, message_delete, message_edit, member_join, member_remove, member_ban, member_unban, vc_state_change, channel_create, channel_delete, role_create, role_delete
+
+        Examples:
+        - `!!setlog all #logs`
+        - `!!setlog member_join #join-log`
+        - `!!setlog message_delete off`
         """
         valid_logs = DEFAULT["logs"].keys()
         channel_id = None
@@ -572,13 +621,18 @@ class Setup(commands.Cog):
             )
         await ctx.send(self.bot.accept)
 
-    @command(10, aliases=["set_modlog", "set-modlog"])
+    @command(10, aliases=["set_modlog", "set-modlog"], usage="<action|all> <#channel|off>")
     async def setmodlog(
         self, ctx: commands.Context, log_name: str, channel: discord.TextChannel = None
     ) -> None:
-        """Sets the log channel for various types of logging
+        """Configure the moderation log channel for actions.
 
         Valid types: all, member_warn, member_mute, member_unmute, member_kick, member_ban, member_unban, member_softban, message_purge, channel_lockdown, channel_slowmode
+
+        Examples:
+        - `!!setmodlog all #mod-log`
+        - `!!setmodlog member_ban #security`
+        - `!!setmodlog member_warn off`
         """
         channel_id = None
         if channel:
@@ -605,11 +659,14 @@ class Setup(commands.Cog):
             )
         await ctx.send(self.bot.accept)
 
-    @command(10, aliases=["set_perm_level", "set-perm-level"])
+    @command(10, aliases=["set_perm_level", "set-perm-level"], usage="<level> <@role>")
     async def setpermlevel(
         self, ctx: commands.Context, perm_level: int, *, role: discord.Role
     ) -> None:
-        """Sets a role's permission level"""
+        """Assign or remove a role's permission level.
+
+        Example: `!!setpermlevel 2 @Moderator` (use 0 to remove)
+        """
         if perm_level < 0:
             raise commands.BadArgument(f"{perm_level} is below 0")
 
@@ -635,15 +692,17 @@ class Setup(commands.Cog):
 
         await ctx.send(self.bot.accept)
 
-    @command(10, aliases=["set_command_level", "set-command-level"])
+    @command(
+        10, aliases=["set_command_level", "set-command-level"], usage="<level|reset> <command>"
+    )
     async def setcommandlevel(
         self, ctx: commands.Context, perm_level: Union[int, str], *, command: str
     ) -> None:
-        """Changes a command's required permission level
+        """Override a command's required permission level or reset.
 
         Examples:
-        - !!setcommandlevel reset ban
-        - !!setcommandlevel 8 warn add
+        - `!!setcommandlevel reset ban`
+        - `!!setcommandlevel 8 warn add`
         """
         if isinstance(perm_level, int) and (perm_level < 0 or perm_level > 15):
             raise commands.BadArgument(
@@ -708,13 +767,21 @@ class Setup(commands.Cog):
 
     @command(10, aliases=["set_prefix", "set-prefix"])
     async def setprefix(self, ctx: commands.Context, new_prefix: str) -> None:
-        """Sets the guild prefix"""
+        """Set the server's command prefix.
+
+        Usage: `!!setprefix <prefix>`
+        Example: `!!setprefix !`
+        """
         await self.bot.db.update_guild_config(ctx.guild.id, {"$set": {"prefix": new_prefix}})
         await ctx.send(self.bot.accept)
 
     @command(10, aliases=["set_offset", "set-offset"])
     async def setoffset(self, ctx: commands.Context, offset: int) -> None:
-        """Sets the time offset from UTC"""
+        """Set the server time offset from UTC (-12 to +13 hours).
+
+        Usage: `!!setoffset <hours>`
+        Example: `!!setoffset 2`
+        """
         if not -12 < offset < 14:
             raise commands.BadArgument(f"{offset} has to be between -12 and 14.")
 
@@ -1105,7 +1172,7 @@ class Setup(commands.Cog):
         limit: int,
         punishment: str = None,
         *,
-        time: UserFriendlyTime(default=False) = None,
+        time: UserFriendlyTime = None,
     ) -> None:
         """Sets punishment after certain number of warns.
         Punishments can be "mute", "kick", "ban" or "none".

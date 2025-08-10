@@ -94,7 +94,11 @@ class EventsAnnouncer(commands.Cog):
                 message = None
         return message
 
-    @command(10, aliases=["set-announcement", "set_announcement"])
+    @command(
+        10,
+        aliases=["set-announcement", "set_announcement"],
+        usage="<member_join|member_remove> <#channel|dm> <message|embed_json>",
+    )
     async def setannouncement(
         self,
         ctx,
@@ -103,14 +107,19 @@ class EventsAnnouncer(commands.Cog):
         *,
         message=None,
     ):
-        """Sets up events announcer. Check [here](https://github.com/fourjr/rainbot/wiki/Events-Announcer)
-        for complex usage.
+        """Configure member join/leave announcements with variables.
 
-        Valid event types: member_join, member_remove
+        - Valid events: `member_join`, `member_remove`
+        - Channel can be `#channel` or `dm`
+        - Message can be plain text or an embed JSON (see docs)
 
-        Set channel to "dm" to dm user
+        Examples:
+        - `!!setannouncement member_join #welcome Welcome {member.mention}!`
+        - `!!setannouncement member_remove #log {member} left the server.`
+        - `!!setannouncement member_join dm Welcome to {guild.name}!`
+        - `!!setannouncement member_join #welcome {"embed": {"title": "Welcome!", "description": "{member.mention}"}}`
 
-        Example usage: `eventsannounce #general Hello {member.name}`
+        See documentation for advanced embeds and variables.
         """
 
         if event_type not in DEFAULT["events_announce"].keys():

@@ -14,6 +14,7 @@ from discord.ext import commands
 from discord.ext.commands import Cog
 from imagehash import average_hash
 from PIL import Image, UnidentifiedImageError
+import logging
 
 from bot import rainbot
 from ext.utility import UNICODE_EMOJI, Detection, detection, MessageWrapper
@@ -25,6 +26,7 @@ from ext.utility import UNICODE_EMOJI, Detection, detection, MessageWrapper
 class Detections(commands.Cog):
     def __init__(self, bot: rainbot) -> None:
         self.bot = bot
+        self.logger = logging.getLogger("rainbot.detections")
         self.spam_detection: DefaultDict[str, List[int]] = defaultdict(list)
         self.repetitive_message: DefaultDict[str, Counter] = defaultdict(Counter)
         self.INVITE_REGEX = re.compile(
@@ -39,7 +41,8 @@ class Detections(commands.Cog):
         try:
             self.nude_detector = None  # Will use free API instead
         except Exception as e:
-            print(f"Warning: Failed to initialize NudeDetector: {e}")
+            if hasattr(self.bot, "logger"):
+                self.bot.logger.warning(f"Failed to initialize NSFW detector: {e}")
             self.nude_detector = None
 
         self.nude_image_cache: LFUCache[str, List[str]] = LFUCache(50)
@@ -53,10 +56,13 @@ class Detections(commands.Cog):
     @Cog.listener()
     async def on_message(self, m: MessageWrapper) -> None:
         if self.bot.dev_mode:
-            if m.guild and m.guild.id != 733697261065994320:
+            dev_guild_id = getattr(self.bot, "dev_guild_id", None)
+            if dev_guild_id and m.guild and m.guild.id != dev_guild_id:
                 return
         if (
-            self.bot.dev_mode and (m.guild and m.guild.id != 733697261065994320)
+            self.bot.dev_mode
+            and getattr(self.bot, "dev_guild_id", None)
+            and (m.guild and m.guild.id != getattr(self.bot, "dev_guild_id", None))
         ) or m.type != discord.MessageType.default:
             return
 
@@ -348,7 +354,8 @@ class Detections(commands.Cog):
                 return labels
 
         except Exception as e:
-            print(f"Advanced NSFW detection error: {e}")
+            if hasattr(self, "logger"):
+                self.logger.exception(f"Advanced NSFW detection error: {e}")
             return []
 
     def _advanced_skin_detection(self, img: Image.Image) -> dict:

@@ -319,11 +319,16 @@ class DatabaseManager:
         self.loop.create_task(self.change_listener())
 
     async def change_listener(self) -> None:
-        async with self.coll.watch(full_document="updateLookup") as change_stream:
-            async for change in change_stream:
-                self.guilds_data[int(change["fullDocument"]["guild_id"])] = DBDict(
-                    change["fullDocument"]
-                )
+        """Listen to change streams when supported; otherwise, silently disable live updates."""
+        try:
+            async with self.coll.watch(full_document="updateLookup") as change_stream:
+                async for change in change_stream:
+                    self.guilds_data[int(change["fullDocument"]["guild_id"])] = DBDict(
+                        change["fullDocument"]
+                    )
+        except Exception:
+            # Change streams require a replica set; ignore if unsupported
+            return
 
     async def get_guild_config(self, guild_id: int) -> DBDict:
         if guild_id not in self.guilds_data:

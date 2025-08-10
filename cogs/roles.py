@@ -120,10 +120,19 @@ class Roles(commands.Cog):
             return
 
         try:
-            reaction = f"reaction_role:{int(emoji.id)}"
+            emoji_id = int(emoji.id)
         except ValueError:
-            reaction = emoji.id
-        await msg.add_reaction(reaction)
+            # Unicode emoji
+            await msg.add_reaction(emoji.id)
+        else:
+            discord_emoji = self.bot.get_emoji(emoji_id)
+            if discord_emoji is None:
+                await ctx.send(
+                    "The configured reaction role emoji is not available to the bot. "
+                    "Please use an emoji the bot can access."
+                )
+                return
+            await msg.add_reaction(discord_emoji)
         await self.bot.db.update_guild_config(
             ctx.guild.id,
             {
