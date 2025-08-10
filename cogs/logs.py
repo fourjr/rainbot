@@ -92,9 +92,15 @@ class Logging(commands.Cog):
                     if getattr(payload, "attachments", None):
                         # Cap to avoid spam
                         max_attachments = 4
-                        for index, attachment in enumerate(payload.attachments[:max_attachments], start=1):
+                        for index, attachment in enumerate(
+                            payload.attachments[:max_attachments], start=1
+                        ):
                             ct = (attachment.content_type or "").lower()
-                            is_image = ct.startswith("image/") or attachment.filename.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp"))
+                            is_image = ct.startswith(
+                                "image/"
+                            ) or attachment.filename.lower().endswith(
+                                (".png", ".jpg", ".jpeg", ".gif", ".webp")
+                            )
                             if is_image:
                                 emb = discord.Embed(
                                     title=f"Attachment {index}: {attachment.filename}",
@@ -103,7 +109,9 @@ class Logging(commands.Cog):
                                 emb.set_image(url=attachment.url)
                                 await log.send(embed=emb)
                             else:
-                                await log.send(f"`{current_time}` Attachment {index}: {attachment.filename} — {attachment.url}")
+                                await log.send(
+                                    f"`{current_time}` Attachment {index}: {attachment.filename} — {attachment.url}"
+                                )
                 except discord.HTTPException:
                     # TODO: to implement a more elegant solution
                     await log.send(
@@ -135,17 +143,21 @@ class Logging(commands.Cog):
                         after_links = [att.url for att in after_atts]
                         if before_links:
                             await log.send(
-                                f"`{current_time}` Before attachments ({len(before_links)}):\n" + "\n".join(before_links[:8])
+                                f"`{current_time}` Before attachments ({len(before_links)}):\n"
+                                + "\n".join(before_links[:8])
                             )
                         if after_links:
                             await log.send(
-                                f"`{current_time}` After attachments ({len(after_links)}):\n" + "\n".join(after_links[:8])
+                                f"`{current_time}` After attachments ({len(after_links)}):\n"
+                                + "\n".join(after_links[:8])
                             )
                         # Show preview of first after image if available
                         if after_atts:
                             att0 = after_atts[0]
                             ct0 = (att0.content_type or "").lower()
-                            if ct0.startswith("image/") or att0.filename.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")):
+                            if ct0.startswith("image/") or att0.filename.lower().endswith(
+                                (".png", ".jpg", ".jpeg", ".gif", ".webp")
+                            ):
                                 emb = discord.Embed(title="After attachment preview")
                                 emb.set_image(url=att0.url)
                                 await log.send(embed=emb)
@@ -158,8 +170,10 @@ class Logging(commands.Cog):
                             be_desc = be.get("description")
                             ae_title = ae.get("title")
                             ae_desc = ae.get("description")
+
                             def trunc(s: Any) -> Any:
                                 return (s[:60] + "…") if isinstance(s, str) and len(s) > 60 else s
+
                             await log.send(
                                 f"`{current_time}` Embed updated: "
                                 f"title {be_title!r} → {ae_title!r}; "
@@ -224,8 +238,11 @@ class Logging(commands.Cog):
         content_changed = (before.content or "") != (after.content or "")
         embeds_changed = (len(before.embeds) != len(after.embeds)) or any(
             (getattr(b.to_dict(), "items", lambda: b.to_dict())() if hasattr(b, "to_dict") else {})
-            !=
-            (getattr(a.to_dict(), "items", lambda: a.to_dict())() if hasattr(a, "to_dict") else {})
+            != (
+                getattr(a.to_dict(), "items", lambda: a.to_dict())()
+                if hasattr(a, "to_dict")
+                else {}
+            )
             for b, a in zip(before.embeds, after.embeds)
         )
         before_att = [att.url for att in getattr(before, "attachments", []) or []]

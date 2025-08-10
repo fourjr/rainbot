@@ -614,12 +614,12 @@ class rainbot(commands.Bot):
                     await member.remove_roles(mute_role)
                     if log_channel:
                         await log_channel.send(
-                            f"`{current_time_fmt}` {member} ({member.id}) has been unmuted. Reason: {reason}"
+                            f"{current_time_fmt} {member} ({member.id}) has been unmuted. Reason: {reason}"
                         )
             else:
                 if log_channel:
                     await log_channel.send(
-                        f"`{current_time_fmt}` Tried to unmute {member} ({member.id}), member not in server"
+                        f"{current_time_fmt} Tried to unmute {member} ({member.id}), member not in server"
                     )
 
         # set db
@@ -657,7 +657,7 @@ class rainbot(commands.Bot):
                         user = self.get_user(member_id)
                         name = getattr(user, "name", "(no name)")
                         await log_channel.send(
-                            f"`{current_time_fmt}` {name} ({member_id}) has been unbanned. Reason: {reason}"
+                            f"{current_time_fmt} {name} ({member_id}) has been unbanned. Reason: {reason}"
                         )
 
                 # Update database
