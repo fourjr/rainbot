@@ -71,6 +71,7 @@ class rainbot(commands.Bot):
         self.command_usage = {}
         self.error_count = 0
         self.successful_commands = 0
+        self._startup_announced = False
 
     def setup_logging(self) -> None:
         """Set up enhanced logging with Rich formatting"""
@@ -261,6 +262,20 @@ class rainbot(commands.Bot):
             f"Channels: error={'ok' if err else 'missing'} join={'ok' if join else 'missing'} leave={'ok' if leave else 'missing'}"
         )
 
+        # One-off startup connectivity check messages
+        if not self._startup_announced:
+            now = int(datetime.utcnow().timestamp())
+            try:
+                if err:
+                    await err.send(f"✅ Startup connectivity check at <t:{now}:T>")
+                if join:
+                    await join.send(f"✅ Startup connectivity check at <t:{now}:T>")
+                if leave:
+                    await leave.send(f"✅ Startup connectivity check at <t:{now}:T>")
+            except Exception as e:
+                self.logger.debug(f"Failed to send startup test messages: {e}")
+            self._startup_announced = True
+
     async def on_command_error(self, ctx: commands.Context, e: Exception) -> None:
         """Enhanced error handling with user-friendly messages"""
         e = getattr(e, "original", e)
@@ -329,10 +344,9 @@ class rainbot(commands.Bot):
         try:
             if not self.ERROR_CHANNEL_ID:
                 return
-            error_channel = self.get_channel(self.ERROR_CHANNEL_ID)
-            if error_channel is None:
-                # fetch_channel may fail if lacking permissions or wrong ID
-                error_channel = await self.fetch_channel(self.ERROR_CHANNEL_ID)
+            error_channel = await self._resolve_channel(self.ERROR_CHANNEL_ID)
+            if not error_channel:
+                return
             embed = discord.Embed(
                 title="⚠️ Command Error",
                 color=discord.Color.red(),

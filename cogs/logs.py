@@ -88,6 +88,22 @@ class Logging(commands.Cog):
                     await log.send(
                         f"`{current_time}` {payload.author} ({payload.author.id}): Message ({payload.id}) has been deleted in **#{payload.channel.name}** ({payload.channel.id})\n```\n{payload.content}\n```"
                     )
+                    # Log attachments if present
+                    if getattr(payload, "attachments", None):
+                        # Cap to avoid spam
+                        max_attachments = 4
+                        for index, attachment in enumerate(payload.attachments[:max_attachments], start=1):
+                            ct = (attachment.content_type or "").lower()
+                            is_image = ct.startswith("image/") or attachment.filename.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp"))
+                            if is_image:
+                                emb = discord.Embed(
+                                    title=f"Attachment {index}: {attachment.filename}",
+                                    description=f"{attachment.size} bytes\n{attachment.url}",
+                                )
+                                emb.set_image(url=attachment.url)
+                                await log.send(embed=emb)
+                            else:
+                                await log.send(f"`{current_time}` Attachment {index}: {attachment.filename} — {attachment.url}")
                 except discord.HTTPException:
                     # TODO: to implement a more elegant solution
                     await log.send(
@@ -105,16 +121,57 @@ class Logging(commands.Cog):
                 await log.send(f"`{current_time}` {payload} ({payload.id}) has left the server.")
             elif mode == "message_edit":
                 try:
+                    before_text = payload.content or "(no text content)"
+                    after_text = extra.content or "(no text content)"
                     await log.send(
-                        f"`{current_time}` {payload.author} ({payload.author.id}): Message ({payload.id}) has been edited in **#{payload.channel.name}** ({payload.channel.id})\nB:```\n{payload.content}\n```\nA:\n```{extra.content}\n```"
+                        f"`{current_time}` {payload.author} ({payload.author.id}): Message ({payload.id}) has been edited in **#{payload.channel.name}** ({payload.channel.id})\n"
+                        f"B:```\n{before_text}\n```\nA:\n```\n{after_text}\n```"
                     )
+                    # Log attachment differences if present
+                    before_atts = getattr(payload, "attachments", []) or []
+                    after_atts = getattr(extra, "attachments", []) or []
+                    if before_atts or after_atts:
+                        before_links = [att.url for att in before_atts]
+                        after_links = [att.url for att in after_atts]
+                        if before_links:
+                            await log.send(
+                                f"`{current_time}` Before attachments ({len(before_links)}):\n" + "\n".join(before_links[:8])
+                            )
+                        if after_links:
+                            await log.send(
+                                f"`{current_time}` After attachments ({len(after_links)}):\n" + "\n".join(after_links[:8])
+                            )
+                        # Show preview of first after image if available
+                        if after_atts:
+                            att0 = after_atts[0]
+                            ct0 = (att0.content_type or "").lower()
+                            if ct0.startswith("image/") or att0.filename.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")):
+                                emb = discord.Embed(title="After attachment preview")
+                                emb.set_image(url=att0.url)
+                                await log.send(embed=emb)
+                    # Log embed summary if changed
+                    if payload.embeds or extra.embeds:
+                        be = payload.embeds[0].to_dict() if payload.embeds else {}
+                        ae = extra.embeds[0].to_dict() if extra.embeds else {}
+                        if be != ae:
+                            be_title = be.get("title")
+                            be_desc = be.get("description")
+                            ae_title = ae.get("title")
+                            ae_desc = ae.get("description")
+                            def trunc(s: Any) -> Any:
+                                return (s[:60] + "…") if isinstance(s, str) and len(s) > 60 else s
+                            await log.send(
+                                f"`{current_time}` Embed updated: "
+                                f"title {be_title!r} → {ae_title!r}; "
+                                f"desc {trunc(be_desc)!r} → {trunc(ae_desc)!r}"
+                            )
                 except discord.HTTPException:
                     # to implement a more elegant solution
                     await log.send(
                         f"`{current_time}` {payload.author} ({payload.author.id}): Message ({payload.id}) has been edited in **#{payload.channel.name}** ({payload.channel.id})"
                     )
-                    await log.send(f"B:```\n{payload.content}\n```\n")
-                    await log.send(f"A:\n```{extra.content}\n```")
+                    await log.send(f"B:```\n{payload.content or '(no text content)'}\n```\n")
+                    await log.send(f"A:```\n{extra.content or '(no text content)'}\n```")
             elif mode == "member_leave_vc":
                 await log.send(
                     f"`{current_time}` {payload} ({payload.id}) has left :microphone: **{extra}** ({extra.id})."
@@ -161,12 +218,20 @@ class Logging(commands.Cog):
 
     @Cog.listener()
     async def on_message_edit(self, before: discord.Message, after: discord.Message) -> None:
-        if (
-            not before.guild
-            or before.author.bot
-            or before.content == after.content
-            or self.bot.dev_mode
-        ):
+        if not before.guild or before.author.bot or self.bot.dev_mode:
+            return
+        # Proceed only if something material changed (content, embeds, attachments)
+        content_changed = (before.content or "") != (after.content or "")
+        embeds_changed = (len(before.embeds) != len(after.embeds)) or any(
+            (getattr(b.to_dict(), "items", lambda: b.to_dict())() if hasattr(b, "to_dict") else {})
+            !=
+            (getattr(a.to_dict(), "items", lambda: a.to_dict())() if hasattr(a, "to_dict") else {})
+            for b, a in zip(before.embeds, after.embeds)
+        )
+        before_att = [att.url for att in getattr(before, "attachments", []) or []]
+        after_att = [att.url for att in getattr(after, "attachments", []) or []]
+        attachments_changed = before_att != after_att
+        if not (content_changed or embeds_changed or attachments_changed):
             return
         log_channel = await self.check_enabled(before.guild.id, "message_edit", before.channel.id)
         if not log_channel:
@@ -182,12 +247,23 @@ class Logging(commands.Cog):
             if not payload.data.get("guild_id") or not log_channel or self.bot.dev_mode:
                 return
 
-            try:
-                await self.send_log(
-                    log_channel, payload, True, f"updated: ```\n{payload.data['content']}\n```"
+            # Build a summary for raw edits including content and embed diffs
+            new_content = payload.data.get("content")
+            embeds = payload.data.get("embeds") or []
+            summary_lines = []
+            if new_content is not None:
+                display = new_content if new_content else "(no text content)"
+                summary_lines.append(f"updated text: ```\n{display}\n```")
+            if embeds:
+                # summarize first embed
+                e0 = embeds[0]
+                title = e0.get("title")
+                desc = e0.get("description")
+                summary_lines.append(
+                    f"updated embed: title={title!r} desc={(desc[:100] + '…') if (desc and len(desc) > 100) else desc!r}"
                 )
-            except KeyError:
-                pass
+            if summary_lines:
+                await self.send_log(log_channel, payload, True, " ".join(summary_lines))
 
     @Cog.listener()
     async def on_raw_bulk_message_delete(self, payload: discord.RawBulkMessageDeleteEvent) -> None:
