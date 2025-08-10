@@ -15,6 +15,7 @@ from discord.ext import commands
 from ext.command import RainCommand, RainGroup, command
 from ext.paginator import Paginator
 from ext.utility import get_command_level, get_perm_level, owner
+import logging
 from config import BOT_VERSION, get_emoji
 
 if TYPE_CHECKING:
@@ -27,11 +28,15 @@ class Utility(commands.Cog):
     def __init__(self, bot: "rainbot") -> None:
         self.bot = bot
         self.order = 4
+        self.logger = logging.getLogger("rainbot.utils")
 
     @owner()
     @command(0, name="eval")
     async def _eval(self, ctx: commands.Context, *, body: str) -> None:
         """Evaluates python code with enhanced output"""
+        self.logger.info(
+            f"Owner eval invoked by {ctx.author} ({getattr(ctx.author, 'id', None)}) in {getattr(ctx.guild, 'id', None)}"
+        )
         env = {
             "ctx": ctx,
             "self": self,
@@ -139,6 +144,14 @@ class Utility(commands.Cog):
     @command(0, name="exec")
     async def _exec(self, ctx: commands.Context, *, command: str) -> None:
         """Executes a shell command with enhanced output"""
+        # Restrict in production unless explicitly allowed
+        if not self.bot.dev_mode and os.getenv("ALLOW_EXEC_IN_PROD", "false").lower() != "true":
+            await ctx.send("❌ Shell execution is disabled in production.")
+            return
+
+        self.logger.info(
+            f"Owner exec invoked by {ctx.author} ({getattr(ctx.author, 'id', None)}) cmd={command!r}"
+        )
         try:
             result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=30)
 
@@ -828,8 +841,14 @@ class Utility(commands.Cog):
                 name=f"{get_emoji('role')} Role", value=f"<@&{giveaway.role_id}>", inline=True
             )
         if giveaway.emoji_id:
+            # Display unicode emoji as-is; custom emoji as <:name:id>
+            emoji_value = giveaway.emoji_id
+            if isinstance(emoji_value, str) and emoji_value.isdigit():
+                emoji_display = f"<:giveaway:{emoji_value}>"
+            else:
+                emoji_display = str(emoji_value)
             embed.add_field(
-                name=f"{get_emoji('emoji')} Emoji", value=f"<:{giveaway.emoji_id}>", inline=True
+                name=f"{get_emoji('emoji')} Emoji", value=emoji_display, inline=True
             )
 
         embed.add_field(
@@ -1155,8 +1174,9 @@ class Utility(commands.Cog):
                 welcome_embed = await self.bot.create_welcome_embed(guild)
                 await system_channel.send(embed=welcome_embed)
 
-            # Log to owner channel
-            channel = self.bot.get_channel(733702521893289985)
+            # Log to owner channel (from configured Owner Log Channel ID if available)
+            channel_id = getattr(self.bot, "OWNER_LOG_CHANNEL_ID", None)
+            channel = self.bot.get_channel(channel_id) if channel_id else None
             if channel:
                 embed = discord.Embed(
                     title="🎉 New Server!",
@@ -1173,7 +1193,8 @@ class Utility(commands.Cog):
     async def on_guild_remove(self, guild) -> None:
         """Enhanced guild leave handling"""
         try:
-            channel = self.bot.get_channel(733702521893289985)
+            channel_id = getattr(self.bot, "OWNER_LOG_CHANNEL_ID", None)
+            channel = self.bot.get_channel(channel_id) if channel_id else None
             if channel:
                 embed = discord.Embed(
                     title="👋 Server Left",

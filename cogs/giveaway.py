@@ -138,7 +138,7 @@ class Giveaways(commands.Cog):
             fmt_winners = "\n".join({i.mention for i in winners})
             description = "\n".join(giveaway.embeds[0].description.split("\n")[1:])
             await giveaway.channel.send(
-                f"Congratulations! Here are the winners for `{description}` <a:bahrooHi:402250652996337674>\n{fmt_winners}",
+                f"Congratulations! Here are the winners for `{description}` 🎉\n{fmt_winners}",
                 allowed_mentions=AllowedMentions.all(),
             )
 
@@ -151,7 +151,7 @@ class Giveaways(commands.Cog):
         await giveaway.edit(embed=new_embed)
         await self.bot.db.update_guild_config(giveaway.guild.id, {"$set": {"giveaway.ended": True}})
 
-    @command(10, aliases=["set-giveaway" "set_giveaway"])
+    @command(10, aliases=["set-giveaway", "set_giveaway"])
     async def setgiveaway(
         self,
         ctx: commands.Context,
@@ -227,7 +227,7 @@ class Giveaways(commands.Cog):
                 em.set_footer(text="End Time")
                 role = await self.role(ctx)
                 channel = await self.channel(ctx)
-                emoji_id = await self.emoji(ctx)
+                emoji_value = await self.emoji(ctx)
 
                 if isinstance(role, discord.Role):
                     message = await channel.send(
@@ -240,7 +240,23 @@ class Giveaways(commands.Cog):
                 else:
                     message = await channel.send(embed=em)
 
-                await message.add_reaction(f"giveaway:{emoji_id}")
+                try:
+                    if isinstance(emoji_value, int):
+                        discord_emoji = self.bot.get_emoji(emoji_value)
+                        if discord_emoji is None:
+                            await ctx.send(
+                                "The configured giveaway emoji is not available to the bot. Please run `setgiveaway` with an emoji the bot can access."
+                            )
+                            return
+                        await message.add_reaction(discord_emoji)
+                    else:
+                        # Unicode emoji
+                        await message.add_reaction(emoji_value)
+                except discord.HTTPException:
+                    await ctx.send(
+                        "Failed to add the giveaway reaction. Please reconfigure the emoji with `setgiveaway`."
+                    )
+                    return
 
                 await self.bot.db.update_guild_config(
                     ctx.guild.id,
@@ -355,7 +371,7 @@ class Giveaways(commands.Cog):
                         latest_giveaway.embeds[0].description.split("\n")[1 : -(len(winners) + 1)]
                     ).strip()
                     await ctx.send(
-                        f"Congratulations! Here are the **rerolled** winners for `{description}` <a:bahrooHi:402250652996337674>\n{fmt_winners}",
+                        f"Congratulations! Here are the **rerolled** winners for `{description}` 🎉\n{fmt_winners}",
                         allowed_mentions=AllowedMentions.all(),
                     )
             else:

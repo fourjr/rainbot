@@ -72,7 +72,15 @@ A powerful, feature-rich Discord moderation bot with advanced automod, comprehen
    ```env
    token=your_discord_bot_token_here
    mongo=your_mongodb_connection_string
-   owners=your_discord_user_id
+   owners=comma,separated,discord_user_ids  # e.g., 123,456
+   error_channel_id=
+   owner_log_channel_id=
+   guild_join_channel_id=
+   guild_remove_channel_id=
+   dev_guild_id=
+   DEBUG=false
+   LOG_LEVEL=INFO
+   ALLOW_EXEC_IN_PROD=false
    ```
 
 5. **Run the bot**

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from logging.handlers import RotatingFileHandler
 import os
 import sys
 import traceback
@@ -18,6 +19,7 @@ from ext import errors
 from ext.database import DatabaseManager
 from ext.errors import Underleveled
 from ext.utility import format_timedelta, tryint
+import config
 
 # Initialize Rich console for better logging
 console = Console()
@@ -45,6 +47,15 @@ class rainbot(commands.Bot):
         self.error = "❌"
         self.warning = "⚠️"
 
+        # Reporting channels (from env/config)
+        self.ERROR_CHANNEL_ID = self._parse_int_env("error_channel_id")
+        self.GUILD_JOIN_CHANNEL_ID = self._parse_int_env("guild_join_channel_id")
+        self.GUILD_REMOVE_CHANNEL_ID = self._parse_int_env("guild_remove_channel_id")
+        self.OWNER_LOG_CHANNEL_ID = self._parse_int_env("owner_log_channel_id")
+
+        # Optional dev-only guild gate (for local testing)
+        self.dev_guild_id = self._parse_int_env("dev_guild_id")
+
         self.dev_mode = os.name == "nt"
         self.session: Optional[aiohttp.ClientSession] = None
         self.start_time = datetime.utcnow()
@@ -54,7 +65,7 @@ class rainbot(commands.Bot):
 
         # Database and configuration
         self.db = None  # Will be initialized in setup_hook
-        self.owners = list(map(int, os.getenv("owners", "").split(",")))
+        self.owners = self._parse_owner_ids(os.getenv("owners", ""))
 
         # Bot statistics
         self.command_usage = {}
@@ -77,20 +88,58 @@ class rainbot(commands.Bot):
         rich_handler.setFormatter(logging.Formatter("%(message)s"))
         self.logger.addHandler(rich_handler)
 
-        # Also add file handler for production
+        # Also add rotating file handler for production
         if not self.dev_mode:
-            file_handler = logging.FileHandler("rainbot.log")
-            file_handler.setFormatter(
-                logging.Formatter("%(asctime)s:%(levelname)s:%(name)s: %(message)s")
-            )
-            self.logger.addHandler(file_handler)
+            try:
+                log_file = config.LOGGING.get("file", "rainbot.log")
+                max_bytes = int(config.LOGGING.get("max_size", 10 * 1024 * 1024))
+                backup_count = int(config.LOGGING.get("backup_count", 5))
+                file_handler = RotatingFileHandler(log_file, maxBytes=max_bytes, backupCount=backup_count)
+                file_handler.setFormatter(
+                    logging.Formatter(config.LOGGING.get("format", "%(asctime)s:%(levelname)s:%(name)s: %(message)s"))
+                )
+                self.logger.addHandler(file_handler)
+            except Exception as e:
+                # Fallback to basic file handler if rotation fails
+                file_handler = logging.FileHandler("rainbot.log")
+                file_handler.setFormatter(
+                    logging.Formatter("%(asctime)s:%(levelname)s:%(name)s: %(message)s")
+                )
+                self.logger.addHandler(file_handler)
+
+    @staticmethod
+    def _parse_int_env(var_name: str) -> Optional[int]:
+        value = os.getenv(var_name)
+        if value is None or value == "":
+            return None
+        try:
+            return int(value)
+        except ValueError:
+            return None
+
+    def _parse_owner_ids(self, owners_raw: str) -> List[int]:
+        owners: List[int] = []
+        for token in owners_raw.split(","):
+            token = token.strip()
+            if not token:
+                continue
+            try:
+                owners.append(int(token))
+            except ValueError:
+                # Ignore invalid IDs but log once bot logger is ready
+                pass
+        return owners
 
     async def setup_hook(self) -> None:
         """Async setup hook for discord.py 2.x"""
         self.logger.info("🚀 Starting rainbot setup...")
 
         # Initialize database
-        self.db = DatabaseManager(os.environ["mongo"], loop=self.loop)
+        mongo_uri = os.getenv("mongo")
+        if not mongo_uri:
+            self.logger.error("MongoDB connection string (mongo) not configured in environment.")
+            raise RuntimeError("Missing required environment variable: mongo")
+        self.db = DatabaseManager(mongo_uri, loop=self.loop)
         self.db.start_change_listener()
 
         # Load extensions
@@ -127,48 +176,30 @@ class rainbot(commands.Bot):
 
     async def on_message(self, message: discord.Message) -> None:
         """Enhanced message handling with statistics"""
-        if message.author.bot or not message.guild:
-            return
+        if not message.author.bot and message.guild:
+            # Optional dev-only guild gate for local testing
+            if self.dev_mode and self.dev_guild_id and message.guild.id != self.dev_guild_id:
+                return
+            ctx = await self.get_context(message)
+            if ctx.command:
+                # Track command usage
+                cmd_name = ctx.command.qualified_name
+                self.command_usage[cmd_name] = self.command_usage.get(cmd_name, 0) + 1
 
-        ctx = await self.get_context(message)
-        if not ctx.command:
-            return  # Early return if no command is found
+                # Add loading reaction for better UX
+                try:
+                    await message.add_reaction(self.loading)
+                except discord.Forbidden:
+                    pass
 
-        cmd_name = ctx.command.qualified_name
-        self.command_usage[cmd_name] = self.command_usage.get(cmd_name, 0) + 1
+                await self.invoke(ctx)
 
-        # Check if the bot has permission to add reactions
-        if message.channel.permissions_for(message.guild.me).add_reactions:
-            try:
-                await message.add_reaction(self.loading)
-            except discord.Forbidden:
-                self.logger.warning("Missing permissions to add reactions.")
-
-        try:
-            await self.invoke(ctx)
-
-            # Add success reaction if the command succeeds
-            if message.channel.permissions_for(message.guild.me).add_reactions:
+                # Remove loading reaction and add success reaction
                 try:
                     await message.remove_reaction(self.loading, self.user)
                     await message.add_reaction(self.success)
-                except discord.Forbidden:
-                    self.logger.warning("Missing permissions to modify reactions.")
-        except Exception as e:
-            # Log the error with traceback
-            self.logger.error(f"Error in command {cmd_name}: {e}\n{traceback.format_exc()}")
-
-            # Add error reaction if the bot has permission
-            if message.channel.permissions_for(message.guild.me).add_reactions:
-                try:
-                    await message.remove_reaction(self.loading, self.user)
-                    await message.add_reaction(self.error)
-                except discord.Forbidden:
-                    self.logger.warning("Missing permissions to modify reactions.")
-
-            # Avoid re-raising the error unless in development mode
-            if self.dev_mode:
-                raise
+                except (discord.Forbidden, discord.NotFound):
+                    pass
 
     async def get_prefix(self, message: discord.Message) -> Union[str, List[str]]:
         """Get command prefix with fallback"""
@@ -197,7 +228,8 @@ class rainbot(commands.Bot):
 
         # Set bot status
         activity = discord.Activity(
-            type=discord.ActivityType.watching, name=f"{len(self.guilds)} servers | !!help"
+            type=discord.ActivityType.watching,
+            name=f"{len(self.guilds)} servers | {self.command_prefix or '!'}help",
         )
         await self.change_presence(activity=activity)
 
@@ -212,7 +244,7 @@ class rainbot(commands.Bot):
         try:
             await ctx.message.remove_reaction(self.loading, self.user)
             await ctx.message.add_reaction(self.error)
-        except discord.Forbidden:
+        except (discord.Forbidden, discord.NotFound):
             pass
 
         ignored = (
@@ -264,6 +296,122 @@ class rainbot(commands.Bot):
                     color=discord.Color.red(),
                 )
                 await ctx.send(embed=embed)
+
+        # Always report to error channel
+        try:
+            error_channel = self.get_channel(self.ERROR_CHANNEL_ID) or await self.fetch_channel(
+                self.ERROR_CHANNEL_ID
+            )
+            embed = discord.Embed(
+                title="⚠️ Command Error",
+                color=discord.Color.red(),
+                timestamp=datetime.utcnow(),
+            )
+            embed.add_field(name="Guild", value=f"{ctx.guild.name} ({ctx.guild.id})", inline=False)
+            embed.add_field(name="Channel", value=f"#{ctx.channel} ({ctx.channel.id})", inline=False)
+            embed.add_field(name="User", value=f"{ctx.author} ({ctx.author.id})", inline=False)
+            embed.add_field(
+                name="Command",
+                value=f"{ctx.command.qualified_name if ctx.command else 'Unknown'}",
+                inline=False,
+            )
+            embed.add_field(name="Error", value=f"{type(e).__name__}: {e}", inline=False)
+            await error_channel.send(embed=embed)
+        except Exception:
+            # Avoid recursive failures
+            pass
+
+    async def on_error(self, event_method: str, /, *args, **kwargs) -> None:  # type: ignore[override]
+        # Fallback handler for unexpected errors in listeners
+        tb = traceback.format_exc()
+        self.logger.error(f"Unhandled error in {event_method}:\n{tb}")
+        try:
+            if not self.ERROR_CHANNEL_ID:
+                return
+            error_channel = self.get_channel(self.ERROR_CHANNEL_ID) or await self.fetch_channel(
+                self.ERROR_CHANNEL_ID
+            )
+            embed = discord.Embed(
+                title="🔥 Unhandled Error",
+                description=f"Event: `{event_method}`",
+                color=discord.Color.red(),
+                timestamp=datetime.utcnow(),
+            )
+            embed.add_field(
+                name="Traceback",
+                value=(tb if len(tb) < 1900 else tb[-1900:]),
+                inline=False,
+            )
+            await error_channel.send(embed=embed)
+        except Exception:
+            pass
+
+    async def on_guild_join(self, guild: discord.Guild) -> None:
+        # Prepare embed with server info
+        try:
+            owner = guild.owner or (await guild.fetch_owner())
+        except Exception:
+            owner = None
+
+        humans = sum(1 for m in guild.members if not m.bot) if guild.members else None
+        bots = sum(1 for m in guild.members if m.bot) if guild.members else None
+        embed = discord.Embed(
+            title="✅ Joined Server",
+            color=discord.Color.green(),
+            timestamp=datetime.utcnow(),
+        )
+        embed.add_field(name="Name", value=f"{guild.name}", inline=True)
+        embed.add_field(name="ID", value=f"{guild.id}", inline=True)
+        if owner:
+            embed.add_field(name="Owner", value=f"{owner} ({owner.id})", inline=False)
+        embed.add_field(name="Members", value=f"{guild.member_count}", inline=True)
+        if humans is not None and bots is not None:
+            embed.add_field(name="Humans/Bots", value=f"{humans}/{bots}", inline=True)
+        embed.add_field(
+            name="Created",
+            value=guild.created_at.strftime("%Y-%m-%d %H:%M UTC"),
+            inline=False,
+        )
+        if guild.icon:
+            embed.set_thumbnail(url=guild.icon.url)
+        try:
+            dest = self.get_channel(self.GUILD_JOIN_CHANNEL_ID) or await self.fetch_channel(
+                self.GUILD_JOIN_CHANNEL_ID
+            )
+            await dest.send(embed=embed)
+        except Exception:
+            pass
+
+    async def on_guild_remove(self, guild: discord.Guild) -> None:
+        # Prepare embed with server info on leave
+        try:
+            owner = guild.owner or None
+        except Exception:
+            owner = None
+        embed = discord.Embed(
+            title="❌ Left Server",
+            color=discord.Color.red(),
+            timestamp=datetime.utcnow(),
+        )
+        embed.add_field(name="Name", value=f"{guild.name}", inline=True)
+        embed.add_field(name="ID", value=f"{guild.id}", inline=True)
+        if owner:
+            embed.add_field(name="Owner", value=f"{owner} ({getattr(owner, 'id', 'N/A')})", inline=False)
+        embed.add_field(name="Members", value=f"{getattr(guild, 'member_count', 'N/A')}", inline=True)
+        embed.add_field(
+            name="Created",
+            value=guild.created_at.strftime("%Y-%m-%d %H:%M UTC"),
+            inline=False,
+        )
+        if guild.icon:
+            embed.set_thumbnail(url=guild.icon.url)
+        try:
+            dest = self.get_channel(self.GUILD_REMOVE_CHANNEL_ID) or await self.fetch_channel(
+                self.GUILD_REMOVE_CHANNEL_ID
+            )
+            await dest.send(embed=embed)
+        except Exception:
+            pass
 
     async def setup_unmutes(self) -> None:
         """Setup unmute tasks with better error handling"""
@@ -532,7 +680,12 @@ if __name__ == "__main__":
 
         try:
             console.print("[bold green]🚀 Starting rainbot...[/bold green]")
-            await bot.start(os.getenv("token"))
+            token = os.getenv("token")
+            if not token:
+                console.print("[bold red]❌ Discord token not configured in environment (.env token)[/bold red]")
+                bot.logger.error("Missing Discord token")
+                return
+            await bot.start(token)
         except discord.LoginFailure:
             console.print("[bold red]❌ Invalid token provided![/bold red]")
             bot.logger.error("Invalid token")
@@ -555,50 +708,3 @@ if __name__ == "__main__":
     except Exception as e:
         console.print(f"[bold red]❌ Critical error: {e}[/bold red]")
         sys.exit(1)
-# Inside the on_message method...
-
-
-async def on_message(self, message: discord.Message) -> None:
-    """Enhanced message handling with statistics"""
-    if message.author.bot or not message.guild:
-        return
-
-    ctx = await self.get_context(message)
-    if not ctx.command:
-        return  # Early return if no command is found
-
-    cmd_name = ctx.command.qualified_name
-    self.command_usage[cmd_name] = self.command_usage.get(cmd_name, 0) + 1
-
-    # Check if the bot has permission to add reactions
-    if message.channel.permissions_for(message.guild.me).add_reactions:
-        try:
-            await message.add_reaction(self.loading)
-        except discord.Forbidden:
-            self.logger.warning("Missing permissions to add reactions.")
-
-    try:
-        await self.invoke(ctx)
-
-        # Add success reaction if the command succeeds
-        if message.channel.permissions_for(message.guild.me).add_reactions:
-            try:
-                await message.remove_reaction(self.loading, self.user)
-                await message.add_reaction(self.success)
-            except discord.Forbidden:
-                self.logger.warning("Missing permissions to modify reactions.")
-    except Exception as e:
-        # Log the error with traceback
-        self.logger.error(f"Error in command {cmd_name}: {e}\n{traceback.format_exc()}")
-
-        # Add error reaction if the bot has permission
-        if message.channel.permissions_for(message.guild.me).add_reactions:
-            try:
-                await message.remove_reaction(self.loading, self.user)
-                await message.add_reaction(self.error)
-            except discord.Forbidden:
-                self.logger.warning("Missing permissions to modify reactions.")
-
-        # Avoid re-raising the error unless in development mode
-        if self.dev_mode:
-            raise

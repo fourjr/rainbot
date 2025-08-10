@@ -1,17 +1,28 @@
 import copy
 import json
+import io
 import re
-from typing import Optional, Union
+from typing import Optional, Union, List, Dict, Any
 
 import discord
 from discord.ext import commands
 
 from bot import rainbot
-from ext.command import command, group
-from ext.database import DEFAULT, DBDict
+from ext.command import command, group, RainGroup
+from ext.database import DEFAULT, DBDict, RECOMMENDED_DETECTIONS
 from ext.time import UserFriendlyTime
-from ext.utility import format_timedelta, get_perm_level, tryint, SafeFormat, CannedStr
+from ext.utility import (
+    format_timedelta,
+    get_perm_level,
+    tryint,
+    SafeFormat,
+    CannedStr,
+    get_command_level,
+)
+from ext.errors import BotMissingPermissionsInChannel
 import config
+from PIL import Image
+from imagehash import average_hash
 
 
 class Setup(commands.Cog):
@@ -56,21 +67,26 @@ class Setup(commands.Cog):
         )
 
         # Basic settings
+        mute_role_text = (
+            f"**Mute Role:** <@&{guild_config.mute_role}>"
+            if guild_config.mute_role
+            else "**Mute Role:** Not set"
+        )
         embed.add_field(
             name="🔧 Basic Settings",
             value=(
                 f"**Prefix:** `{guild_config.prefix}`\n"
                 f"**Time Offset:** {guild_config.time_offset} hours\n"
-                f"**Mute Role:** <@&{guild_config.mute_role}>"
-                if guild_config.mute_role
-                else "**Mute Role:** Not set"
+                f"{mute_role_text}"
             ),
             inline=False,
         )
 
         # Permission levels
         perm_levels = []
-        for level, role_id in guild_config.perm_levels.items():
+        for entry in guild_config.perm_levels:
+            role_id = getattr(entry, "role_id", None)
+            level = getattr(entry, "level", None)
             role = ctx.guild.get_role(int(role_id)) if role_id else None
             role_name = role.name if role else "Not set"
             perm_levels.append(f"Level {level}: {role_name}")
@@ -447,17 +463,17 @@ class Setup(commands.Cog):
         )
 
         features = [
-            ("🔄 Spam Detection", "spam"),
-            ("🔗 Invite Links", "invites"),
-            ("🤬 Bad Words", "bad_words"),
-            ("📢 Mass Mentions", "mass_mentions"),
-            ("🔊 Caps Lock", "caps"),
-            ("🖼️ NSFW Images", "nsfw"),
-            ("📝 Duplicate Messages", "duplicate"),
+            ("🔄", "Spam Detection"),
+            ("🔗", "Invite Links"),
+            ("🤬", "Bad Words"),
+            ("📢", "Mass Mentions"),
+            ("🔊", "Caps Lock"),
+            ("🖼️", "NSFW Images"),
+            ("📝", "Duplicate Messages"),
         ]
 
-        for emoji, feature in features:
-            embed.add_field(name=f"{emoji} {feature.title()}", value="Click to toggle", inline=True)
+        for emoji, label in features:
+            embed.add_field(name=f"{emoji} {label}", value="Click to toggle", inline=True)
 
         msg = await ctx.send(embed=embed)
 
@@ -1105,7 +1121,7 @@ class Setup(commands.Cog):
         limit: int,
         punishment: str = None,
         *,
-        time: UserFriendlyTime(default=False) = None,
+        time: UserFriendlyTime = None,
     ) -> None:
         """Sets punishment after certain number of warns.
         Punishments can be "mute", "kick", "ban" or "none".

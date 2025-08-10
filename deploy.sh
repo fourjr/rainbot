@@ -101,10 +101,16 @@ check_env() {
 token=your_discord_bot_token_here
 mongo=your_mongodb_connection_string
 owners=your_discord_user_id
+error_channel_id=
+owner_log_channel_id=
+guild_join_channel_id=
+guild_remove_channel_id=
+dev_guild_id=
 
 # Optional Settings
 DEBUG=false
 LOG_LEVEL=INFO
+ALLOW_EXEC_IN_PROD=false
 EOF
         print_success ".env template created"
         print_warning "Please edit .env file with your actual values"
