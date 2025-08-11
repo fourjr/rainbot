@@ -442,10 +442,26 @@ class Utility(commands.Cog):
                     return
 
                 em = await self.format_cog_help(ctx, prefix, cog)
-                await ctx.send(content=error, embed=em)
+                from ext.safe_send import safe_send
+                if not em or not em.fields:
+                    await safe_send(ctx, content=error or None, embed=discord.Embed(
+                        title=f"{get_emoji('error')} No Accessible Commands",
+                        description="You do not have permission to use any commands in this category.",
+                        color=discord.Color.red(),
+                    ))
+                else:
+                    await safe_send(ctx, content=error or None, embed=em)
             else:
                 em = await self.format_command_help(ctx, prefix, cmd)
-                await ctx.send(content=error, embed=em)
+                from ext.safe_send import safe_send
+                if not em:
+                    await safe_send(ctx, content=error or None, embed=discord.Embed(
+                        title=f"{get_emoji('error')} No Accessible Info",
+                        description="You do not have permission to view this command's help.",
+                        color=discord.Color.red(),
+                    ))
+                else:
+                    await safe_send(ctx, content=error or None, embed=em)
         else:
             # Main help menu - optimized and cleaner
             embed = discord.Embed(
