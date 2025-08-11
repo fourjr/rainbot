@@ -76,10 +76,11 @@ class Moderation(commands.Cog):
                 fmt += f"\n{timestamp_fmt} Warn #{warn['case_number']}: {moderator} warned {name} for {warn['reason']}"
             await ctx.send(fmt)
 
-    @modlogs.command(6, name="remove", aliases=["delete", "del"])
+    @modlogs.command(6, name="remove", aliases=["delete", "del"], brief="Remove a modlog entry by case number")
     async def modlogs_remove(self, ctx: commands.Context, case_number: int) -> None:
         """Remove a modlog entry by case number, with moderator confirmation.
         
+        Usage: !!modlogs remove <case_number>
         Example: !!modlogs remove 123"""
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         warns = guild_config.warns
