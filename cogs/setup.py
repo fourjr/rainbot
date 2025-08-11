@@ -1056,11 +1056,20 @@ class Setup(commands.Cog):
     async def setdetectionignore(
         self, ctx: commands.Context, detection_type: str, channel: discord.TextChannel = None
     ) -> None:
-        """Ignores detections in specified channels
+        """Configure which channels to ignore for specific detections.
 
-        Valid detections: all, filters, regex_filters, block_invite, english_only, mention_limit, spam_detection, repetitive_message, sexually_explicit, auto_purge_trickocord, max_lines, max_words, max_characters, caps_message, repetitive_characters
-        Run without specifying channel to clear ignored channels
-        """
+        Types:
+          all              Apply to all detection types
+          filters         Word filters
+          regex_filters   Regular expression filters
+          block_invite    Invite link blocking
+          mention_limit   Mass mentions
+          spam_detection  Spam prevention
+          max_words      Maximum words per message
+        
+        Examples:
+          !!setdetectionignore spam #spam-ok
+          !!setdetectionignore all  (clears all ignored channels)"""
         valid_detections = list(DEFAULT["ignored_channels"].keys())
 
         if detection_type not in valid_detections + ["all"]:
@@ -1096,10 +1105,17 @@ class Setup(commands.Cog):
     async def setlogignore(
         self, ctx: commands.Context, detection_type: str, channel: discord.TextChannel = None
     ) -> None:
-        """Ignores detections in specified channels
+        """Configure which channels to ignore for logging.
 
-        Valid types: all, message_delete, message_edit, channel_delete
-        """
+        Types:
+          all             Apply to all log types
+          message_delete  Message deletions
+          message_edit   Message edits
+          channel_delete Channel deletions
+        
+        Examples:
+          !!setlogignore message_edit #bot-spam
+          !!setlogignore all  (clears all ignored channels)"""
         valid_logs = ["message_delete", "message_edit", "channel_delete"]
 
         if detection_type not in valid_logs + ["all"]:
@@ -1269,15 +1285,20 @@ class Setup(commands.Cog):
         *,
         time: UserFriendlyTime = None,
     ) -> None:
-        """Sets punishment after certain number of warns.
-        Punishments can be "mute", "kick", "ban" or "none".
-
-        Example: !!setwarnpunishment 5 kick
-        !!setwarnpunishment mute
-        !!setwarnpunishment mute 5h
-
-        It is highly encouraged to add a final "ban" condition
-        """
+        """Configure automatic punishments after reaching warning thresholds.
+        
+        Punishments:
+          mute   Temporarily mute the user
+          kick   Remove from server
+          ban    Permanently ban
+          none   Remove punishment
+        
+        Examples:
+          !!setwarnpunishment 3 mute 1h
+          !!setwarnpunishment 5 kick
+          !!setwarnpunishment 7 ban
+        
+        Note: Consider adding a final ban condition for repeat offenders."""
         if punishment not in ("kick", "ban", "mute", "none"):
             raise commands.BadArgument(
                 'Invalid punishment, pick from "mute", "kick", "ban", "none".'
