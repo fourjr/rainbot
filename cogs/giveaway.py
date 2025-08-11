@@ -110,14 +110,13 @@ class Giveaways(commands.Cog):
         # Find the reaction object for the giveaway emoji
         reaction = next(
             (r for r in latest_giveaway.reactions if getattr(r.emoji, "id", r.emoji) == emoji_id),
-            None
+            None,
         )
         if not reaction:
             return []
         # Collect users who are not bots and are members
         participants = [
-            m async for m in reaction.users()
-            if not m.bot and isinstance(m, discord.Member)
+            m async for m in reaction.users() if not m.bot and isinstance(m, discord.Member)
         ]
         if len(participants) < nwinners:
             return []
@@ -167,12 +166,56 @@ class Giveaways(commands.Cog):
         """Sets up giveaways.
 
         Role can be @everyone, @here or none"""
+        # Role selection logic: allow mention, ID, or name, and confirm if name
+        role_id = None
+        role_obj = None
         if role == "none" or role is None:
             role_id = None
         elif role in ("@everyone", "@here"):
             role_id = role
         else:
-            role_id = (await commands.RoleConverter().convert(ctx, role)).id
+            # Try mention or ID first
+            try:
+                role_obj = await commands.RoleConverter().convert(ctx, role)
+                role_id = role_obj.id
+            except Exception:
+                # Try to find by name (case-insensitive)
+                found = discord.utils.find(
+                    lambda r: r.name.lower() == role.lower(), ctx.guild.roles
+                )
+                if found:
+                    # Ask for confirmation
+                    confirm_embed = discord.Embed(
+                        title="Role Confirmation",
+                        description=f"Is this the correct role? {found.mention}",
+                        color=discord.Color.blue(),
+                    )
+                    msg = await ctx.send(embed=confirm_embed)
+                    await msg.add_reaction("✅")
+                    await msg.add_reaction("❌")
+
+                    def check(reaction, user):
+                        return (
+                            user == ctx.author
+                            and str(reaction.emoji) in ["✅", "❌"]
+                            and reaction.message.id == msg.id
+                        )
+
+                    try:
+                        reaction, user = await self.bot.wait_for(
+                            "reaction_add", timeout=30.0, check=check
+                        )
+                    except asyncio.TimeoutError:
+                        await ctx.send("Role confirmation timed out. Command cancelled.")
+                        return
+                    if str(reaction.emoji) == "✅":
+                        role_id = found.id
+                    else:
+                        await ctx.send("Role selection cancelled.")
+                        return
+                else:
+                    await ctx.send("Role not found by name, mention, or ID.")
+                    return
 
         await self.bot.db.update_guild_config(
             ctx.guild.id,

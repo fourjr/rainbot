@@ -1,3 +1,56 @@
+import asyncio
+
+
+async def select_role(ctx: commands.Context, role: str) -> Optional[discord.Role]:
+    """
+    Select a role by mention, ID, or name. If a name is used, confirm with the user before returning.
+    Returns the discord.Role object or None if cancelled/not found.
+    """
+    if role.lower() in ("none", "@none", "no", "off"):
+        return None
+    if role in ("@everyone", "@here"):
+        # Return the special role object
+        return discord.utils.get(ctx.guild.roles, name=role)
+    # Try mention or ID first
+    try:
+        role_obj = await commands.RoleConverter().convert(ctx, role)
+        return role_obj
+    except Exception:
+        # Try to find by name (case-insensitive)
+        found = discord.utils.find(lambda r: r.name.lower() == role.lower(), ctx.guild.roles)
+        if found:
+            # Ask for confirmation
+            confirm_embed = discord.Embed(
+                title="Role Confirmation",
+                description=f"Is this the correct role? {found.mention}",
+                color=discord.Color.blue(),
+            )
+            msg = await ctx.send(embed=confirm_embed)
+            await msg.add_reaction("✅")
+            await msg.add_reaction("❌")
+
+            def check(reaction, user):
+                return (
+                    user == ctx.author
+                    and str(reaction.emoji) in ["✅", "❌"]
+                    and reaction.message.id == msg.id
+                )
+
+            try:
+                reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
+            except asyncio.TimeoutError:
+                await ctx.send("Role confirmation timed out. Command cancelled.")
+                return None
+            if str(reaction.emoji) == "✅":
+                return found
+            else:
+                await ctx.send("Role selection cancelled.")
+                return None
+        else:
+            await ctx.send("Role not found by name, mention, or ID.")
+            return None
+
+
 from __future__ import annotations
 import random
 import re
