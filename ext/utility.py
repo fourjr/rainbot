@@ -29,16 +29,71 @@ async def select_role(ctx: commands.Context, role: str) -> Optional[discord.Role
         return None
     if role in ("@everyone", "@here"):
         # Return the special role object
-        return discord.utils.get(ctx.guild.roles, name=role)
+        special_role = discord.utils.get(ctx.guild.roles, name=role)
+        if special_role:
+            confirm_embed = discord.Embed(
+                title="Role Confirmation",
+                description=f"Is this the correct role? {special_role.mention}",
+                color=discord.Color.blue(),
+            )
+            msg = await ctx.send(embed=confirm_embed)
+            await msg.add_reaction("✅")
+            await msg.add_reaction("❌")
+
+            def check(reaction, user):
+                return (
+                    user == ctx.author
+                    and str(reaction.emoji) in ["✅", "❌"]
+                    and reaction.message.id == msg.id
+                )
+
+            try:
+                reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
+            except asyncio.TimeoutError:
+                await ctx.send("Role confirmation timed out. Command cancelled.")
+                return None
+            if str(reaction.emoji) == "✅":
+                return special_role
+            else:
+                await ctx.send("Role selection cancelled.")
+                return None
+        else:
+            await ctx.send("Role not found by name, mention, or ID.")
+            return None
     # Try mention or ID first
     try:
         role_obj = await commands.RoleConverter().convert(ctx, role)
-        return role_obj
+        # If the user typed a mention or ID, still confirm
+        confirm_embed = discord.Embed(
+            title="Role Confirmation",
+            description=f"Is this the correct role? {role_obj.mention}",
+            color=discord.Color.blue(),
+        )
+        msg = await ctx.send(embed=confirm_embed)
+        await msg.add_reaction("✅")
+        await msg.add_reaction("❌")
+
+        def check(reaction, user):
+            return (
+                user == ctx.author
+                and str(reaction.emoji) in ["✅", "❌"]
+                and reaction.message.id == msg.id
+            )
+
+        try:
+            reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
+        except asyncio.TimeoutError:
+            await ctx.send("Role confirmation timed out. Command cancelled.")
+            return None
+        if str(reaction.emoji) == "✅":
+            return role_obj
+        else:
+            await ctx.send("Role selection cancelled.")
+            return None
     except Exception:
         # Try to find by name (case-insensitive)
         found = discord.utils.find(lambda r: r.name.lower() == role.lower(), ctx.guild.roles)
         if found:
-            # Ask for confirmation
             confirm_embed = discord.Embed(
                 title="Role Confirmation",
                 description=f"Is this the correct role? {found.mention}",
