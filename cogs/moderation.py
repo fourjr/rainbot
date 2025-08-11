@@ -93,54 +93,54 @@ class Moderation(commands.Cog):
 
         try:
             if ctx.command.name == "purge":
-                fmt = f"`{current_time}` {ctx.author} purged {args[0]} messages in **#{ctx.channel.name}**"
+                fmt = f"{current_time} {ctx.author} purged {args[0]} messages in **#{ctx.channel.name}**"
                 if args[1]:
                     fmt += f", from {args[1]}"
                 channel = ctx.bot.get_channel(modlogs.message_purge)
                 if channel:
                     await channel.send(fmt)
             elif ctx.command.name == "kick":
-                fmt = f"`{current_time}` {ctx.author} kicked {args[0]} ({args[0].id}), reason: {args[1]}"
+                fmt = f"{current_time} {ctx.author} kicked {args[0]} ({args[0].id}), reason: {args[1]}"
                 channel = ctx.bot.get_channel(modlogs.member_kick)
                 if channel:
                     await channel.send(fmt)
             elif ctx.command.name == "softban":
-                fmt = f"`{current_time}` {ctx.author} softbanned {args[0]} ({args[0].id}), reason: {args[1]}"
+                fmt = f"{current_time} {ctx.author} softbanned {args[0]} ({args[0].id}), reason: {args[1]}"
                 channel = ctx.bot.get_channel(modlogs.member_softban)
                 if channel:
                     await channel.send(fmt)
             elif ctx.command.name == "ban":
                 name = getattr(args[0], "name", "(no name)")
                 if args[2]:
-                    fmt = f"`{current_time}` {ctx.author} tempbanned {name} ({args[0].id}), reason: {args[1]} for {format_timedelta(args[2])}"
+                    fmt = f"{current_time} {ctx.author} tempbanned {name} ({args[0].id}), reason: {args[1]} for {format_timedelta(args[2])}"
                 else:
-                    fmt = f"`{current_time}` {ctx.author} banned {name} ({args[0].id}), reason: {args[1]}"
+                    fmt = f"{current_time} {ctx.author} banned {name} ({args[0].id}), reason: {args[1]}"
                 channel = ctx.bot.get_channel(modlogs.member_ban)
                 if channel:
                     await channel.send(fmt)
             elif ctx.command.name == "unban":
                 name = getattr(args[0], "name", "(no name)")
-                fmt = f"`{current_time}` {ctx.author} unbanned {name} ({args[0].id}), reason: {args[1]}"
+                fmt = f"{current_time} {ctx.author} unbanned {name} ({args[0].id}), reason: {args[1]}"
                 channel = ctx.bot.get_channel(modlogs.member_unban)
                 if channel:
                     await channel.send(fmt)
             elif ctx.command.qualified_name == "warn add":
-                fmt = f"`{current_time}` {ctx.author} warned #{args[2]} {args[0]} ({args[0].id}), reason: {args[1]}"
+                fmt = f"{current_time} {ctx.author} warned #{args[2]} {args[0]} ({args[0].id}), reason: {args[1]}"
                 channel = ctx.bot.get_channel(modlogs.member_warn)
                 if channel:
                     await channel.send(fmt)
             elif ctx.command.qualified_name == "warn remove":
-                fmt = f"`{current_time}` {ctx.author} has deleted warn #{args[0]} - {args[1]}"
+                fmt = f"{current_time} {ctx.author} has deleted warn #{args[0]} - {args[1]}"
                 channel = ctx.bot.get_channel(modlogs.member_warn)
                 if channel:
                     await channel.send(fmt)
             elif ctx.command.name == "lockdown":
-                fmt = f'`{current_time}` {ctx.author} has {"enabled" if args[0] else "disabled"} lockdown for {args[1].mention}'
+                fmt = f'{current_time} {ctx.author} has {"enabled" if args[0] else "disabled"} lockdown for {args[1].mention}'
                 channel = ctx.bot.get_channel(modlogs.channel_lockdown)
                 if channel:
                     await channel.send(fmt)
             elif ctx.command.name == "slowmode":
-                fmt = f"`{current_time}` {ctx.author} has enabled slowmode for {args[0].mention} for {args[1]}"
+                fmt = f"{current_time} {ctx.author} has enabled slowmode for {args[0].mention} for {args[1]}"
                 channel = ctx.bot.get_channel(modlogs.channel_slowmode)
                 if channel:
                     await channel.send(fmt)
