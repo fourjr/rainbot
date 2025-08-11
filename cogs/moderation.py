@@ -78,16 +78,18 @@ class Moderation(commands.Cog):
 
     @modlogs.command(6, name="remove", aliases=["delete", "del"])
     async def modlogs_remove(self, ctx: commands.Context, case_number: int) -> None:
-        """Remove a warn/modlog by case number, with moderator confirmation."""
+        """Remove a modlog entry by case number, with moderator confirmation.
+        
+        Example: !!modlogs remove 123"""
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         warns = guild_config.warns
         warn = next((w for w in warns if w["case_number"] == case_number), None)
         if not warn:
-            await ctx.send(f"Warn #{case_number} does not exist.")
+            await ctx.send(f"Modlog #{case_number} does not exist.")
             return
         moderator = ctx.guild.get_member(int(warn["moderator_id"]))
         confirm_embed = discord.Embed(
-            title="Confirm Warn Removal",
+            title="Confirm Modlog Removal",
             description=f"Are you sure you want to remove Warn #{case_number} for <@{warn['member_id']}>?\nReason: {warn['reason']}\nModerator: {moderator}",
             color=discord.Color.red(),
         )
