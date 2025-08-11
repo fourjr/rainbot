@@ -107,15 +107,20 @@ class Giveaways(commands.Cog):
         """
         nwinners = nwinners or int(latest_giveaway.embeds[0].description.split(" ")[0][2:])
         emoji_id = await self.emoji(ctx)
-        participants = (
-            await next(
-                r for r in latest_giveaway.reactions if getattr(r.emoji, "id", r.emoji) == emoji_id
-            )
-            .users()
-            .filter(lambda m: not m.bot and isinstance(m, discord.Member))
-            .flatten()
+        # Find the reaction object for the giveaway emoji
+        reaction = next(
+            (r for r in latest_giveaway.reactions if getattr(r.emoji, "id", r.emoji) == emoji_id),
+            None
         )
-
+        if not reaction:
+            return []
+        # Collect users who are not bots and are members
+        participants = [
+            m async for m in reaction.users()
+            if not m.bot and isinstance(m, discord.Member)
+        ]
+        if len(participants) < nwinners:
+            return []
         winners = random.sample(participants, nwinners)
         return winners
 
