@@ -1,5 +1,5 @@
+from __future__ import annotations
 import asyncio
-
 
 async def select_role(ctx: commands.Context, role: str) -> Optional[discord.Role]:
     """
