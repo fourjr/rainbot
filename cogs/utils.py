@@ -23,6 +23,54 @@ if TYPE_CHECKING:
 
 
 class Utility(commands.Cog):
+    @command(6, name="setautorole")
+    async def setautorole(self, ctx: commands.Context, *, role: str):
+        """Set the autorole for new members (mention, ID, or name, with confirmation)."""
+        from ext.utility import select_role
+
+        role_obj = await select_role(ctx, role)
+        if not role_obj:
+            return
+        await self.bot.db.update_guild_config(ctx.guild.id, {"$set": {"autoroles": [role_obj.id]}})
+        await ctx.send(f"Autorole set to {role_obj.mention} for new members.")
+
+    @command(6, name="setselfrole")
+    async def setselfrole(self, ctx: commands.Context, *, role: str):
+        """Add a self-assignable role (mention, ID, or name, with confirmation)."""
+        from ext.utility import select_role
+
+        role_obj = await select_role(ctx, role)
+        if not role_obj:
+            return
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {"$addToSet": {"selfroles": role_obj.id}}
+        )
+        await ctx.send(f"Added {role_obj.mention} as a self-assignable role.")
+
+    @command(6, name="setreactionrole")
+    async def setreactionrole(self, ctx: commands.Context, *, role: str):
+        """Add a reaction role (mention, ID, or name, with confirmation)."""
+        from ext.utility import select_role
+
+        role_obj = await select_role(ctx, role)
+        if not role_obj:
+            return
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {"$addToSet": {"reaction_roles": role_obj.id}}
+        )
+        await ctx.send(f"Added {role_obj.mention} as a reaction role.")
+
+    @command(6, name="setmuterole")
+    async def setmuterole(self, ctx: commands.Context, *, role: str):
+        """Set the mute role (mention, ID, or name, with confirmation)."""
+        from ext.utility import select_role
+
+        role_obj = await select_role(ctx, role)
+        if not role_obj:
+            return
+        await self.bot.db.update_guild_config(ctx.guild.id, {"$set": {"mute_role": role_obj.id}})
+        await ctx.send(f"Mute role set to {role_obj.mention}.")
+
     """General utility commands and enhanced help system"""
 
     def __init__(self, bot: "rainbot") -> None:
@@ -442,10 +490,36 @@ class Utility(commands.Cog):
                     return
 
                 em = await self.format_cog_help(ctx, prefix, cog)
-                await ctx.send(content=error, embed=em)
+                from ext.safe_send import safe_send
+
+                if not em or not em.fields:
+                    await safe_send(
+                        ctx,
+                        content=error or None,
+                        embed=discord.Embed(
+                            title=f"{get_emoji('error')} No Accessible Commands",
+                            description="You do not have permission to use any commands in this category.",
+                            color=discord.Color.red(),
+                        ),
+                    )
+                else:
+                    await safe_send(ctx, content=error or None, embed=em)
             else:
                 em = await self.format_command_help(ctx, prefix, cmd)
-                await ctx.send(content=error, embed=em)
+                from ext.safe_send import safe_send
+
+                if not em:
+                    await safe_send(
+                        ctx,
+                        content=error or None,
+                        embed=discord.Embed(
+                            title=f"{get_emoji('error')} No Accessible Info",
+                            description="You do not have permission to view this command's help.",
+                            color=discord.Color.red(),
+                        ),
+                    )
+                else:
+                    await safe_send(ctx, content=error or None, embed=em)
         else:
             # Main help menu - optimized and cleaner
             embed = discord.Embed(

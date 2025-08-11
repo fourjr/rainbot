@@ -311,14 +311,73 @@ class rainbot(commands.Bot):
 
         # Create user-friendly error messages
         if isinstance(e, commands.UserInputError):
+            # Try to provide more helpful info for missing/invalid arguments
+            usage = f"{ctx.prefix}{ctx.command.signature}"
+            # If it's a missing required argument, highlight what's missing
+            missing = None
+            if isinstance(e, commands.MissingRequiredArgument):
+                missing = f"Missing required argument: `{e.param.name}`."
+            elif isinstance(e, commands.BadArgument):
+                missing = (
+                    f"Invalid value for argument: `{e.param.name if hasattr(e, 'param') else ''}`."
+                )
+            else:
+                missing = str(e)
+
             embed = discord.Embed(
-                title="❌ Invalid Input", description=str(e), color=discord.Color.red()
+                title="❌ Invalid Command Usage",
+                description=f"{missing}\n\n**Usage:**\n`{usage}`",
+                color=discord.Color.red(),
             )
-            embed.add_field(
-                name="Usage",
-                value=f"`{ctx.prefix}{ctx.command.qualified_name} {ctx.command.signature}`",
+            # Optionally, show help text if available
+            if ctx.command.help:
+                embed.add_field(name="Help", value=ctx.command.help, inline=False)
+            from ext.safe_send import safe_send
+
+            await safe_send(ctx, embed=embed)
+
+        elif isinstance(e, commands.MissingPermissions):
+            perms = ", ".join(
+                [f"`{perm.replace('_', ' ').title()}`" for perm in e.missing_permissions]
             )
-            await ctx.send(embed=embed)
+            embed = discord.Embed(
+                title="❌ Missing Permissions",
+                description=f"You are missing the following permission(s) to run this command: {perms}",
+                color=discord.Color.red(),
+            )
+            from ext.safe_send import safe_send
+
+            await safe_send(ctx, embed=embed)
+
+        elif isinstance(e, commands.BotMissingPermissions):
+            perms = ", ".join(
+                [f"`{perm.replace('_', ' ').title()}`" for perm in e.missing_permissions]
+            )
+            embed = discord.Embed(
+                title="❌ Bot Missing Permissions",
+                description=f"I am missing the following permission(s) to run this command: {perms}",
+                color=discord.Color.red(),
+            )
+            from ext.safe_send import safe_send
+
+            await safe_send(ctx, embed=embed)
+
+        elif isinstance(e, Underleveled):
+            embed = discord.Embed(
+                title="❌ Insufficient Permission Level",
+                description="You do not have the required permission level to use this command.",
+                color=discord.Color.red(),
+            )
+            # Optionally, show required level if available
+            if hasattr(ctx.command, "perm_level"):
+                embed.add_field(
+                    name="Required Level",
+                    value=f"{getattr(ctx.command, 'perm_level', 'Unknown')}",
+                    inline=True,
+                )
+            from ext.safe_send import safe_send
+
+            await safe_send(ctx, embed=embed)
 
         elif isinstance(e, discord.Forbidden):
             embed = discord.Embed(
@@ -326,7 +385,9 @@ class rainbot(commands.Bot):
                 description="I don't have the required permissions to perform this action.",
                 color=discord.Color.red(),
             )
-            await ctx.send(embed=embed)
+            from ext.safe_send import safe_send
+
+            await safe_send(ctx, embed=embed)
 
         elif isinstance(e, commands.CommandOnCooldown):
             embed = discord.Embed(
@@ -334,20 +395,26 @@ class rainbot(commands.Bot):
                 description=f"Please wait {e.retry_after:.2f} seconds before using this command again.",
                 color=discord.Color.orange(),
             )
-            await ctx.send(embed=embed)
+            from ext.safe_send import safe_send
+
+            await safe_send(ctx, embed=embed)
 
         else:
             # Log detailed error for debugging
             self.logger.error(f"Error in {ctx.command}: {e}")
             if self.dev_mode:
-                await ctx.send(f"```py\n{type(e).__name__}: {e}\n```")
+                from ext.safe_send import safe_send
+
+                await safe_send(ctx, content=f"```py\n{type(e).__name__}: {e}\n```")
             else:
                 embed = discord.Embed(
                     title="❌ An error occurred",
                     description="Something went wrong. Please try again or contact support.",
                     color=discord.Color.red(),
                 )
-                await ctx.send(embed=embed)
+                from ext.safe_send import safe_send
+
+                await safe_send(ctx, embed=embed)
 
         # Always report to error channel
         try:
@@ -372,7 +439,9 @@ class rainbot(commands.Bot):
                 inline=False,
             )
             embed.add_field(name="Error", value=f"{type(e).__name__}: {e}", inline=False)
-            await error_channel.send(embed=embed)
+            from ext.safe_send import safe_send
+
+            await safe_send(error_channel, embed=embed)
         except Exception as send_err:
             # Avoid recursive failures
             self.logger.debug(f"Failed to send error report: {send_err}")

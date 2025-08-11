@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone  # Add timezone import
 from typing import Any, List, Union
 
 import discord
@@ -79,14 +79,14 @@ class Logging(commands.Cog):
 
         if raw:
             if mode == "bulk":
-                await log.send(f"`{current_time}` Message ({payload.id}) has been {end}.")
+                await log.send(f"{current_time} Message ({payload.id}) has been {end}.")
             else:
-                await log.send(f"`{current_time}` Message ({payload.message_id}) has been {end}.")
+                await log.send(f"{current_time} Message ({payload.message_id}) has been {end}.")
         else:
             if mode == "message_delete":
                 try:
                     await log.send(
-                        f"`{current_time}` {payload.author} ({payload.author.id}): Message ({payload.id}) has been deleted in **#{payload.channel.name}** ({payload.channel.id})\n```\n{payload.content}\n```"
+                        f"{current_time} {payload.author} ({payload.author.id}): Message ({payload.id}) has been deleted in **#{payload.channel.name}** ({payload.channel.id})\n```\n{payload.content}\n```"
                     )
                     # Log attachments if present
                     if getattr(payload, "attachments", None):
@@ -110,29 +110,31 @@ class Logging(commands.Cog):
                                 await log.send(embed=emb)
                             else:
                                 await log.send(
-                                    f"`{current_time}` Attachment {index}: {attachment.filename} — {attachment.url}"
+                                    f"{current_time} Attachment {index}: {attachment.filename} — {attachment.url}"
                                 )
                 except discord.HTTPException:
                     # TODO: to implement a more elegant solution
                     await log.send(
-                        f"`{current_time}` {payload.author} ({payload.author.id}): Message ({payload.id}) has been deleted in **#{payload.channel.name}** ({payload.channel.id})"
+                        f"{current_time} {payload.author} ({payload.author.id}): Message ({payload.id}) has been deleted in **#{payload.channel.name}** ({payload.channel.id})"
                     )
                     await log.send(f"```{payload.content}\n```")
             elif mode == "member_join":
-                fmt = f"`{current_time}` {payload} ({payload.id}) has joined. "
-                delta = datetime.utcnow() - payload.created_at
+                fmt = f"{current_time} {payload} ({payload.id}) has joined. "
+                delta = (
+                    datetime.now(timezone.utc) - payload.created_at
+                )  # Make utcnow timezone-aware
                 if delta.total_seconds() < 60 * 60 * 24:
                     # joined in last day
                     fmt += f"Warning: account created {format_timedelta(delta)} ago"
                 await log.send(fmt)
             elif mode == "member_remove":
-                await log.send(f"`{current_time}` {payload} ({payload.id}) has left the server.")
+                await log.send(f"{current_time} {payload} ({payload.id}) has left the server.")
             elif mode == "message_edit":
                 try:
                     before_text = payload.content or "(no text content)"
                     after_text = extra.content or "(no text content)"
                     await log.send(
-                        f"`{current_time}` {payload.author} ({payload.author.id}): Message ({payload.id}) has been edited in **#{payload.channel.name}** ({payload.channel.id})\n"
+                        f"{current_time} {payload.author} ({payload.author.id}): Message ({payload.id}) has been edited in **#{payload.channel.name}** ({payload.channel.id})\n"
                         f"B:```\n{before_text}\n```\nA:\n```\n{after_text}\n```"
                     )
                     # Log attachment differences if present
@@ -143,12 +145,12 @@ class Logging(commands.Cog):
                         after_links = [att.url for att in after_atts]
                         if before_links:
                             await log.send(
-                                f"`{current_time}` Before attachments ({len(before_links)}):\n"
+                                f"{current_time} Before attachments ({len(before_links)}):\n"
                                 + "\n".join(before_links[:8])
                             )
                         if after_links:
                             await log.send(
-                                f"`{current_time}` After attachments ({len(after_links)}):\n"
+                                f"{current_time} After attachments ({len(after_links)}):\n"
                                 + "\n".join(after_links[:8])
                             )
                         # Show preview of first after image if available
@@ -175,37 +177,37 @@ class Logging(commands.Cog):
                                 return (s[:60] + "…") if isinstance(s, str) and len(s) > 60 else s
 
                             await log.send(
-                                f"`{current_time}` Embed updated: "
+                                f"{current_time} Embed updated: "
                                 f"title {be_title!r} → {ae_title!r}; "
                                 f"desc {trunc(be_desc)!r} → {trunc(ae_desc)!r}"
                             )
                 except discord.HTTPException:
                     # to implement a more elegant solution
                     await log.send(
-                        f"`{current_time}` {payload.author} ({payload.author.id}): Message ({payload.id}) has been edited in **#{payload.channel.name}** ({payload.channel.id})"
+                        f"{current_time} {payload.author} ({payload.author.id}): Message ({payload.id}) has been edited in **#{payload.channel.name}** ({payload.channel.id})"
                     )
                     await log.send(f"B:```\n{payload.content or '(no text content)'}\n```\n")
                     await log.send(f"A:```\n{extra.content or '(no text content)'}\n```")
             elif mode == "member_leave_vc":
                 await log.send(
-                    f"`{current_time}` {payload} ({payload.id}) has left :microphone: **{extra}** ({extra.id})."
+                    f"{current_time} {payload} ({payload.id}) has left :microphone: **{extra}** ({extra.id})."
                 )
             elif mode == "member_join_vc":
                 await log.send(
-                    f"`{current_time}` {payload} ({payload.id}) has joined :microphone: **{extra}** ({extra.id})."
+                    f"{current_time} {payload} ({payload.id}) has joined :microphone: **{extra}** ({extra.id})."
                 )
             elif mode == "member_deaf_vc":
                 await log.send(
-                    f"`{current_time}` {payload} ({payload.id}) is{'' if extra else ' not'} deafened"
+                    f"{current_time} {payload} ({payload.id}) is{'' if extra else ' not'} deafened"
                 )
             elif mode == "member_mute_vc":
                 await log.send(
-                    f"`{current_time}` {payload} ({payload.id}) is{'' if extra else ' not'} muted"
+                    f"{current_time} {payload} ({payload.id}) is{'' if extra else ' not'} muted"
                 )
             elif mode == "channel_role_create":
-                await log.send(f"`{current_time}` {extra} **{payload}** ({payload.id}) is created")
+                await log.send(f"{current_time} {extra} **{payload}** ({payload.id}) is created")
             elif mode == "channel_role_delete":
-                await log.send(f"`{current_time}` {extra} **{payload}** ({payload.id}) is deleted")
+                await log.send(f"{current_time} {extra} **{payload}** ({payload.id}) is deleted")
             else:
                 raise NotImplementedError(f"{mode} not implemented")
 

@@ -134,7 +134,7 @@ class EventsAnnouncer(commands.Cog):
             await self.bot.db.update_guild_config(
                 ctx.guild.id, {"$set": {"events_announce": {event_type: {}}}}
             )
-            await ctx.send(self.bot.accept)
+            await ctx.send(f"Announcement for `{event_type}` has been cleared.")
         else:
             if message.startswith("https://") or message.startswith("http://"):
                 # message is a URL
@@ -164,7 +164,7 @@ class EventsAnnouncer(commands.Cog):
                     },
                 )
                 await ctx.send(
-                    f'Message sent to {getattr(channel, "mention", "DM")} for testing.\nNote: invites cannot be rendered in test message'
+                    f"Announcement for `{event_type}` has been set and test message sent to {getattr(channel, 'mention', 'DM')}.\nNote: invites cannot be rendered in test message."
                 )
             else:
                 await ctx.send("Invalid welcome message syntax.")
