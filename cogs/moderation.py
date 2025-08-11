@@ -212,6 +212,11 @@ class Moderation(commands.Cog):
                 channel = ctx.bot.get_channel(modlogs.member_warn)
                 if channel:
                     await channel.send(fmt)
+            elif ctx.command.qualified_name == "modlogs remove":
+                fmt = f"{current_time} {ctx.author} has deleted modlog #{args[0]} - {args[1]}"
+                channel = ctx.bot.get_channel(modlogs.member_warn)
+                if channel:
+                    await channel.send(fmt)
             elif ctx.command.name == "lockdown":
                 fmt = f'{current_time} {ctx.author} has {"enabled" if args[0] else "disabled"} lockdown for {args[1].mention}'
                 channel = ctx.bot.get_channel(modlogs.channel_lockdown)
