@@ -1066,7 +1066,7 @@ class Setup(commands.Cog):
           mention_limit   Mass mentions
           spam_detection  Spam prevention
           max_words      Maximum words per message
-        
+
         Examples:
           !!setdetectionignore spam #spam-ok
           !!setdetectionignore all  (clears all ignored channels)"""
@@ -1112,7 +1112,7 @@ class Setup(commands.Cog):
           message_delete  Message deletions
           message_edit   Message edits
           channel_delete Channel deletions
-        
+
         Examples:
           !!setlogignore message_edit #bot-spam
           !!setlogignore all  (clears all ignored channels)"""
@@ -1286,18 +1286,18 @@ class Setup(commands.Cog):
         time: UserFriendlyTime = None,
     ) -> None:
         """Configure automatic punishments after reaching warning thresholds.
-        
+
         Punishments:
           mute   Temporarily mute the user
           kick   Remove from server
           ban    Permanently ban
           none   Remove punishment
-        
+
         Examples:
           !!setwarnpunishment 3 mute 1h
           !!setwarnpunishment 5 kick
           !!setwarnpunishment 7 ban
-        
+
         Note: Consider adding a final ban condition for repeat offenders."""
         if punishment not in ("kick", "ban", "mute", "none"):
             raise commands.BadArgument(
