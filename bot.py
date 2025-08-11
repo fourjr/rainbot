@@ -312,7 +312,7 @@ class rainbot(commands.Bot):
         # Create user-friendly error messages
         if isinstance(e, commands.UserInputError):
             # Try to provide more helpful info for missing/invalid arguments
-            usage = f"{ctx.prefix}{ctx.command.qualified_name} {ctx.command.signature}"
+            usage = f"{ctx.prefix}{ctx.command.signature}"
             # If it's a missing required argument, highlight what's missing
             missing = None
             if isinstance(e, commands.MissingRequiredArgument):
