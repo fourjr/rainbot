@@ -41,11 +41,11 @@ class Moderation(commands.Cog):
 
     @group(6, invoke_without_command=True)
     async def modlogs(self, ctx: commands.Context, member: MemberOrID = None) -> None:
-        """View or manage moderation logs (warns, kicks, mutes, bans, etc.) for a user, with timestamps.
+        """View or manage moderation logs (warns, kicks, mutes, bans, etc.) for a user.
 
-        Subcommands:
-        - `!!modlogs remove <case_number>` - Remove a modlog entry by case number
-        - `!!modlogs <user>` - View modlogs for a specific user"""
+        Commands:
+          modlogs <user>          View moderation logs for a specific user
+          modlogs remove <case>   Remove a moderation log entry by case number"""
         if member is None:
             await ctx.invoke(self.bot.get_command("help"), command_or_cog="modlogs")
             return
@@ -80,12 +80,15 @@ class Moderation(commands.Cog):
                 fmt += f"\n{timestamp_fmt} Warn #{warn['case_number']}: {moderator} warned {name} for {warn['reason']}"
             await ctx.send(fmt)
 
-    @modlogs.command(6, name="remove", aliases=["delete", "del"], brief="Remove a modlog entry by case number")
+    @modlogs.command(6, name="remove", aliases=["delete", "del"])
     async def modlogs_remove(self, ctx: commands.Context, case_number: int) -> None:
-        """Remove a modlog entry by case number, with moderator confirmation.
-        
-        Usage: !!modlogs remove <case_number>
-        Example: !!modlogs remove 123"""
+        """Remove a moderation log entry.
+
+        Args:
+            case_number: The case number to remove
+
+        Example:
+            modlogs remove 123"""
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         warns = guild_config.warns
         warn = next((w for w in warns if w["case_number"] == case_number), None)
@@ -117,7 +120,9 @@ class Moderation(commands.Cog):
         if str(reaction.emoji) == "✅":
             await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"warns": warn}})
             await ctx.send(f"Warn #{case_number} removed.")
-            await self.send_log(ctx, case_number, warn["reason"], warn["member_id"], warn["moderator_id"])
+            await self.send_log(
+                ctx, case_number, warn["reason"], warn["member_id"], warn["moderator_id"]
+            )
         else:
             await ctx.send("Warn removal cancelled.")
 
