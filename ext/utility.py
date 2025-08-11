@@ -1,5 +1,24 @@
+
 from __future__ import annotations
+import random
+import re
+import emoji
+import string
+from datetime import timedelta
+from typing import Any, Callable, Optional, Tuple, Union, TYPE_CHECKING
 import asyncio
+
+import discord
+from discord.ext import commands
+from discord.ext.commands import check
+
+from ext.time import UserFriendlyTime
+
+if TYPE_CHECKING:
+    from bot import rainbot
+    from ext.database import DBDict
+    from ext.command import RainCommand, RainGroup  # noqa: F401
+
 
 async def select_role(ctx: commands.Context, role: str) -> Optional[discord.Role]:
     """
@@ -51,25 +70,6 @@ async def select_role(ctx: commands.Context, role: str) -> Optional[discord.Role
             return None
 
 
-
-from __future__ import annotations
-import random
-import re
-import emoji
-import string
-from datetime import timedelta
-from typing import Any, Callable, Optional, Tuple, Union, TYPE_CHECKING
-
-import discord
-from discord.ext import commands
-from discord.ext.commands import check
-
-from ext.time import UserFriendlyTime
-
-if TYPE_CHECKING:
-    from bot import rainbot
-    from ext.database import DBDict
-    from ext.command import RainCommand, RainGroup  # noqa: F401
 
 # Use modern emoji API
 UNICODE_EMOJI = "|".join(re.escape(u) for u in emoji.EMOJI_DATA.keys())
