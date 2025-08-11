@@ -110,7 +110,7 @@ class Moderation(commands.Cog):
         if str(reaction.emoji) == "✅":
             await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"warns": warn}})
             await ctx.send(f"Warn #{case_number} removed.")
-            await self.send_log(ctx, case_number, warn["reason"])
+            await self.send_log(ctx, case_number, warn["reason"], warn["member_id"], warn["moderator_id"])
         else:
             await ctx.send("Warn removal cancelled.")
 
@@ -213,7 +213,10 @@ class Moderation(commands.Cog):
                 if channel:
                     await channel.send(fmt)
             elif ctx.command.qualified_name == "modlogs remove":
-                fmt = f"{current_time} {ctx.author} has deleted modlog #{args[0]} - {args[1]}"
+                case_num, original_reason, member_id, mod_id = args
+                member = ctx.guild.get_member(int(member_id)) or f"<@{member_id}>"
+                original_mod = ctx.guild.get_member(int(mod_id)) or f"<@{mod_id}>"
+                fmt = f"{current_time} {ctx.author} has deleted modlog #{case_num}\n• Target: {member} ({member_id})\n• Original Moderator: {original_mod}\n• Original Reason: {original_reason}"
                 channel = ctx.bot.get_channel(modlogs.member_warn)
                 if channel:
                     await channel.send(fmt)
