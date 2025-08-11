@@ -818,6 +818,7 @@ class Setup(commands.Cog):
                 all_levels = [get_command_level(c, guild_config) for c in list(cmd.parent.commands)]
 
                 all_levels.remove(cmd_level)
+        await ctx.send(f"Permission level for command `{name}` set to {int_perm_level}.")
                 all_levels.append(int_perm_level)
 
                 lowest = min(all_levels)
@@ -858,9 +859,9 @@ class Setup(commands.Cog):
         Example: `!!setoffset 2`
         """
         if not -12 < offset < 14:
-            raise commands.BadArgument(f"{offset} has to be between -12 and 14.")
-
-        await self.bot.db.update_guild_config(ctx.guild.id, {"$set": {"time_offset": offset}})
+                await self.bot.db.update_guild_config(
+                    ctx.guild.id, {"$addToSet": {"detections.filters": word}}
+                )
         await ctx.send(f"Time offset set to `{offset}` hours.")
 
     @command(10, aliases=["set_detection", "set-detection"])
@@ -893,9 +894,9 @@ class Setup(commands.Cog):
             "repetitive_message",
             "max_lines",
             "max_words",
-            "max_characters",
-            "caps_message_percent",
-            "caps_message_min_words",
+                await self.bot.db.update_guild_config(
+                    ctx.guild.id, {"$pull": {"detections.filters": word}}
+                )
             "repetitive_characters",
         ):
             if value is None:
@@ -1171,6 +1172,7 @@ class Setup(commands.Cog):
             await self.bot.db.update_guild_config(
                 ctx.guild.id, {"$addToSet": {"detections.filters": word}}
             )
+            await ctx.send(f"Word `{word}` added to filter.")
         else:
             to_add = []
             for i in ctx.message.attachments:
@@ -1191,12 +1193,11 @@ class Setup(commands.Cog):
                 await self.bot.db.update_guild_config(
                     ctx.guild.id, {"$addToSet": {"detections.image_filters": {"$each": to_add}}}
                 )
+                await ctx.send(f"Word `{'image hash(es)'}" + (f" ({', '.join(to_add)})" if to_add else "") + "` added to filter.")
             else:
                 raise commands.UserInputError(
                     "word has to be provided or an image has to be attached."
                 )
-
-    await ctx.send(f"Word `{word if word else 'image hash(es)'}` added to filter.")
 
     @filter_.command(8)
     async def remove(self, ctx: commands.Context, *, word: str = None) -> None:
@@ -1207,6 +1208,7 @@ class Setup(commands.Cog):
             await self.bot.db.update_guild_config(
                 ctx.guild.id, {"$pull": {"detections.filters": word}}
             )
+            await ctx.send(f"Word `{word}` removed from filter.")
         else:
             to_remove = []
             for i in ctx.message.attachments:
@@ -1227,12 +1229,11 @@ class Setup(commands.Cog):
                 await self.bot.db.update_guild_config(
                     ctx.guild.id, {"$pullAll": {"detections.image_filters": to_remove}}
                 )
+                await ctx.send(f"Word `{'image hash(es)'}" + (f" ({', '.join(to_remove)})" if to_remove else "") + "` removed from filter.")
             else:
                 raise commands.UserInputError(
                     "word has to be provided or an image has to be attached."
                 )
-
-    await ctx.send(f"Word `{word if word else 'image hash(es)'}` removed from filter.")
 
     @filter_.command(8, name="list")
     async def list_(self, ctx: commands.Context) -> None:
