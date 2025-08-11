@@ -41,7 +41,11 @@ class Moderation(commands.Cog):
 
     @group(6, invoke_without_command=True)
     async def modlogs(self, ctx: commands.Context, member: MemberOrID = None) -> None:
-        """View or manage moderation logs (warns, kicks, mutes, bans, etc.) for a user, with timestamps."""
+        """View or manage moderation logs (warns, kicks, mutes, bans, etc.) for a user, with timestamps.
+
+        Subcommands:
+        - `!!modlogs remove <case_number>` - Remove a modlog entry by case number
+        - `!!modlogs <user>` - View modlogs for a specific user"""
         if member is None:
             await ctx.invoke(self.bot.get_command("help"), command_or_cog="modlogs")
             return
