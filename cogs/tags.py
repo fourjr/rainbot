@@ -45,8 +45,8 @@ class Tags(commands.Cog):
     @tag.command(6)
     async def remove(self, ctx: commands.Context, name: str) -> None:
         """Removes a tag"""
-    await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"tags": {"name": name}}})
-    await ctx.send(f"Tag `{name}` removed.")
+        await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"tags": {"name": name}}})
+        await ctx.send(f"Tag `{name}` removed.")
 
     @tag.command(6, name="list")
     async def list_(self, ctx: commands.Context) -> None:

@@ -1196,7 +1196,7 @@ class Setup(commands.Cog):
                     "word has to be provided or an image has to be attached."
                 )
 
-    await ctx.send(f"Word `{word if word else 'image hash(es)'}" added to filter.")
+    await ctx.send(f"Word `{word if word else 'image hash(es)'}` added to filter.")
 
     @filter_.command(8)
     async def remove(self, ctx: commands.Context, *, word: str = None) -> None:
@@ -1232,7 +1232,7 @@ class Setup(commands.Cog):
                     "word has to be provided or an image has to be attached."
                 )
 
-    await ctx.send(f"Word `{word if word else 'image hash(es)'}" removed from filter.")
+    await ctx.send(f"Word `{word if word else 'image hash(es)'}` removed from filter.")
 
     @filter_.command(8, name="list")
     async def list_(self, ctx: commands.Context) -> None:
