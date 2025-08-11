@@ -32,7 +32,7 @@ class Utility(commands.Cog):
         if not role_obj:
             return
         await self.bot.db.update_guild_config(ctx.guild.id, {"$set": {"autoroles": [role_obj.id]}})
-        await ctx.send(f"Autorole set to {role_obj.mention}")
+        await ctx.send(f"Autorole set to {role_obj.mention} for new members.")
 
     @command(6, name="setselfrole")
     async def setselfrole(self, ctx: commands.Context, *, role: str):
@@ -45,7 +45,7 @@ class Utility(commands.Cog):
         await self.bot.db.update_guild_config(
             ctx.guild.id, {"$addToSet": {"selfroles": role_obj.id}}
         )
-        await ctx.send(f"Selfrole added: {role_obj.mention}")
+        await ctx.send(f"Added {role_obj.mention} as a self-assignable role.")
 
     @command(6, name="setreactionrole")
     async def setreactionrole(self, ctx: commands.Context, *, role: str):
@@ -58,7 +58,7 @@ class Utility(commands.Cog):
         await self.bot.db.update_guild_config(
             ctx.guild.id, {"$addToSet": {"reaction_roles": role_obj.id}}
         )
-        await ctx.send(f"Reaction role added: {role_obj.mention}")
+        await ctx.send(f"Added {role_obj.mention} as a reaction role.")
 
     @command(6, name="setmuterole")
     async def setmuterole(self, ctx: commands.Context, *, role: str):
@@ -69,7 +69,7 @@ class Utility(commands.Cog):
         if not role_obj:
             return
         await self.bot.db.update_guild_config(ctx.guild.id, {"$set": {"mute_role": role_obj.id}})
-        await ctx.send(f"Mute role set to {role_obj.mention}")
+        await ctx.send(f"Mute role set to {role_obj.mention}.")
 
     """General utility commands and enhanced help system"""
 

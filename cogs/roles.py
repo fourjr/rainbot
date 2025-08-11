@@ -43,13 +43,13 @@ class Roles(commands.Cog):
         await self.bot.db.update_guild_config(
             ctx.guild.id, {"$addToSet": {"selfroles": str(role.id)}}
         )
-        await ctx.send(self.bot.accept)
+        await ctx.send(f"Added {role.mention} as a selfrole.")
 
     @selfrole.command(10, aliases=["del", "delete"])
     async def remove(self, ctx: commands.Context, *, role: discord.Role) -> None:
         """Remove a selfrole"""
         await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"selfroles": str(role.id)}})
-        await ctx.send(self.bot.accept)
+        await ctx.send(f"Removed {role.mention} from selfroles.")
 
     @commands.check(selfrole_check)
     @selfrole.command(0, name="list")
@@ -76,13 +76,13 @@ class Roles(commands.Cog):
         await self.bot.db.update_guild_config(
             ctx.guild.id, {"$addToSet": {"autoroles": str(role.id)}}
         )
-        await ctx.send(self.bot.accept)
+        await ctx.send(f"Added {role.mention} as an autorole.")
 
     @autorole.command(10, name="remove", aliases=["del", "delete"])
     async def _remove(self, ctx: commands.Context, *, role: discord.Role) -> None:
         """Remove an autorole"""
         await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"autoroles": str(role.id)}})
-        await ctx.send(self.bot.accept)
+        await ctx.send(f"Removed {role.mention} from autoroles.")
 
     @autorole.command(10, name="list")
     async def __list(self, ctx: commands.Context) -> None:
@@ -146,7 +146,7 @@ class Roles(commands.Cog):
             },
         )
 
-        await ctx.send(self.bot.accept)
+        await ctx.send(f"Added reaction role: {role.mention} with emoji {emoji.id} to message {message_id}.")
 
     @reactionrole.command(10, name="remove", aliases=["del", "delete"])
     async def remove_(self, ctx: commands.Context, message_id: int, role: discord.Role) -> None:
@@ -162,7 +162,7 @@ class Roles(commands.Cog):
         await self.bot.db.update_guild_config(
             ctx.guild.id, {"$pull": {"reaction_roles": role_info}}
         )
-        await ctx.send(self.bot.accept)
+        await ctx.send(f"Removed reaction role {role.mention} from message {message_id}.")
 
     @Cog.listener()
     async def on_member_join(self, m: discord.Member) -> None:

@@ -227,8 +227,7 @@ class Giveaways(commands.Cog):
                 }
             },
         )
-
-        await ctx.send(self.bot.accept)
+        await ctx.send(f"Giveaway config set: Emoji `{emoji}` | Channel {channel.mention} | Role {role_obj.mention if role_obj else role_id if role_id else 'None'}.")
 
     @group(6, invoke_without_command=True, aliases=["give"])
     async def giveaway(self, ctx: commands.Context) -> None:
@@ -438,7 +437,7 @@ class Giveaways(commands.Cog):
             except KeyError:
                 pass
             await self.end_giveaway(latest_giveaway)
-            await ctx.send(self.bot.accept)
+            await ctx.send("Giveaway stopped and ended.")
         else:
             await ctx.send("No active giveaway")
 

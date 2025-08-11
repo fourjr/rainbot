@@ -38,6 +38,80 @@ class MemberOrID(commands.IDConverter):
 
 
 class Moderation(commands.Cog):
+
+    @group(6, invoke_without_command=True)
+    async def modlogs(self, ctx: commands.Context, member: MemberOrID = None) -> None:
+        """View or manage moderation logs (warns, kicks, mutes, bans, etc.) for a user, with timestamps."""
+        if member is None:
+            await ctx.invoke(self.bot.get_command("help"), command_or_cog="modlogs")
+            return
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        warns = guild_config.warns
+        warns = list(filter(lambda w: w["member_id"] == str(member.id), warns))
+        # Optionally, you could add more moderation actions here (kicks, mutes, bans) if stored in DB
+        name = getattr(member, "name", str(member.id))
+        if name != str(member.id):
+            name += f"#{member.discriminator}"
+
+        if len(warns) == 0:
+            await ctx.send(f"{name} has no warns.")
+        else:
+            fmt = f"**{name} has {len(warns)} warns.**"
+            for warn in warns:
+                moderator = ctx.guild.get_member(int(warn["moderator_id"]))
+                # Try to extract a unix timestamp from warn['date'] if possible, else just show as is
+                # If warn['date'] is in <t:unix:D> format, extract the unix part
+                date_str = warn['date']
+                unix_match = None
+                if isinstance(date_str, str) and date_str.startswith("<t:"):
+                    import re
+                    m = re.match(r"<t:(\\d+):[A-Z]>", date_str)
+                    if m:
+                        unix_match = int(m.group(1))
+                if unix_match:
+                    timestamp_fmt = f"<t:{unix_match}:F>"
+                else:
+                    timestamp_fmt = date_str
+                fmt += f"\n{timestamp_fmt} Warn #{warn['case_number']}: {moderator} warned {name} for {warn['reason']}"
+            await ctx.send(fmt)
+
+    @modlogs.command(6, name="remove", aliases=["delete", "del"])
+    async def modlogs_remove(self, ctx: commands.Context, case_number: int) -> None:
+        """Remove a warn/modlog by case number, with moderator confirmation."""
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        warns = guild_config.warns
+        warn = next((w for w in warns if w["case_number"] == case_number), None)
+        if not warn:
+            await ctx.send(f"Warn #{case_number} does not exist.")
+            return
+        moderator = ctx.guild.get_member(int(warn["moderator_id"]))
+        confirm_embed = discord.Embed(
+            title="Confirm Warn Removal",
+            description=f"Are you sure you want to remove Warn #{case_number} for <@{warn['member_id']}>?\nReason: {warn['reason']}\nModerator: {moderator}",
+            color=discord.Color.red(),
+        )
+        msg = await ctx.send(embed=confirm_embed)
+        await msg.add_reaction("✅")
+        await msg.add_reaction("❌")
+
+        def check(reaction, user):
+            return (
+                user == ctx.author
+                and str(reaction.emoji) in ["✅", "❌"]
+                and reaction.message.id == msg.id
+            )
+
+        try:
+            reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
+        except asyncio.TimeoutError:
+            await ctx.send("Warn removal timed out. Command cancelled.")
+            return
+        if str(reaction.emoji) == "✅":
+            await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"warns": warn}})
+            await ctx.send(f"Warn #{case_number} removed.")
+            await self.send_log(ctx, case_number, warn["reason"])
+        else:
+            await ctx.send("Warn removal cancelled.")
     """Basic moderation commands"""
 
     def __init__(self, bot: rainbot) -> None:
@@ -178,7 +252,7 @@ class Moderation(commands.Cog):
                     member_info += "\n"
 
         em = discord.Embed(color=member.color)
-        em.set_author(name=str(member), icon_url=str(member.avatar_url))
+        em.set_author(name=str(member), icon_url=str(member.display_avatar.url))
         em.add_field(
             name="Basic Information",
             value=f"**ID**: {member.id}\n**Nickname**: {member.nick}\n**Mention**: {member.mention}\n**Created** {created}",
@@ -219,7 +293,7 @@ class Moderation(commands.Cog):
                 "note": note,
             }
             await self.bot.db.update_guild_config(ctx.guild.id, {"$push": {"notes": push}})
-            await ctx.send(self.bot.accept)
+            await ctx.send(f"Note added for {member.mention}: {note}")
 
     @note.command(6, aliases=["delete", "del"])
     async def remove(self, ctx: commands.Context, case_number: int) -> None:
@@ -231,7 +305,7 @@ class Moderation(commands.Cog):
             await ctx.send(f"Note #{case_number} does not exist.")
         else:
             await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"notes": note[0]}})
-            await ctx.send(self.bot.accept)
+            await ctx.send(f"Note #{case_number} removed from <@{note[0]['member_id']}>.")
 
     @note.command(6, name="list", aliases=["view"])
     async def _list(self, ctx: commands.Context, member: MemberOrID) -> None:
@@ -338,7 +412,7 @@ class Moderation(commands.Cog):
                 }
                 await self.bot.db.update_guild_config(ctx.guild.id, {"$push": {"warns": push}})
                 if ctx.author != ctx.guild.me:
-                    await ctx.send(self.bot.accept)
+                    await ctx.send(f"Warned {member.mention} (#{case_number}) for: {reason}")
                 await self.send_log(ctx, member, reason, case_number)
 
                 # apply punishment
@@ -372,7 +446,7 @@ class Moderation(commands.Cog):
             await ctx.send(f"Warn #{case_number} does not exist.")
         else:
             await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"warns": warn}})
-            await ctx.send(self.bot.accept)
+            await ctx.send(f"Warn #{case_number} removed from <@{warn['member_id']}>.")
             await self.send_log(ctx, case_number, warn_reason)
 
     @warn.command(6, name="list", aliases=["view"])
@@ -429,7 +503,10 @@ class Moderation(commands.Cog):
             await self.bot.mute(ctx.author, member, duration, reason=reason)
 
             if ctx.author != ctx.guild.me:
-                await ctx.send(self.bot.accept)
+                if duration:
+                    await ctx.send(f"{member.mention} has been muted for {format_timedelta(duration)}. Reason: {reason}")
+                else:
+                    await ctx.send(f"{member.mention} has been muted indefinitely. Reason: {reason}")
 
     @command(6, name="muted")
     async def muted(self, ctx: commands.Context) -> None:
@@ -470,7 +547,7 @@ class Moderation(commands.Cog):
         else:
             await self.alert_user(ctx, member, reason)
             await self.bot.unmute(ctx.guild.id, member.id, None, reason=reason)
-            await ctx.send(self.bot.accept)
+            await ctx.send(f"{member.mention} has been unmuted. Reason: {reason}")
 
     @command(6, aliases=["clean", "prune"], usage="<limit> [member]")
     async def purge(self, ctx: commands.Context, limit: int, *, member: MemberOrID = None) -> None:
@@ -608,7 +685,7 @@ class Moderation(commands.Cog):
             await self.alert_user(ctx, member, reason)
             await member.kick(reason=reason)
             if ctx.author != ctx.guild.me:
-                await ctx.send(self.bot.accept)
+                await ctx.send(f"{member.mention} has been kicked. Reason: {reason}")
             await self.send_log(ctx, member, reason)
 
     @command(7)
@@ -629,7 +706,7 @@ class Moderation(commands.Cog):
             await member.ban(reason=reason)
             await asyncio.sleep(2)
             await member.unban(reason=reason)
-            await ctx.send(self.bot.accept)
+            await ctx.send(f"{member.mention} has been softbanned (ban/unban). Reason: {reason}")
             await self.send_log(ctx, member, reason)
 
     @command(7, usage="<member> [duration] [reason]")
@@ -667,7 +744,10 @@ class Moderation(commands.Cog):
 
         await ctx.guild.ban(member, reason=reason)
         if ctx.author != ctx.guild.me:
-            await ctx.send(self.bot.accept)
+            if duration:
+                await ctx.send(f"{member.mention} has been temporarily banned for {format_timedelta(duration)}. Reason: {reason}")
+            else:
+                await ctx.send(f"{member.mention} has been banned. Reason: {reason}")
 
         # log complete, save to DB
         if duration is not None:
@@ -714,10 +794,10 @@ class Moderation(commands.Cog):
             except discord.NotFound as e:
                 await ctx.send(f"Unable to unban user: {e}")
             else:
-                await ctx.send(self.bot.accept)
+                await ctx.send(f"{member.mention} has been unbanned. Reason: {reason}")
                 await self.send_log(ctx, member, reason)
         else:
-            await ctx.send(self.bot.accept)
+            await ctx.send(f"{member.mention} will be unbanned after {format_timedelta(duration)}. Reason: {reason}")
             seconds = duration.total_seconds()
             seconds += unixs()
             await self.bot.db.update_guild_config(
