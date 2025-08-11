@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone  # Add timezone import
 from typing import Any, List, Union
 
 import discord
@@ -120,7 +120,9 @@ class Logging(commands.Cog):
                     await log.send(f"```{payload.content}\n```")
             elif mode == "member_join":
                 fmt = f"`{current_time}` {payload} ({payload.id}) has joined. "
-                delta = datetime.utcnow() - payload.created_at
+                delta = (
+                    datetime.now(timezone.utc) - payload.created_at
+                )  # Make utcnow timezone-aware
                 if delta.total_seconds() < 60 * 60 * 24:
                     # joined in last day
                     fmt += f"Warning: account created {format_timedelta(delta)} ago"
