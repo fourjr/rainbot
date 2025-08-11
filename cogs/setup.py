@@ -5,6 +5,7 @@ import re
 from typing import Optional, Union, List, Dict, Any
 
 import discord
+import asyncio
 from discord.ext import commands
 
 from bot import rainbot
@@ -583,10 +584,12 @@ class Setup(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @command(10, aliases=["set_log", "set-log"], usage="<event|all> <#channel|channel name|channel id|off>")
-    async def setlog(
-        self, ctx: commands.Context, log_name: str, *, channel: str = None
-    ) -> None:
+    @command(
+        10,
+        aliases=["set_log", "set-log"],
+        usage="<event|all> <#channel|channel name|channel id|off>",
+    )
+    async def setlog(self, ctx: commands.Context, log_name: str, *, channel: str = None) -> None:
         """Configure the log channel for message/server events.
 
         Valid types: all, message_delete, message_edit, member_join, member_remove, member_ban, member_unban, vc_state_change, channel_create, channel_delete, role_create, role_delete
@@ -606,7 +609,9 @@ class Setup(commands.Cog):
                 found = await commands.TextChannelConverter().convert(ctx, channel)
             except Exception:
                 # Try by name
-                found = discord.utils.find(lambda c: c.name.lower() == channel.lower(), ctx.guild.text_channels)
+                found = discord.utils.find(
+                    lambda c: c.name.lower() == channel.lower(), ctx.guild.text_channels
+                )
             if found:
                 # Confirm with user
                 confirm_embed = discord.Embed(
@@ -626,7 +631,9 @@ class Setup(commands.Cog):
                     )
 
                 try:
-                    reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
+                    reaction, user = await ctx.bot.wait_for(
+                        "reaction_add", timeout=30.0, check=check
+                    )
                 except asyncio.TimeoutError:
                     await ctx.send("Channel confirmation timed out. Command cancelled.")
                     return
@@ -655,12 +662,16 @@ class Setup(commands.Cog):
             await self.bot.db.update_guild_config(
                 ctx.guild.id, {"$set": {f"logs.{log_name}": channel_id}}
             )
-            await ctx.send(f"Log channel for `{log_name}` set to {found.mention if channel_id and found else 'off'}.")
+            await ctx.send(
+                f"Log channel for `{log_name}` set to {found.mention if channel_id and found else 'off'}."
+            )
 
-    @command(10, aliases=["set_modlog", "set-modlog"], usage="<action|all> <#channel|channel name|channel id|off>")
-    async def setmodlog(
-        self, ctx: commands.Context, log_name: str, *, channel: str = None
-    ) -> None:
+    @command(
+        10,
+        aliases=["set_modlog", "set-modlog"],
+        usage="<action|all> <#channel|channel name|channel id|off>",
+    )
+    async def setmodlog(self, ctx: commands.Context, log_name: str, *, channel: str = None) -> None:
         """Configure the moderation log channel for actions.
 
         Valid types: all, member_warn, member_mute, member_unmute, member_kick, member_ban, member_unban, member_softban, message_purge, channel_lockdown, channel_slowmode
@@ -676,7 +687,9 @@ class Setup(commands.Cog):
             try:
                 found = await commands.TextChannelConverter().convert(ctx, channel)
             except Exception:
-                found = discord.utils.find(lambda c: c.name.lower() == channel.lower(), ctx.guild.text_channels)
+                found = discord.utils.find(
+                    lambda c: c.name.lower() == channel.lower(), ctx.guild.text_channels
+                )
             if found:
                 confirm_embed = discord.Embed(
                     title="Channel Confirmation",
@@ -695,7 +708,9 @@ class Setup(commands.Cog):
                     )
 
                 try:
-                    reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
+                    reaction, user = await ctx.bot.wait_for(
+                        "reaction_add", timeout=30.0, check=check
+                    )
                 except asyncio.TimeoutError:
                     await ctx.send("Channel confirmation timed out. Command cancelled.")
                     return
@@ -725,12 +740,14 @@ class Setup(commands.Cog):
             await self.bot.db.update_guild_config(
                 ctx.guild.id, {"$set": {f"modlog.{log_name}": channel_id}}
             )
-            await ctx.send(f"Modlog channel for `{log_name}` set to {found.mention if channel_id and found else 'off'}.")
+            await ctx.send(
+                f"Modlog channel for `{log_name}` set to {found.mention if channel_id and found else 'off'}."
+            )
 
-    @command(10, aliases=["set_perm_level", "set-perm-level"], usage="<level> <@role|role name|role id>")
-    async def setpermlevel(
-        self, ctx: commands.Context, perm_level: int, *, role: str
-    ) -> None:
+    @command(
+        10, aliases=["set_perm_level", "set-perm-level"], usage="<level> <@role|role name|role id>"
+    )
+    async def setpermlevel(self, ctx: commands.Context, perm_level: int, *, role: str) -> None:
         """Assign or remove a role's permission level.
 
         Example: `!!setpermlevel 2 @Moderator` (use 0 to remove)
@@ -764,8 +781,7 @@ class Setup(commands.Cog):
                     ctx.guild.id,
                     {"$push": {"perm_levels": {"role_id": str(role_obj.id), "level": perm_level}}},
                 )
-
-    await ctx.send(f"Permission level {perm_level} set for role {role_obj.mention}.")
+            await ctx.send(f"Permission level {perm_level} set for role {role_obj.mention}.")
 
     @command(
         10, aliases=["set_command_level", "set-command-level"], usage="<level|reset> <command>"
@@ -816,14 +832,12 @@ class Setup(commands.Cog):
             elif int_perm_level > parent_level:
                 cmd_level = get_command_level(cmd, guild_config)
                 all_levels = [get_command_level(c, guild_config) for c in list(cmd.parent.commands)]
-
                 all_levels.remove(cmd_level)
-        await ctx.send(f"Permission level for command `{name}` set to {int_perm_level}.")
                 all_levels.append(int_perm_level)
-
                 lowest = min(all_levels)
                 if lowest > parent_level:
                     levels.append({"command": cmd.parent.name, "level": lowest})
+        await ctx.send(f"Permission level for command `{name}` set to {int_perm_level}.")
 
         to_push_levels = {"$each": copy.deepcopy(levels)}
 
@@ -859,9 +873,8 @@ class Setup(commands.Cog):
         Example: `!!setoffset 2`
         """
         if not -12 < offset < 14:
-                await self.bot.db.update_guild_config(
-                    ctx.guild.id, {"$addToSet": {"detections.filters": word}}
-                )
+            raise commands.BadArgument("Offset must be between -12 and +13 hours.")
+        await self.bot.db.update_guild_config(ctx.guild.id, {"$set": {"offset": offset}})
         await ctx.send(f"Time offset set to `{offset}` hours.")
 
     @command(10, aliases=["set_detection", "set-detection"])
@@ -894,9 +907,6 @@ class Setup(commands.Cog):
             "repetitive_message",
             "max_lines",
             "max_words",
-                await self.bot.db.update_guild_config(
-                    ctx.guild.id, {"$pull": {"detections.filters": word}}
-                )
             "repetitive_characters",
         ):
             if value is None:
@@ -1020,8 +1030,8 @@ class Setup(commands.Cog):
     @command(10, aliases=["set_recommended", "set-recommended"])
     async def setrecommended(self, ctx: commands.Context) -> None:
         """Sets a recommended set of detections"""
-    await self.bot.db.update_guild_config(ctx.guild.id, {"$set": RECOMMENDED_DETECTIONS})
-    await ctx.send("Recommended detections have been set.")
+        await self.bot.db.update_guild_config(ctx.guild.id, {"$set": RECOMMENDED_DETECTIONS})
+        await ctx.send("Recommended detections have been set.")
 
     @command(10, aliases=["set-guild-whitelist", "set_guild_whitelist"])
     async def setguildwhitelist(self, ctx: commands.Context, guild_id: int = None) -> None:
@@ -1040,8 +1050,7 @@ class Setup(commands.Cog):
             await self.bot.db.update_guild_config(
                 ctx.guild.id, {"$addToSet": {"whitelisted_guilds": str(guild_id)}}
             )
-
-    await ctx.send(f"Guild whitelist updated: {guild_id if guild_id else 'cleared'}.")
+        await ctx.send(f"Guild whitelist updated: {guild_id if guild_id else 'cleared'}.")
 
     @command(10, aliases=["set-detection-ignore", "set_detection_ignore"])
     async def setdetectionignore(
@@ -1079,8 +1088,9 @@ class Setup(commands.Cog):
                     ctx.guild.id,
                     {"$addToSet": {f"ignored_channels.{detection_type}": str(channel.id)}},
                 )
-
-    await ctx.send(f"Detection ignore for `{detection_type}` updated for channel {channel.mention if channel else 'all channels cleared'}.")
+        await ctx.send(
+            f"Detection ignore for `{detection_type}` updated for channel {channel.mention if channel else 'all channels cleared'}."
+        )
 
     @command(10, aliases=["set-log-ignore", "set_log_ignore"])
     async def setlogignore(
@@ -1117,8 +1127,9 @@ class Setup(commands.Cog):
                     ctx.guild.id,
                     {"$addToSet": {f"ignored_channels.{detection_type}": str(channel.id)}},
                 )
-
-    await ctx.send(f"Log ignore for `{detection_type}` updated for channel {channel.mention if channel else 'all channels cleared'}.")
+        await ctx.send(
+            f"Log ignore for `{detection_type}` updated for channel {channel.mention if channel else 'all channels cleared'}."
+        )
 
     @group(8, invoke_without_command=True)
     async def regexfilter(self, ctx: commands.Context) -> None:
@@ -1138,7 +1149,7 @@ class Setup(commands.Cog):
         await self.bot.db.update_guild_config(
             ctx.guild.id, {"$addToSet": {"detections.regex_filters": pattern}}
         )
-    await ctx.send(f"Regex pattern `{pattern}` added to filter.")
+        await ctx.send(f"Regex pattern `{pattern}` added to filter.")
 
     @regexfilter.command(8, name="remove")
     async def re_remove(self, ctx: commands.Context, *, pattern) -> None:
@@ -1146,7 +1157,7 @@ class Setup(commands.Cog):
         await self.bot.db.update_guild_config(
             ctx.guild.id, {"$pull": {"detections.regex_filters": pattern}}
         )
-    await ctx.send(f"Regex pattern `{pattern}` removed from filter.")
+        await ctx.send(f"Regex pattern `{pattern}` removed from filter.")
 
     @regexfilter.command(8, name="list")
     async def re_list_(self, ctx: commands.Context) -> None:
@@ -1193,7 +1204,11 @@ class Setup(commands.Cog):
                 await self.bot.db.update_guild_config(
                     ctx.guild.id, {"$addToSet": {"detections.image_filters": {"$each": to_add}}}
                 )
-                await ctx.send(f"Word `{'image hash(es)'}" + (f" ({', '.join(to_add)})" if to_add else "") + "` added to filter.")
+                await ctx.send(
+                    f"Word `{'image hash(es)'}"
+                    + (f" ({', '.join(to_add)})" if to_add else "")
+                    + "` added to filter."
+                )
             else:
                 raise commands.UserInputError(
                     "word has to be provided or an image has to be attached."
@@ -1229,7 +1244,11 @@ class Setup(commands.Cog):
                 await self.bot.db.update_guild_config(
                     ctx.guild.id, {"$pullAll": {"detections.image_filters": to_remove}}
                 )
-                await ctx.send(f"Word `{'image hash(es)'}" + (f" ({', '.join(to_remove)})" if to_remove else "") + "` removed from filter.")
+                await ctx.send(
+                    f"Word `{'image hash(es)'}"
+                    + (f" ({', '.join(to_remove)})" if to_remove else "")
+                    + "` removed from filter."
+                )
             else:
                 raise commands.UserInputError(
                     "word has to be provided or an image has to be attached."
@@ -1300,8 +1319,7 @@ class Setup(commands.Cog):
                         }
                     },
                 )
-
-    await ctx.send(f"Warn punishment for {limit} set to {punishment}.")
+        await ctx.send(f"Warn punishment for {limit} set to {punishment}.")
 
     @command(10, aliases=["set-explicit", "set_explicit"], usage="[types...]")
     async def setexplicit(self, ctx: commands.Context, *types_) -> None:
@@ -1332,8 +1350,7 @@ class Setup(commands.Cog):
         await self.bot.db.update_guild_config(
             ctx.guild.id, {"$set": {"detections.sexually_explicit": types_}}
         )
-
-    await ctx.send(f"Explicit types set: {' '.join(types_)}.")
+        await ctx.send(f"Explicit types set: {' '.join(types_)}.")
 
     @command(10, aliases=["set-canned-variables", "set_canned_variables"])
     async def setcannedvariables(
@@ -1348,8 +1365,7 @@ class Setup(commands.Cog):
             await self.bot.db.update_guild_config(
                 ctx.guild.id, {"$set": {f"canned_variables.{name}": value}}
             )
-
-    await ctx.send(f"Canned variable `{name}` set to: {value if value else 'removed'}.")
+        await ctx.send(f"Canned variable `{name}` set to: {value if value else 'removed'}.")
 
 
 async def setup(bot: rainbot) -> None:

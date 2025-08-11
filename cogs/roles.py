@@ -146,7 +146,9 @@ class Roles(commands.Cog):
             },
         )
 
-        await ctx.send(f"Added reaction role: {role.mention} with emoji {emoji.id} to message {message_id}.")
+        await ctx.send(
+            f"Added reaction role: {role.mention} with emoji {emoji.id} to message {message_id}."
+        )
 
     @reactionrole.command(10, name="remove", aliases=["del", "delete"])
     async def remove_(self, ctx: commands.Context, message_id: int, role: discord.Role) -> None:

@@ -61,10 +61,11 @@ class Moderation(commands.Cog):
                 moderator = ctx.guild.get_member(int(warn["moderator_id"]))
                 # Try to extract a unix timestamp from warn['date'] if possible, else just show as is
                 # If warn['date'] is in <t:unix:D> format, extract the unix part
-                date_str = warn['date']
+                date_str = warn["date"]
                 unix_match = None
                 if isinstance(date_str, str) and date_str.startswith("<t:"):
                     import re
+
                     m = re.match(r"<t:(\\d+):[A-Z]>", date_str)
                     if m:
                         unix_match = int(m.group(1))
@@ -112,6 +113,7 @@ class Moderation(commands.Cog):
             await self.send_log(ctx, case_number, warn["reason"])
         else:
             await ctx.send("Warn removal cancelled.")
+
     """Basic moderation commands"""
 
     def __init__(self, bot: rainbot) -> None:
@@ -194,7 +196,9 @@ class Moderation(commands.Cog):
                     await channel.send(fmt)
             elif ctx.command.name == "unban":
                 name = getattr(args[0], "name", "(no name)")
-                fmt = f"{current_time} {ctx.author} unbanned {name} ({args[0].id}), reason: {args[1]}"
+                fmt = (
+                    f"{current_time} {ctx.author} unbanned {name} ({args[0].id}), reason: {args[1]}"
+                )
                 channel = ctx.bot.get_channel(modlogs.member_unban)
                 if channel:
                     await channel.send(fmt)
@@ -504,9 +508,13 @@ class Moderation(commands.Cog):
 
             if ctx.author != ctx.guild.me:
                 if duration:
-                    await ctx.send(f"{member.mention} has been muted for {format_timedelta(duration)}. Reason: {reason}")
+                    await ctx.send(
+                        f"{member.mention} has been muted for {format_timedelta(duration)}. Reason: {reason}"
+                    )
                 else:
-                    await ctx.send(f"{member.mention} has been muted indefinitely. Reason: {reason}")
+                    await ctx.send(
+                        f"{member.mention} has been muted indefinitely. Reason: {reason}"
+                    )
 
     @command(6, name="muted")
     async def muted(self, ctx: commands.Context) -> None:
@@ -745,7 +753,9 @@ class Moderation(commands.Cog):
         await ctx.guild.ban(member, reason=reason)
         if ctx.author != ctx.guild.me:
             if duration:
-                await ctx.send(f"{member.mention} has been temporarily banned for {format_timedelta(duration)}. Reason: {reason}")
+                await ctx.send(
+                    f"{member.mention} has been temporarily banned for {format_timedelta(duration)}. Reason: {reason}"
+                )
             else:
                 await ctx.send(f"{member.mention} has been banned. Reason: {reason}")
 
@@ -797,7 +807,9 @@ class Moderation(commands.Cog):
                 await ctx.send(f"{member.mention} has been unbanned. Reason: {reason}")
                 await self.send_log(ctx, member, reason)
         else:
-            await ctx.send(f"{member.mention} will be unbanned after {format_timedelta(duration)}. Reason: {reason}")
+            await ctx.send(
+                f"{member.mention} will be unbanned after {format_timedelta(duration)}. Reason: {reason}"
+            )
             seconds = duration.total_seconds()
             seconds += unixs()
             await self.bot.db.update_guild_config(

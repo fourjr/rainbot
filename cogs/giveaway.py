@@ -227,7 +227,9 @@ class Giveaways(commands.Cog):
                 }
             },
         )
-        await ctx.send(f"Giveaway config set: Emoji `{emoji}` | Channel {channel.mention} | Role {role_obj.mention if role_obj else role_id if role_id else 'None'}.")
+        await ctx.send(
+            f"Giveaway config set: Emoji `{emoji}` | Channel {channel.mention} | Role {role_obj.mention if role_obj else role_id if role_id else 'None'}."
+        )
 
     @group(6, invoke_without_command=True, aliases=["give"])
     async def giveaway(self, ctx: commands.Context) -> None:

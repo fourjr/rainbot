@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 import random
 import re
@@ -123,7 +122,6 @@ async def select_role(ctx: commands.Context, role: str) -> Optional[discord.Role
         else:
             await ctx.send("Role not found by name, mention, or ID.")
             return None
-
 
 
 # Use modern emoji API
