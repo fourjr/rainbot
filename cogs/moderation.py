@@ -11,7 +11,7 @@ from bot import rainbot
 
 from ext.command import command, group
 from ext.time import UserFriendlyTime
-from ext.utility import get_perm_level
+from ext.utility import get_perm_level, CannedStr
 
 
 class MemberOrID(commands.IDConverter):
