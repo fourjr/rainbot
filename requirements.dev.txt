@@ -1,2 +1,47 @@
-flake8~=3.7.0
-mypy~=0.790
+# Development dependencies for rainbot
+# Install with: pip install -r requirements.dev.txt
+
+# Core requirements (also install main requirements)
+-r requirements.txt
+
+# Code Quality & Linting
+black==23.12.1
+flake8==7.0.0
+isort==5.13.2
+mypy==1.8.0
+pylint==3.0.3
+
+# Testing
+pytest==7.4.4
+pytest-asyncio==0.23.5
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+
+# Documentation
+sphinx==7.2.5
+sphinx-rtd-theme==2.0.0
+myst-parser==2.0.0
+
+# Development Tools
+pre-commit==3.6.0
+tox==4.12.1
+coverage==7.4.1
+
+# Debugging
+ipython==8.18.1
+ipdb==0.13.13
+
+# Type Checking
+types-requests==2.31.0.20231225
+types-PyYAML==6.0.12.12
+
+# Performance
+memory-profiler==0.61.0
+line-profiler==4.1.2
+
+# Security
+bandit==1.7.5
+safety==2.3.5
+
+# Git Hooks
+husky==0.3.0

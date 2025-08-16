@@ -1,6 +1,5 @@
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
-
 class IsMaster(object):
     def __init__(self, doc: Mapping[str, Any]) -> None: ...
     @property

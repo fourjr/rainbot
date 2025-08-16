@@ -1,17 +1,18 @@
-from typing import (Any, Dict, Mapping, NamedTuple, Optional, Set, Sequence,
-                    Tuple, Union)
+from typing import Any, Dict, Mapping, NamedTuple, Optional, Set, Sequence, Tuple, Union
 import datetime
 
 from pymongo.ismaster import IsMaster
 from pymongo.server_description import ServerDescription
 
-
-_Listeners = NamedTuple('_Listeners', [
-    ('command_listeners', Sequence[CommandListener]),
-    ('server_listeners', Sequence[ServerListener]),
-    ('server_heartbeat_listeners', Sequence[ServerHeartbeatListener]),
-    ('topology_listeners', Sequence[TopologyListener]),
-])
+_Listeners = NamedTuple(
+    "_Listeners",
+    [
+        ("command_listeners", Sequence[CommandListener]),
+        ("server_listeners", Sequence[ServerListener]),
+        ("server_heartbeat_listeners", Sequence[ServerHeartbeatListener]),
+        ("topology_listeners", Sequence[TopologyListener]),
+    ],
+)
 
 class _EventListener(object): ...
 
@@ -38,7 +39,9 @@ class ServerListener(_EventListener):
 def register(listener: _EventListener) -> None: ...
 
 class _CommandEvent(object):
-    def __init__(self, command_name: str, request_id: int, connection_id: Tuple[str, int], operation_id: int) -> None: ...
+    def __init__(
+        self, command_name: str, request_id: int, connection_id: Tuple[str, int], operation_id: int
+    ) -> None: ...
     @property
     def command_name(self) -> str: ...
     @property
@@ -63,14 +66,17 @@ class CommandSucceededEvent(_CommandEvent):
         command_name: str,
         request_id: int,
         connection_id: Tuple[str, int],
-        operation_id: int) -> None: ...
+        operation_id: int,
+    ) -> None: ...
     @property
     def duration_micros(self) -> int: ...
     @property
     def reply(self) -> Dict[str, Any]: ...
 
 class CommandFailedEvent(_CommandEvent):
-    def __init__(self, duration: datetime.timedelta, failure: Mapping[str, Any], *args: Any) -> None: ...
+    def __init__(
+        self, duration: datetime.timedelta, failure: Mapping[str, Any], *args: Any
+    ) -> None: ...
     @property
     def duration_micros(self) -> int: ...
     @property
@@ -84,14 +90,18 @@ class _ServerEvent(object):
     def topology_id(self) -> int: ...
 
 class ServerDescriptionChangedEvent(_ServerEvent):
-    def __init__(self, previous_description: ServerDescription, new_description: ServerDescription, *args: Any) -> None: ...
+    def __init__(
+        self,
+        previous_description: ServerDescription,
+        new_description: ServerDescription,
+        *args: Any,
+    ) -> None: ...
     @property
     def previous_description(self) -> ServerDescription: ...
     @property
     def new_description(self) -> ServerDescription: ...
 
 class ServerOpeningEvent(_ServerEvent): ...
-
 class ServerClosedEvent(_ServerEvent): ...
 
 class TopologyEvent(object):
@@ -100,15 +110,18 @@ class TopologyEvent(object):
     def topology_id(self) -> int: ...
 
 class TopologyDescriptionChangedEvent(TopologyEvent):
-    def __init__(self, previous_description: ServerDescription,
-                 new_description: ServerDescription, *args: Any) -> None: ...
+    def __init__(
+        self,
+        previous_description: ServerDescription,
+        new_description: ServerDescription,
+        *args: Any,
+    ) -> None: ...
     @property
     def previous_description(self) -> ServerDescription: ...
     @property
     def new_description(self) -> ServerDescription: ...
 
 class TopologyOpenedEvent(TopologyEvent): ...
-
 class TopologyClosedEvent(TopologyEvent): ...
 
 class _ServerHeartbeatEvent(object):
@@ -149,7 +162,8 @@ class _EventListeners(object):
         database_name: str,
         request_id: int,
         connection_id: Tuple[str, int],
-        op_id: Optional[int] = ...) -> None: ...
+        op_id: Optional[int] = ...,
+    ) -> None: ...
     def publish_command_success(
         self,
         duration: datetime.timedelta,
@@ -157,7 +171,8 @@ class _EventListeners(object):
         command_name: str,
         request_id: int,
         connection_id: Tuple[str, int],
-        op_id: Optional[int] = ...) -> None: ...
+        op_id: Optional[int] = ...,
+    ) -> None: ...
     def publish_command_failure(
         self,
         duration: datetime.timedelta,
@@ -165,18 +180,21 @@ class _EventListeners(object):
         command_name: str,
         request_id: int,
         connection_id: Tuple[str, int],
-        op_id: Optional[int] = ...) -> None: ...
+        op_id: Optional[int] = ...,
+    ) -> None: ...
     def publish_server_heartbeat_started(self, connection_id: Tuple[str, int]) -> None: ...
     def publish_server_heartbeat_succeeded(
         self,
         connection_id: Tuple[str, int],
         duration: int,
-        reply: Union[Mapping[str, Any], Exception]) -> None: ...
+        reply: Union[Mapping[str, Any], Exception],
+    ) -> None: ...
     def publish_server_heartbeat_failed(
         self,
         connection_id: Tuple[str, int],
         duration: int,
-        reply: Union[Mapping[str, Any], Exception]) -> None: ...
+        reply: Union[Mapping[str, Any], Exception],
+    ) -> None: ...
     def publish_server_opened(self, server_address: Tuple[str, int], topology_id: int) -> None: ...
     def publish_server_closed(self, server_address: Tuple[str, int], topology_id: int) -> None: ...
     def publish_server_description_changed(
@@ -184,11 +202,13 @@ class _EventListeners(object):
         previous_description: ServerDescription,
         new_description: ServerDescription,
         server_address: Tuple[str, int],
-        topology_id: int) -> None: ...
+        topology_id: int,
+    ) -> None: ...
     def publish_topology_opened(self, topology_id: int) -> None: ...
     def publish_topology_closed(self, topology_id: int) -> None: ...
     def publish_topology_description_changed(
         self,
         previous_description: ServerDescription,
         new_description: ServerDescription,
-        topology_id: int) -> None: ...
+        topology_id: int,
+    ) -> None: ...

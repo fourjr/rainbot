@@ -1,6 +1,5 @@
 from typing import Any, Dict, List, Mapping, Sequence
 
-
 class _WriteResult(object):
     def __init__(self, acknowledged: bool) -> None: ...
     @property
@@ -35,8 +34,7 @@ class DeleteResult(_WriteResult):
     def deleted_count(self) -> int: ...
 
 class BulkWriteResult(_WriteResult):
-    def __init__(self, bulk_api_result: Mapping[str, Any], acknowledged: bool)\
-        -> None: ...
+    def __init__(self, bulk_api_result: Mapping[str, Any], acknowledged: bool) -> None: ...
     @property
     def bulk_api_result(self) -> Dict[str, Any]: ...
     @property

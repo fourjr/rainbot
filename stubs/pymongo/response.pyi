@@ -11,7 +11,8 @@ class Response(object):
         address: Tuple[str, int],
         request_id: int,
         duration: datetime.timedelta,
-        from_command: bool) -> None: ...
+        from_command: bool,
+    ) -> None: ...
     @property
     def data(self) -> bytes: ...
     @property
@@ -32,7 +33,8 @@ class ExhaustResponse(Response):
         pool: Pool,
         request_id: int,
         duration: datetime.timedelta,
-        from_command: bool) -> None: ...
+        from_command: bool,
+    ) -> None: ...
     @property
     def socket_info(self) -> SocketInfo: ...
     @property

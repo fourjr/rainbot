@@ -5,8 +5,8 @@
 from typing import Any, Dict, Optional, TypeVar
 from bson.codec_options import CodecOptions
 
-_Key = TypeVar('_Key')
-_Value = TypeVar('_Value')
+_Key = TypeVar("_Key")
+_Value = TypeVar("_Value")
 
 class RawBSONDocument(Dict[_Key, _Value]):
     def __init__(self, bson_bytes: bytes, codec_options: Optional[CodecOptions] = ...) -> None: ...
