@@ -66,6 +66,19 @@ DEFAULT: Dict[str, Any] = {
             },
             "sensitivity": 90,
         },
+        "image_moderation": {
+            "enabled": False,
+            "categories": {
+                "hate": True,
+                "hate/threatening": True,
+                "self-harm": True,
+                "sexual": True,
+                "sexual/minors": True,
+                "violence": True,
+                "violence/graphic": True,
+            },
+            "sensitivity": 90,
+        },
     },
     "detection_punishments": {
         "filters": {"warn": 1, "mute": None, "kick": False, "ban": False, "delete": True},
@@ -167,6 +180,7 @@ DEFAULT: Dict[str, Any] = {
         "max_characters": [],
         "caps_message": [],
         "ai_moderation": [],
+        "image_moderation": [],
         "message_delete": [],
         "message_edit": [],
         "channel_delete": [],

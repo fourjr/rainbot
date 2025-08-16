@@ -296,7 +296,7 @@ class Detections(commands.Cog):
     @detection("image_moderation", require_attachment=True)
     async def image_moderation(self, m: MessageWrapper, guild_config) -> None:
         """Use OpenAI's Moderation API for image moderation"""
-        if not guild_config.detections.ai_moderation.enabled:
+        if not guild_config.detections.image_moderation.enabled:
             return
 
         openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -304,7 +304,7 @@ class Detections(commands.Cog):
             self.logger.warning("OPENAI_API_KEY is not set, AI moderation is disabled.")
             return
 
-        sensitivity = guild_config.detections.ai_moderation.sensitivity / 100
+        sensitivity = guild_config.detections.image_moderation.sensitivity / 100
 
         # --- Image Moderation ---
         for attachment in m.attachments:
@@ -322,7 +322,7 @@ class Detections(commands.Cog):
                             k
                             for k, v in result["category_scores"].items()
                             if v > sensitivity
-                            and guild_config.detections.ai_moderation.categories.get(k)
+                            and guild_config.detections.image_moderation.categories.get(k)
                         ]
                         if flagged_categories:
                             reason = f"AI moderation triggered for image: {', '.join(flagged_categories)}"
