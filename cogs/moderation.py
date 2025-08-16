@@ -739,7 +739,12 @@ class Moderation(commands.Cog):
 
     @command(7, usage="<member> [duration] [reason]")
     async def ban(
-        self, ctx: commands.Context, member: MemberOrID, *, time_or_reason: str = None
+        self,
+        ctx: commands.Context,
+        member: MemberOrID,
+        *,
+        time_or_reason: str = None,
+        prune_days: int = None,
     ) -> None:
         """Ban a member from the server, optionally with a duration.
 
@@ -824,10 +829,21 @@ class Moderation(commands.Cog):
                     # DM failed or not resolvable; continue to ban by id/object
                     pass
 
-            # Execute the ban (works with Member, User, or ID / Object)
-            await ctx.guild.ban(
-                member, reason=f"{ctx.author}: {reason}" if reason else f"Ban by {ctx.author}"
-            )
+            # Get prune_days from config if not provided
+            guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+            if prune_days is None:
+                prune_days = getattr(guild_config, "ban_prune_days", 3)
+            # If disabled (0 or False), do not prune any messages
+            if not prune_days:
+                await ctx.guild.ban(
+                    member, reason=f"{ctx.author}: {reason}" if reason else f"Ban by {ctx.author}"
+                )
+            else:
+                await ctx.guild.ban(
+                    member,
+                    reason=f"{ctx.author}: {reason}" if reason else f"Ban by {ctx.author}",
+                    delete_message_days=prune_days,
+                )
 
             # If temporary ban, schedule unban and record in DB
             if duration:
