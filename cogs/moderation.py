@@ -11,6 +11,10 @@ from bot import rainbot
 from ext.command import command, group
 from ext.utility import format_timedelta, get_perm_level
 from ext.time import UserFriendlyTime
+
+class Moderation(commands.Cog):
+    # ...existing code...
+    async def remove_warn(self, ctx, case_number):
         warns = await self.bot.db.get_guild_warns(ctx.guild.id)
         warn = next((w for w in warns if w.get("case_number") == case_number), None)
         if not warn:
@@ -45,16 +49,7 @@ from ext.time import UserFriendlyTime
                 await ctx.send("Warn removal cancelled.")
         except asyncio.TimeoutError:
             await ctx.send("Warn removal timed out. Command cancelled.")
-import asyncio
-import re
-import string
-from datetime import timedelta
-from time import time as unixs
-from typing import Union
-
-import discord
-from ext.utility import SafeFormat
-from ext.database import DEFAULT
+    # ...existing code...
 from ext.utility import DBDict, tryint
 from ext.utility import CannedStr
 from discord.ext import commands
