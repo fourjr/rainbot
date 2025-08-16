@@ -29,7 +29,9 @@ class Detections(commands.Cog):
         self.bot = bot
         self.logger = logging.getLogger("rainbot.detections")
         self.spam_detection: DefaultDict[str, List[float]] = defaultdict(list)
-        self.repetitive_message: DefaultDict[str, Dict[str, List[float]]] = defaultdict(lambda: defaultdict(list))
+        self.repetitive_message: DefaultDict[str, Dict[str, List[float]]] = defaultdict(
+            lambda: defaultdict(list)
+        )
         self.INVITE_REGEX = re.compile(
             r"((http(s|):\/\/|)(discord)(\.(gg|io|me)\/|app\.com\/invite\/)([0-z]+))"
         )
@@ -61,10 +63,14 @@ class Detections(commands.Cog):
             if dev_guild_id and m.guild and m.guild.id != dev_guild_id:
                 return
         if (
-            self.bot.dev_mode
-            and getattr(self.bot, "dev_guild_id", None)
-            and (m.guild and m.guild.id != getattr(self.bot, "dev_guild_id", None))
-        ) or m.type != discord.MessageType.default or not m.guild:
+            (
+                self.bot.dev_mode
+                and getattr(self.bot, "dev_guild_id", None)
+                and (m.guild and m.guild.id != getattr(self.bot, "dev_guild_id", None))
+            )
+            or m.type != discord.MessageType.default
+            or not m.guild
+        ):
             return
 
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
@@ -92,7 +98,9 @@ class Detections(commands.Cog):
                 mentions.append(i)
 
         if len(mentions) >= guild_config.detections.mention_limit:
-            await m.detection.punish(self.bot, m, guild_config, reason=f"Mass mentions ({len(m.mentions)})")
+            await m.detection.punish(
+                self.bot, m, guild_config, reason=f"Mass mentions ({len(m.mentions)})"
+            )
 
     @detection("max_lines")
     async def max_lines(self, m: MessageWrapper, guild_config) -> None:
@@ -113,7 +121,9 @@ class Detections(commands.Cog):
     async def filtered_words(self, m: MessageWrapper, guild_config) -> None:
         words = [i for i in guild_config.detections.filters if i in m.content.lower()]
         if words:
-            await m.detection.punish(self.bot, m, guild_config, reason=f"Sent a filtered word: {words[0]}")
+            await m.detection.punish(
+                self.bot, m, guild_config, reason=f"Sent a filtered word: {words[0]}"
+            )
 
     @detection("regex_filters")
     async def regex_filter(self, m: MessageWrapper, guild_config) -> None:
@@ -135,7 +145,9 @@ class Detections(commands.Cog):
                 img.close()
 
                 if image_hash in guild_config.detections.image_filters:
-                    await m.detection.punish(self.bot, m, guild_config, reason="Sent a filtered image")
+                    await m.detection.punish(
+                        self.bot, m, guild_config, reason="Sent a filtered image"
+                    )
                     break
 
     @detection("block_invite")
@@ -170,23 +182,28 @@ class Detections(commands.Cog):
         now = m.created_at.timestamp()
         self.spam_detection[str(m.author.id)].append(now)
         # Remove messages older than 5 seconds
-        self.spam_detection[str(m.author.id)] = [t for t in self.spam_detection[str(m.author.id)] if now - t < 5]
+        self.spam_detection[str(m.author.id)] = [
+            t for t in self.spam_detection[str(m.author.id)] if now - t < 5
+        ]
 
         limit = guild_config.detections.spam_detection
         if len(self.spam_detection[str(m.author.id)]) >= limit:
             reason = f"Exceeding spam detection ({limit} messages/5s)"
             await m.detection.punish(
-                self.bot, m, guild_config, reason=reason, purge_limit=len(self.spam_detection[str(m.author.id)])
+                self.bot,
+                m,
+                guild_config,
+                reason=reason,
+                purge_limit=len(self.spam_detection[str(m.author.id)]),
             )
             # Clear after punishment
             self.spam_detection[str(m.author.id)].clear()
-
 
     @detection("repetitive_message")
     async def repetitive_message(self, m: MessageWrapper, guild_config) -> None:
         now = m.created_at.timestamp()
         author_messages = self.repetitive_message[str(m.author.id)]
-        
+
         # Add current message timestamp
         author_messages[m.content].append(now)
 
@@ -197,7 +214,7 @@ class Detections(commands.Cog):
                 del author_messages[content]
 
         limit = guild_config.detections.repetitive_message
-        
+
         current_message_count = len(author_messages.get(m.content, []))
 
         if current_message_count >= limit:
@@ -244,7 +261,7 @@ class Detections(commands.Cog):
         author_messages = self.repetitive_message.get(str(id_), {})
         if not author_messages:
             return 0
-        
+
         most_common_count = 0
         for content, timestamps in author_messages.items():
             if len(timestamps) > most_common_count:
@@ -255,11 +272,10 @@ class Detections(commands.Cog):
         """Use OpenAI's Moderation API for NSFW detection"""
         try:
             response = await self.bot.loop.run_in_executor(
-                self.bot.executor,
-                lambda: openai.Moderation.create(input=url)
+                self.bot.executor, lambda: openai.Moderation.create(input=url)
             )
-            if response['results'][0]['flagged']:
-                await self.openai_callback(m, guild_config, response['results'][0]['categories'])
+            if response["results"][0]["flagged"]:
+                await self.openai_callback(m, guild_config, response["results"][0]["categories"])
         except Exception as e:
             self.logger.error(f"Error calling OpenAI Image Moderation API: {e}")
 
@@ -268,14 +284,15 @@ class Detections(commands.Cog):
         """Use OpenAI's Moderation API for text moderation"""
         if not guild_config.detections.ai_moderation:
             return
-        
+
         try:
             response = await self.bot.loop.run_in_executor(
-                self.bot.executor,
-                lambda: openai.Moderation.create(input=m.content)
+                self.bot.executor, lambda: openai.Moderation.create(input=m.content)
             )
-            if response['results'][0]['flagged']:
-                flagged_categories = [k for k, v in response['results'][0]['categories'].items() if v]
+            if response["results"][0]["flagged"]:
+                flagged_categories = [
+                    k for k, v in response["results"][0]["categories"].items() if v
+                ]
                 reason = f"AI moderation triggered for: {', '.join(flagged_categories)}"
                 await m.detection.punish(self.bot, m, guild_config, reason=reason)
         except Exception as e:
@@ -284,9 +301,7 @@ class Detections(commands.Cog):
     async def openai_callback(self, m, guild_config, categories) -> None:
         flagged_categories = [k for k, v in categories.items() if v]
         reason = f"Potentially inappropriate image detected for: {', '.join(flagged_categories)}"
-        await m.detection.punish(
-            self.bot, m, guild_config, reason=reason
-        )
+        await m.detection.punish(self.bot, m, guild_config, reason=reason)
 
 
 async def setup(bot: rainbot) -> None:

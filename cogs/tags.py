@@ -66,7 +66,7 @@ class Tags(commands.Cog):
             # This check is to ensure that the message is a command-like invocation.
             if not ctx.prefix or not ctx.invoked_with:
                 return
-            
+
             guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
             tags = [i.name for i in guild_config.tags]
 
@@ -75,7 +75,10 @@ class Tags(commands.Cog):
                 user_input = message.content.replace(
                     f"{ctx.prefix}{ctx.invoked_with}", "", 1
                 ).strip()
-                await ctx.send(**self.format_message(tag.value, message, user_input), allowed_mentions=discord.AllowedMentions.none())
+                await ctx.send(
+                    **self.format_message(tag.value, message, user_input),
+                    allowed_mentions=discord.AllowedMentions.none(),
+                )
 
     def apply_vars_dict(
         self, tag: Dict[str, Union[Any]], message: discord.Message, user_input: str

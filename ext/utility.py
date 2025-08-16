@@ -288,7 +288,9 @@ class Detection:
         self.force_enable = force_enable
         self.__cog_detection__ = True
 
-    async def check_constraints(self, bot: rainbot, message: discord.Message, guild_config=None) -> bool:
+    async def check_constraints(
+        self, bot: rainbot, message: discord.Message, guild_config=None
+    ) -> bool:
         if self.require_guild and not message.guild:
             return False
         if self.force_enable and bot.dev_mode:
@@ -332,9 +334,11 @@ class Detection:
 
         # Notify user
         try:
-            await message.author.send(f"Your message in {message.guild.name} was flagged for '{reason}' and has been removed.")
+            await message.author.send(
+                f"Your message in {message.guild.name} was flagged for '{reason}' and has been removed."
+            )
         except discord.Forbidden:
-            pass # User has DMs disabled
+            pass  # User has DMs disabled
 
         # Log to modlog channel
         log_channel_id = guild_config.modlog.get("message_delete")
@@ -344,7 +348,7 @@ class Detection:
                 embed = discord.Embed(
                     title="AI Moderation Action",
                     description=f"**User:** {message.author.mention}\n**Reason:** {reason}\n**Action:** Message Deleted",
-                    color=discord.Color.red()
+                    color=discord.Color.red(),
                 )
                 embed.set_footer(text=f"User ID: {message.author.id}")
                 await log_channel.send(embed=embed)

@@ -320,12 +320,12 @@ class DatabaseManager:
 
     def start_change_listener(self) -> None:
         """Start the change listener task"""
-        pass # Disabling change listener in favor of cache
+        pass  # Disabling change listener in favor of cache
 
     async def get_guild_config(self, guild_id: int) -> DBDict:
         if guild_id in self.guild_cache:
             return self.guild_cache[guild_id]
-        
+
         data = await self.coll.find_one({"guild_id": str(guild_id)})
         if not data:
             config = await self.create_new_config(guild_id)
@@ -338,7 +338,7 @@ class DatabaseManager:
     # Guilds
     async def update_guild_config(self, guild_id: int, update: dict, **kwargs: Any) -> DBDict:
         if guild_id in self.guild_cache:
-            del self.guild_cache[guild_id] # Invalidate cache
+            del self.guild_cache[guild_id]  # Invalidate cache
 
         updated_document = await self.coll.find_one_and_update(
             {"guild_id": str(guild_id)},
