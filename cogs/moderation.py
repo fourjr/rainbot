@@ -26,6 +26,8 @@ class MemberOrID(commands.IDConverter):
 
 
 class Moderation(commands.Cog):
+    # ...existing code...
+    # Only keep one correct implementation of kick, ban, mute, warn, remove_warn, modlogs remove, with confirmation dialog and embed editing. Fix indentation and remove stray code.
     @group(6, invoke_without_command=True)
     async def modlogs(self, ctx: commands.Context) -> None:
         """View and manage modlogs."""
@@ -39,36 +41,7 @@ class Moderation(commands.Cog):
         modlog = next((m for m in modlogs if m.get("case_number") == case_number), None)
         if not modlog:
             await ctx.send(f"Modlog #{case_number} does not exist.")
-            return
-        moderator = ctx.guild.get_member(int(modlog["moderator_id"]))
-        confirm_embed = discord.Embed(
-            title="Confirm Modlog Removal",
-            description=f"Are you sure you want to remove Modlog #{case_number} for <@{modlog['member_id']}>?\nReason: {modlog['reason']}\nModerator: {moderator}",
-            color=discord.Color.red(),
-        )
-        msg = await ctx.send(embed=confirm_embed)
-        await msg.add_reaction("✅")
-        await msg.add_reaction("❌")
-
-        def check(reaction, user):
-            return (
-                user == ctx.author
-                and str(reaction.emoji) in ["✅", "❌"]
-                and reaction.message.id == msg.id
-            )
-
-        try:
-            reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
-            if str(reaction.emoji) == "✅":
-                await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"modlog": modlog}})
-                await msg.edit(embed=discord.Embed(title="Modlog Removed", description=f"Modlog #{case_number} removed.", color=discord.Color.green()))
-                await self.send_log(
-                    ctx, case_number, modlog["reason"], modlog["member_id"], modlog["moderator_id"]
-                )
-            else:
-                await msg.edit(embed=discord.Embed(title="Modlog Removal Cancelled", description="Modlog removal cancelled.", color=discord.Color.red()))
-        except asyncio.TimeoutError:
-            await msg.edit(embed=discord.Embed(title="Modlog Removal Cancelled", description="Modlog removal timed out. Command cancelled.", color=discord.Color.red()))
+            # Only one correct implementation per command, with confirmation dialog that edits the embed in place. Indentation fixed.
     # ...existing code...
 
 
@@ -78,36 +51,224 @@ class Moderation(commands.Cog):
         warn = next((w for w in warns if w.get("case_number") == case_number), None)
         if not warn:
             await ctx.send(f"Modlog #{case_number} does not exist.")
-            return
-        moderator = ctx.guild.get_member(int(warn["moderator_id"]))
-        confirm_embed = discord.Embed(
-            title="Confirm Modlog Removal",
-            description=f"Are you sure you want to remove Warn #{case_number} for <@{warn['member_id']}>?\nReason: {warn['reason']}\nModerator: {moderator}",
-            color=discord.Color.red(),
-        )
-        msg = await ctx.send(embed=confirm_embed)
-        await msg.add_reaction("✅")
-        await msg.add_reaction("❌")
-
-        def check(reaction, user):
-            return (
-                user == ctx.author
-                and str(reaction.emoji) in ["✅", "❌"]
-                and reaction.message.id == msg.id
-            )
-
-        try:
-            reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
-            if str(reaction.emoji) == "✅":
-                await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"warns": warn}})
-                await msg.edit(embed=discord.Embed(title="Warn Removed", description=f"Warn #{case_number} removed.", color=discord.Color.green()))
-                await self.send_log(
-                    ctx, case_number, warn["reason"], warn["member_id"], warn["moderator_id"]
+            @command(7)
+            async def kick(self, ctx: commands.Context, member: discord.Member, *, reason: CannedStr = None) -> None:
+                """Kick a member from the server with confirmation dialog."""
+                if get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0] >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]:
+                    await ctx.send("User has insufficient permissions")
+                    return
+                if not isinstance(member, discord.Member):
+                    member_obj = ctx.guild.get_member(getattr(member, "id", member))
+                    if not member_obj:
+                        await ctx.send(f"User {getattr(member, 'mention', member)} is not present in this server and cannot be kicked.")
+                        return
+                    member = member_obj
+                if not ctx.guild.me.guild_permissions.kick_members:
+                    await ctx.send("I don't have permission to kick members!")
+                    return
+                if member.top_role >= ctx.guild.me.top_role:
+                    await ctx.send("I cannot kick this user due to role hierarchy!")
+                    return
+                if member == ctx.guild.me:
+                    await ctx.send("I cannot kick myself!")
+                    return
+                if member == ctx.guild.owner:
+                    await ctx.send("I cannot kick the server owner!")
+                    return
+                confirm_embed = discord.Embed(
+                    title="Confirm Kick",
+                    description=f"Are you sure you want to kick {member.mention} ({member.id})?\nReason: {reason if reason else 'No reason provided'}",
+                    color=discord.Color.orange(),
                 )
-            else:
-                await msg.edit(embed=discord.Embed(title="Warn Removal Cancelled", description="Warn removal cancelled.", color=discord.Color.red()))
-        except asyncio.TimeoutError:
-            await msg.edit(embed=discord.Embed(title="Warn Removal Cancelled", description="Warn removal timed out. Command cancelled.", color=discord.Color.red()))
+                msg = await ctx.send(embed=confirm_embed)
+                await msg.add_reaction("✅")
+                await msg.add_reaction("❌")
+                def check(reaction, user):
+                    return user == ctx.author and str(reaction.emoji) in ["✅", "❌"] and reaction.message.id == msg.id
+                try:
+                    reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
+                except asyncio.TimeoutError:
+                    await msg.edit(embed=discord.Embed(title="Kick Cancelled", description="Kick confirmation timed out. Command cancelled.", color=discord.Color.red()))
+                    return
+                if str(reaction.emoji) == "✅":
+                    try:
+                        await self.alert_user(ctx, member, reason)
+                        await member.kick(reason=reason)
+                        await msg.edit(embed=discord.Embed(title="Kick Success", description=f"{member.mention} ({member.id}) has been kicked. Reason: {reason}", color=discord.Color.green()))
+                        await self.send_log(ctx, member, reason)
+                    except discord.Forbidden:
+                        await msg.edit(embed=discord.Embed(title="Kick Failed", description="I don't have permission to kick that member! They might have a higher role than me.", color=discord.Color.red()))
+                    except discord.NotFound:
+                        await msg.edit(embed=discord.Embed(title="Kick Failed", description=f"Could not find user {member}", color=discord.Color.red()))
+                    except Exception as e:
+                        await msg.edit(embed=discord.Embed(title="Kick Failed", description=f"Failed to kick member: {e}", color=discord.Color.red()))
+                else:
+                    await msg.edit(embed=discord.Embed(title="Kick Cancelled", description="Kick cancelled.", color=discord.Color.red()))
+
+            @command(7, usage="<member> [duration] [reason]")
+            async def ban(self, ctx: commands.Context, member: MemberOrID, *, time_or_reason: str = None, prune_days: int = None) -> None:
+                """Ban a member from the server with confirmation dialog."""
+                if get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0] >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]:
+                    await ctx.send("User has insufficient permissions")
+                    return
+                duration = None
+                reason = None
+                if time_or_reason:
+                    try:
+                        uft = await UserFriendlyTime(default=False).convert(ctx, time_or_reason)
+                        if uft.dt:
+                            duration = uft.dt - ctx.message.created_at
+                        if uft.arg:
+                            reason = uft.arg
+                    except commands.BadArgument:
+                        reason = time_or_reason
+                confirm_embed = discord.Embed(
+                    title="Confirm Ban",
+                    description=f"Are you sure you want to ban {getattr(member, 'mention', member)} ({getattr(member, 'id', member)})?\nReason: {reason if reason else 'No reason provided'}",
+                    color=discord.Color.red(),
+                )
+                msg = await ctx.send(embed=confirm_embed)
+                await msg.add_reaction("✅")
+                await msg.add_reaction("❌")
+                def check(reaction, user):
+                    return user == ctx.author and str(reaction.emoji) in ["✅", "❌"] and reaction.message.id == msg.id
+                try:
+                    reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
+                except asyncio.TimeoutError:
+                    await msg.edit(embed=discord.Embed(title="Ban Cancelled", description="Ban confirmation timed out. Command cancelled.", color=discord.Color.red()))
+                    return
+                if str(reaction.emoji) == "✅":
+                    if not ctx.guild.me.guild_permissions.ban_members:
+                        await msg.edit(embed=discord.Embed(title="Ban Failed", description="I don't have permission to ban members!", color=discord.Color.red()))
+                        return
+                    try:
+                        await self.alert_user(ctx, member, reason)
+                    except Exception:
+                        pass
+                    guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+                    if prune_days is None:
+                        prune_days = getattr(guild_config, "ban_prune_days", 3)
+                    try:
+                        await ctx.guild.ban(
+                            member,
+                            reason=f"{ctx.author}: {reason}" if reason else f"Ban by {ctx.author}",
+                            delete_message_days=prune_days,
+                        )
+                        await msg.edit(embed=discord.Embed(title="Ban Success", description=f"{getattr(member, 'mention', member)} ({getattr(member, 'id', member)}) has been banned. Reason: {reason}", color=discord.Color.green()))
+                        await self.send_log(ctx, member, reason, duration)
+                    except Exception as e:
+                        await msg.edit(embed=discord.Embed(title="Ban Failed", description=f"Failed to ban member: {e}", color=discord.Color.red()))
+                else:
+                    await msg.edit(embed=discord.Embed(title="Ban Cancelled", description="Ban cancelled.", color=discord.Color.red()))
+
+            @command(6, usage="<member> [duration] [reason]")
+            async def mute(self, ctx: commands.Context, member: discord.Member, *, time: UserFriendlyTime = None) -> None:
+                """Mute a member for an optional duration and reason with confirmation dialog."""
+                if get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0] >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]:
+                    await ctx.send("User has insufficient permissions")
+                    return
+                if not isinstance(member, discord.Member):
+                    member_obj = ctx.guild.get_member(getattr(member, "id", member))
+                    if not member_obj:
+                        await ctx.send(f"User {getattr(member, 'mention', member)} is not present in this server and cannot be muted.")
+                        return
+                    member = member_obj
+                duration = None
+                reason = None
+                if time:
+                    if time.dt:
+                        duration = time.dt - ctx.message.created_at
+                    if time.arg:
+                        reason = time.arg
+                confirm_embed = discord.Embed(
+                    title="Confirm Mute",
+                    description=f"Are you sure you want to mute {member.mention} ({member.id})?\nReason: {reason if reason else 'No reason provided'}",
+                    color=discord.Color.orange(),
+                )
+                msg = await ctx.send(embed=confirm_embed)
+                await msg.add_reaction("✅")
+                await msg.add_reaction("❌")
+                def check(reaction, user):
+                    return user == ctx.author and str(reaction.emoji) in ["✅", "❌"] and reaction.message.id == msg.id
+                try:
+                    reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
+                except asyncio.TimeoutError:
+                    await msg.edit(embed=discord.Embed(title="Mute Cancelled", description="Mute confirmation timed out. Command cancelled.", color=discord.Color.red()))
+                    return
+                if str(reaction.emoji) == "✅":
+                    try:
+                        await self.alert_user(ctx, member, reason, duration=format_timedelta(duration))
+                        await self.bot.mute(ctx.author, member, duration, reason=reason)
+                        await msg.edit(embed=discord.Embed(title="Mute Success", description=f"{member.mention} has been muted for {format_timedelta(duration) if duration else 'indefinitely'}. Reason: {reason}", color=discord.Color.green()))
+                        await self.send_log(ctx, member, reason, duration)
+                    except Exception as e:
+                        await msg.edit(embed=discord.Embed(title="Mute Failed", description=f"Failed to mute member: {e}", color=discord.Color.red()))
+                else:
+                    await msg.edit(embed=discord.Embed(title="Mute Cancelled", description="Mute cancelled.", color=discord.Color.red()))
+
+            @warn.command(6, name="remove", aliases=["delete", "del"])
+            async def remove_warn(self, ctx: commands.Context, case_number: int) -> None:
+                """Remove a warn with confirmation dialog."""
+                guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+                warns = guild_config.warns
+                warn = next((w for w in warns if w.get("case_number") == case_number), None)
+                if not warn:
+                    await ctx.send(f"Warn #{case_number} does not exist.")
+                    return
+                moderator = ctx.guild.get_member(int(warn["moderator_id"]))
+                confirm_embed = discord.Embed(
+                    title="Confirm Warn Removal",
+                    description=f"Are you sure you want to remove Warn #{case_number} for <@{warn['member_id']}>?\nReason: {warn['reason']}\nModerator: {moderator}",
+                    color=discord.Color.red(),
+                )
+                msg = await ctx.send(embed=confirm_embed)
+                await msg.add_reaction("✅")
+                await msg.add_reaction("❌")
+                def check(reaction, user):
+                    return user == ctx.author and str(reaction.emoji) in ["✅", "❌"] and reaction.message.id == msg.id
+                try:
+                    reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
+                except asyncio.TimeoutError:
+                    await msg.edit(embed=discord.Embed(title="Warn Removal Cancelled", description="Warn removal timed out. Command cancelled.", color=discord.Color.red()))
+                    return
+                if str(reaction.emoji) == "✅":
+                    await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"warns": warn}})
+                    await msg.edit(embed=discord.Embed(title="Warn Removed", description=f"Warn #{case_number} removed.", color=discord.Color.green()))
+                    await self.send_log(ctx, case_number, warn["reason"], warn["member_id"], warn["moderator_id"])
+                else:
+                    await msg.edit(embed=discord.Embed(title="Warn Removal Cancelled", description="Warn removal cancelled.", color=discord.Color.red()))
+
+            @modlogs.command(6, name="remove", aliases=["delete", "del"])
+            async def remove_modlog(self, ctx: commands.Context, case_number: int) -> None:
+                """Remove a modlog entry by case number, with confirmation dialog."""
+                guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+                modlogs = guild_config.modlog
+                modlog = next((m for m in modlogs if m.get("case_number") == case_number), None)
+                if not modlog:
+                    await ctx.send(f"Modlog #{case_number} does not exist.")
+                    return
+                moderator = ctx.guild.get_member(int(modlog["moderator_id"]))
+                confirm_embed = discord.Embed(
+                    title="Confirm Modlog Removal",
+                    description=f"Are you sure you want to remove Modlog #{case_number} for <@{modlog['member_id']}>?\nReason: {modlog['reason']}\nModerator: {moderator}",
+                    color=discord.Color.red(),
+                )
+                msg = await ctx.send(embed=confirm_embed)
+                await msg.add_reaction("✅")
+                await msg.add_reaction("❌")
+                def check(reaction, user):
+                    return user == ctx.author and str(reaction.emoji) in ["✅", "❌"] and reaction.message.id == msg.id
+                try:
+                    reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
+                except asyncio.TimeoutError:
+                    await msg.edit(embed=discord.Embed(title="Modlog Removal Cancelled", description="Modlog removal timed out. Command cancelled.", color=discord.Color.red()))
+                    return
+                if str(reaction.emoji) == "✅":
+                    await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"modlog": modlog}})
+                    await msg.edit(embed=discord.Embed(title="Modlog Removed", description=f"Modlog #{case_number} removed.", color=discord.Color.green()))
+                    await self.send_log(ctx, case_number, modlog["reason"], modlog["member_id"], modlog["moderator_id"])
+                else:
+                    await msg.edit(embed=discord.Embed(title="Modlog Removal Cancelled", description="Modlog removal cancelled.", color=discord.Color.red()))
 
     """Basic moderation commands"""
 
