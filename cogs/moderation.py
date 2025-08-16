@@ -782,7 +782,10 @@ class Moderation(commands.Cog):
                 ban_entry = None
 
             if ban_entry:
-                await ctx.send(f"{getattr(member, 'mention', str(member))} is already banned (Reason: {ban_entry.reason})")
+                user_id = getattr(member, 'id', member)
+                display_name = getattr(member, 'mention', str(member))
+                display_with_id = f"{display_name} ({user_id})"
+                await ctx.send(f"{display_with_id} is already banned (Reason: {ban_entry.reason})")
                 return
 
             # If member is in guild, perform role hierarchy check and alert them directly
