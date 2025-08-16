@@ -309,7 +309,7 @@ class Moderation(commands.Cog):
             return
             
         if str(reaction.emoji) == "✅":
-            await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"modlog": modlog}})
+            await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"modlog": {"case_number": case_number}}})
             await msg.edit(
                 embed=discord.Embed(
                     title="Modlog Removed",
