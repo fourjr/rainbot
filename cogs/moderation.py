@@ -109,7 +109,7 @@ class Moderation(commands.Cog):
 
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         modlogs = getattr(guild_config, "modlog", [])
-        modlog = next((m for m in modlogs if m.get("case_number") == case_number), None)
+        modlog = next((m for m in modlogs if isinstance(m, dict) and m.get("case_number") == case_number), None)
         if not modlog:
             await ctx.send(f"❌ Modlog #{case_number} does not exist.")
             return
