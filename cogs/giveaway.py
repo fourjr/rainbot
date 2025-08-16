@@ -163,9 +163,27 @@ class Giveaways(commands.Cog):
         channel: discord.TextChannel,
         role: str = None,
     ):
-        """Sets up giveaways.
+        """**Configure giveaway settings**
 
-        Role can be @everyone, @here or none"""
+        This command sets up the channel, emoji, and required role for participating in giveaways.
+
+        **Usage:**
+        `{prefix}setgiveaway <emoji> <#channel> [role]`
+
+        **<emoji>:**
+        The emoji users will react with to enter giveaways.
+
+        **<#channel>:**
+        The channel where giveaways will be hosted.
+
+        **[role]:**
+        - Optional: A role required to enter giveaways.
+        - Can be a role mention, name, or ID.
+        - Use `@everyone`, `@here`, or `none`.
+
+        **Example:**
+        `{prefix}setgiveaway 🎉 #giveaways @Member`
+        """
         # Role selection logic: allow mention, ID, or name, and confirm if name
         role_id = None
         role_obj = None
@@ -233,14 +251,40 @@ class Giveaways(commands.Cog):
 
     @group(6, invoke_without_command=True, aliases=["give"])
     async def giveaway(self, ctx: commands.Context) -> None:
-        """Setup giveaways!"""
+        """**Manage giveaways**
+
+        This command group contains all the commands for creating and managing giveaways.
+
+        **Subcommands:**
+        - `create` - Create a new giveaway.
+        - `stats` - View statistics for the latest giveaway.
+        - `edit_description` - Edit the description of the latest giveaway.
+        - `edit_winners` - Edit the number of winners for the latest giveaway.
+        - `reroll` - Reroll the winners of the latest giveaway.
+        - `stop` - Stop the latest giveaway.
+        """
         await ctx.invoke(self.bot.get_command("help"), command_or_cog="giveaway")
 
     @giveaway.command(8, usage="<endtime> <winners> <description>")
     async def create(self, ctx: commands.Context, *, time: UserFriendlyTime) -> None:
-        """Create a giveaway
+        """**Create a new giveaway**
 
-        Example: `!!giveaway create 3 days 5 $10USD`
+        This command starts a new giveaway in the configured giveaway channel.
+
+        **Usage:**
+        `{prefix}giveaway create <duration> <winners> <prize>`
+
+        **<duration>:**
+        How long the giveaway will last (e.g., `3d`, `12h`, `30m`).
+
+        **<winners>:**
+        The number of winners.
+
+        **<prize>:**
+        The description of what is being given away.
+
+        **Example:**
+        `{prefix}giveaway create 3 days 5 $10 USD`
         """
         async with ctx.typing():
             latest_giveaway = await self.get_latest_giveaway(ctx)
@@ -321,7 +365,13 @@ class Giveaways(commands.Cog):
 
     @giveaway.command(6, aliases=["stat", "statistics"])
     async def stats(self, ctx: commands.Context) -> None:
-        """View statistics of the latest giveaway"""
+        """**View statistics of the latest giveaway**
+
+        This command displays statistics for the most recent giveaway, including the number of participants and new members.
+
+        **Usage:**
+        `{prefix}giveaway stats`
+        """
         async with ctx.typing():
             latest_giveaway = await self.get_latest_giveaway(ctx, force=True)
             if latest_giveaway:
@@ -378,7 +428,19 @@ class Giveaways(commands.Cog):
 
     @giveaway.command(8, aliases=["edit-description"])
     async def edit_description(self, ctx: commands.Context, *, description: str) -> None:
-        """Edit the description of the latest giveaway"""
+        """**Edit the description of the current giveaway**
+
+        This command allows you to change the prize description for the currently active giveaway.
+
+        **Usage:**
+        `{prefix}giveaway edit_description <new_description>`
+
+        **<new_description>:**
+        The new prize description.
+
+        **Example:**
+        `{prefix}giveaway edit_description A shiny new bike`
+        """
         latest_giveaway = await self.get_latest_giveaway(ctx)
         if latest_giveaway:
             new_embed = latest_giveaway.embeds[0]
@@ -390,7 +452,19 @@ class Giveaways(commands.Cog):
 
     @giveaway.command(8, aliases=["edit-winners"])
     async def edit_winners(self, ctx: commands.Context, *, winners: int) -> None:
-        """Edit the number of winners of the latest giveaway"""
+        """**Edit the number of winners for the current giveaway**
+
+        This command allows you to change the number of winners for the currently active giveaway.
+
+        **Usage:**
+        `{prefix}giveaway edit_winners <number_of_winners>`
+
+        **<number_of_winners>:**
+        The new number of winners.
+
+        **Example:**
+        `{prefix}giveaway edit_winners 3`
+        """
         latest_giveaway = await self.get_latest_giveaway(ctx)
         if latest_giveaway:
             new_embed = latest_giveaway.embeds[0]
@@ -406,7 +480,20 @@ class Giveaways(commands.Cog):
 
     @giveaway.command(8, aliases=["roll"])
     async def reroll(self, ctx: commands.Context, nwinners: int = None) -> None:
-        """Rerolls the winners"""
+        """**Reroll winners for the last giveaway**
+
+        This command selects new winners from the participants of the most recently ended giveaway.
+
+        **Usage:**
+        `{prefix}giveaway reroll [number_of_winners]`
+
+        **[number_of_winners]:**
+        - Optional: The number of new winners to roll.
+        - If not provided, it will use the original number of winners.
+
+        **Example:**
+        `{prefix}giveaway reroll 1`
+        """
         async with ctx.typing():
             latest_giveaway = await self.get_latest_giveaway(ctx, force=True, only_previous=True)
             if latest_giveaway:
@@ -430,7 +517,13 @@ class Giveaways(commands.Cog):
 
     @giveaway.command(6)
     async def stop(self, ctx: commands.Context) -> None:
-        """Stops the giveaway"""
+        """**Stop the current giveaway**
+
+        This command immediately ends the currently active giveaway and rolls the winners.
+
+        **Usage:**
+        `{prefix}giveaway stop`
+        """
         latest_giveaway = await self.get_latest_giveaway(ctx, force=True)
         if latest_giveaway:
             try:

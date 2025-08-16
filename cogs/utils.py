@@ -23,54 +23,6 @@ if TYPE_CHECKING:
 
 
 class Utility(commands.Cog):
-    @command(6, name="setautorole")
-    async def setautorole(self, ctx: commands.Context, *, role: str):
-        """Set the autorole for new members (mention, ID, or name, with confirmation)."""
-        from ext.utility import select_role
-
-        role_obj = await select_role(ctx, role)
-        if not role_obj:
-            return
-        await self.bot.db.update_guild_config(ctx.guild.id, {"$set": {"autoroles": [role_obj.id]}})
-        await ctx.send(f"Autorole set to {role_obj.mention} for new members.")
-
-    @command(6, name="setselfrole")
-    async def setselfrole(self, ctx: commands.Context, *, role: str):
-        """Add a self-assignable role (mention, ID, or name, with confirmation)."""
-        from ext.utility import select_role
-
-        role_obj = await select_role(ctx, role)
-        if not role_obj:
-            return
-        await self.bot.db.update_guild_config(
-            ctx.guild.id, {"$addToSet": {"selfroles": role_obj.id}}
-        )
-        await ctx.send(f"Added {role_obj.mention} as a self-assignable role.")
-
-    @command(6, name="setreactionrole")
-    async def setreactionrole(self, ctx: commands.Context, *, role: str):
-        """Add a reaction role (mention, ID, or name, with confirmation)."""
-        from ext.utility import select_role
-
-        role_obj = await select_role(ctx, role)
-        if not role_obj:
-            return
-        await self.bot.db.update_guild_config(
-            ctx.guild.id, {"$addToSet": {"reaction_roles": role_obj.id}}
-        )
-        await ctx.send(f"Added {role_obj.mention} as a reaction role.")
-
-    @command(6, name="setmuterole")
-    async def setmuterole(self, ctx: commands.Context, *, role: str):
-        """Set the mute role (mention, ID, or name, with confirmation)."""
-        from ext.utility import select_role
-
-        role_obj = await select_role(ctx, role)
-        if not role_obj:
-            return
-        await self.bot.db.update_guild_config(ctx.guild.id, {"$set": {"mute_role": role_obj.id}})
-        await ctx.send(f"Mute role set to {role_obj.mention}.")
-
     """General utility commands and enhanced help system"""
 
     def __init__(self, bot: "rainbot") -> None:
@@ -81,7 +33,23 @@ class Utility(commands.Cog):
     @owner()
     @command(0, name="eval")
     async def _eval(self, ctx: commands.Context, *, body: str) -> None:
-        """Evaluates python code with enhanced output"""
+        """**Evaluates python code with enhanced output**
+
+        This command is for the bot owner only. It evaluates Python code and provides enhanced output.
+
+        **Usage:**
+        `{prefix}eval <code>`
+
+        **<code>:**
+        The Python code to evaluate. Can be a code block.
+
+        **Example:**
+        `{prefix}eval print("Hello, world!")`
+        `{prefix}eval ```py
+        import discord
+        await ctx.send(f"I'm in {ctx.guild.name}")
+        ```
+        """
         self.logger.info(
             f"Owner eval invoked by {ctx.author} ({getattr(ctx.author, 'id', None)}) in {getattr(ctx.guild, 'id', None)}"
         )
@@ -191,7 +159,19 @@ class Utility(commands.Cog):
     @owner()
     @command(0, name="exec")
     async def _exec(self, ctx: commands.Context, *, command: str) -> None:
-        """Executes a shell command with enhanced output"""
+        """**Executes a shell command with enhanced output**
+
+        This command is for the bot owner only. It executes a shell command and provides enhanced output.
+
+        **Usage:**
+        `{prefix}exec <command>`
+
+        **<command>:**
+        The shell command to execute.
+
+        **Example:**
+        `{prefix}exec ls -l`
+        """
         # Restrict in production unless explicitly allowed
         if not self.bot.dev_mode and os.getenv("ALLOW_EXEC_IN_PROD", "false").lower() != "true":
             await ctx.send("❌ Shell execution is disabled in production.")
@@ -237,7 +217,13 @@ class Utility(commands.Cog):
     @owner()
     @command(0)
     async def update(self, ctx: commands.Context) -> None:
-        """Updates the bot with enhanced feedback"""
+        """**Updates the bot with enhanced feedback**
+
+        This command is for the bot owner only. It pulls the latest changes from the git repository and reloads all extensions.
+
+        **Usage:**
+        `{prefix}update`
+        """
         embed = discord.Embed(title="🔄 Updating...", color=discord.Color.blue())
         msg = await ctx.send(embed=embed)
 
@@ -305,6 +291,7 @@ class Utility(commands.Cog):
             "Tags": f"{get_emoji('tags')} Custom commands and responses",
             "Giveaway": f"{get_emoji('giveaway')} Giveaway management system",
             "EventsAnnouncer": f"{get_emoji('events')} Member join/leave announcements",
+            "Utility": f"{get_emoji('tools')} General utility commands",
         }
 
         cog_name = cog.__class__.__name__
@@ -550,6 +537,7 @@ class Utility(commands.Cog):
                     "Tags": "🏷️ Custom commands and responses",
                     "Giveaway": "🎉 Giveaway management system",
                     "EventsAnnouncer": "📢 Member join/leave announcements",
+                    "Utility": "🔧 General utility commands",
                 }
 
                 cog_list = []
@@ -638,9 +626,30 @@ class Utility(commands.Cog):
 
     @command(0, name="settings")
     async def settings(self, ctx: commands.Context, category: str = None) -> None:
-        """View server configuration settings
+        """**View server configuration settings**
 
-        Categories: logs, modlog, detections, punishments, roles, giveaway, general
+        This command displays the current settings for the server.
+        You can view all settings or specify a category for a more detailed view.
+
+        **Usage:**
+        `{prefix}settings [category]`
+
+        **[category]:**
+        - If left blank, it will show an overview of all settings.
+        - If a category is provided, it will show the settings for that category.
+
+        **Available Categories:**
+        - `logs` - Logging channels
+        - `modlog` - Moderation logs
+        - `detections` - Content filters
+        - `punishments` - Auto punishments
+        - `roles` - Role management
+        - `giveaway` - Giveaway settings
+        - `general` - General settings
+
+        **Examples:**
+        `{prefix}settings`
+        `{prefix}settings logs`
         """
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         prefix = guild_config.prefix
@@ -972,7 +981,14 @@ class Utility(commands.Cog):
 
     @command(0)
     async def about(self, ctx: commands.Context) -> None:
-        """Enhanced about command with statistics"""
+        """**Displays information about the bot**
+
+        This command shows various statistics and information about the bot,
+        including server count, user count, uptime, and links.
+
+        **Usage:**
+        `{prefix}about`
+        """
         stats = await self.bot.get_bot_stats()
 
         embed = discord.Embed(
@@ -1009,7 +1025,13 @@ class Utility(commands.Cog):
 
     @command(0)
     async def invite(self, ctx: commands.Context) -> None:
-        """Get bot invite link"""
+        """**Get the bot's invite link**
+
+        This command provides a link to invite the bot to your own server.
+
+        **Usage:**
+        `{prefix}invite`
+        """
         embed = discord.Embed(
             title=f"{get_emoji('invite')} Invite rainbot",
             description="Click the link below to add rainbot to your server!",
@@ -1025,7 +1047,14 @@ class Utility(commands.Cog):
 
     @command(0)
     async def server(self, ctx: commands.Context) -> None:
-        """Enhanced server information"""
+        """**Displays information about the server**
+
+        This command shows various statistics and information about the current server,
+        including owner, member count, channel count, and more.
+
+        **Usage:**
+        `{prefix}server`
+        """
         guild = ctx.guild
 
         embed = discord.Embed(
@@ -1065,7 +1094,14 @@ class Utility(commands.Cog):
 
     @command(0)
     async def mylevel(self, ctx: commands.Context) -> None:
-        """Show user's permission level"""
+        """**Shows your permission level**
+
+        This command displays your current permission level in this server,
+        which determines which commands you are able to use.
+
+        **Usage:**
+        `{prefix}mylevel`
+        """
         perm_level = get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))
 
         embed = discord.Embed(
@@ -1094,7 +1130,13 @@ class Utility(commands.Cog):
 
     @command(0)
     async def ping(self, ctx: commands.Context) -> None:
-        """Enhanced ping command with detailed latency info"""
+        """**Checks the bot's latency**
+
+        This command shows the bot's response time, including WebSocket and message latency.
+
+        **Usage:**
+        `{prefix}ping`
+        """
         start = datetime.utcnow()
         msg = await ctx.send(f"{get_emoji('ping')} Pinging...")
         end = datetime.utcnow()
@@ -1126,7 +1168,13 @@ class Utility(commands.Cog):
 
     @command(0)
     async def stats(self, ctx: commands.Context) -> None:
-        """Show detailed bot statistics"""
+        """**Shows detailed bot statistics**
+
+        This command displays detailed statistics about the bot's performance and usage.
+
+        **Usage:**
+        `{prefix}stats`
+        """
         stats = await self.bot.get_bot_stats()
 
         embed = discord.Embed(
@@ -1159,7 +1207,13 @@ class Utility(commands.Cog):
 
     @command(0, name="serverhealth", hidden=True)
     async def serverhealth(self, ctx: commands.Context) -> None:
-        """Secret command to show server health information"""
+        """**Shows server health information**
+
+        This is a hidden command for the bot owner to display detailed system and bot health information.
+
+        **Usage:**
+        `{prefix}serverhealth`
+        """
         import psutil
         import platform
         from datetime import datetime, timedelta

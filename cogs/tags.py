@@ -15,17 +15,40 @@ class Tags(commands.Cog):
 
     @group(6, invoke_without_command=True)
     async def tag(self, ctx: commands.Context) -> None:
-        """Controls tags in your server"""
+        """**Manages custom commands (tags)**
+
+        This command allows you to create, remove, and list custom commands, also known as tags.
+        When a tag is created, you can invoke it with `{prefix}tagname`.
+
+        **Subcommands:**
+        - `create` - Creates a new tag.
+        - `remove` - Removes an existing tag.
+        - `list` - Lists all available tags.
+        """
         await ctx.invoke(self.bot.get_command("help"), command_or_cog="tag")
 
     @tag.command(6)
     async def create(
         self, ctx: commands.Context, name: str, *, value: commands.clean_content
     ) -> None:
-        """Create tags for your server.
+        """**Creates a new tag**
 
-        Example: tag create hello Hi! I am the bot responding!
-        Complex usage: https://github.com/fourjr/rainbot/wiki/Tags
+        This command creates a custom command (tag) with a specified name and value.
+
+        **Usage:**
+        `{prefix}tag create <name> <value>`
+
+        **<name>:**
+        The name of the tag. This will be used to invoke the command.
+
+        **<value>:**
+        The content that the bot will send when the tag is used. This can be simple text, a link, or even a JSON embed.
+
+        **Examples:**
+        - `{prefix}tag create hello Hi! I am the bot responding!`
+        - `{prefix}tag create info Welcome to our server! Please read the rules in #rules.`
+
+        For more complex usage, such as creating embeds, refer to the [documentation](https://github.com/fourjr/rainbot/wiki/Tags).
         """
         if value.startswith("http"):
             if value.startswith("https://hastebin.cc") and "raw" not in value:
@@ -44,13 +67,31 @@ class Tags(commands.Cog):
 
     @tag.command(6)
     async def remove(self, ctx: commands.Context, name: str) -> None:
-        """Removes a tag"""
+        """**Removes a tag**
+
+        This command removes a custom command (tag) from the server.
+
+        **Usage:**
+        `{prefix}tag remove <name>`
+
+        **<name>:**
+        The name of the tag to remove.
+
+        **Example:**
+        `{prefix}tag remove hello`
+        """
         await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"tags": {"name": name}}})
         await ctx.send(f"Tag `{name}` removed.")
 
     @tag.command(6, name="list")
     async def list_(self, ctx: commands.Context) -> None:
-        """Lists all tags"""
+        """**Lists all tags**
+
+        This command displays a list of all custom commands (tags) available on the server.
+
+        **Usage:**
+        `{prefix}tag list`
+        """
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         tags = [i.name for i in guild_config.tags]
 

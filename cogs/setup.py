@@ -49,12 +49,20 @@ class Setup(commands.Cog):
 
     @command(6, aliases=["view_config", "view-config"], usage="[json]")
     async def viewconfig(self, ctx: commands.Context, options: str = None) -> None:
-        """View server configuration or get a downloadable JSON.
+        """**View server configuration**
 
-        Usage: `!!viewconfig [json]`
-        Examples:
-        - `!!viewconfig`
-        - `!!viewconfig json`
+        This command displays the current server configuration.
+        You can also get a downloadable JSON file of the configuration.
+
+        **Usage:**
+        `{prefix}viewconfig [json]`
+
+        **[json]:**
+        - If provided, the configuration will be sent as a JSON file.
+
+        **Examples:**
+        - `{prefix}viewconfig` - Displays the configuration in an embed.
+        - `{prefix}viewconfig json` - Sends the configuration as a file.
         """
         guild_config = copy.copy(await self.bot.db.get_guild_config(ctx.guild.id))
 
@@ -142,9 +150,19 @@ class Setup(commands.Cog):
 
     @command(10, aliases=["import_config", "import-config"], usage="<url>")
     async def importconfig(self, ctx: commands.Context, *, url: str) -> None:
-        """Import configuration from a JSON URL with validation.
+        """**Import server configuration**
 
-        Example: `!!importconfig https://hastebin.cc/raw/abcdef`
+        This command imports a server configuration from a JSON URL.
+        The configuration is validated before being applied.
+
+        **Usage:**
+        `{prefix}importconfig <url>`
+
+        **<url>:**
+        - The raw URL to a JSON file containing the configuration.
+
+        **Example:**
+        `{prefix}importconfig https://hastebin.cc/raw/abcdef`
         """
         embed = discord.Embed(title="📥 Importing Configuration...", color=config.get_color("info"))
         msg = await ctx.send(embed=embed)
@@ -212,9 +230,12 @@ class Setup(commands.Cog):
 
     @command(10, aliases=["export_config", "export-config"])
     async def exportconfig(self, ctx: commands.Context) -> None:
-        """Export current server configuration as a JSON attachment.
+        """**Export server configuration**
 
-        Example: `!!exportconfig`
+        This command exports the current server configuration as a JSON file.
+
+        **Usage:**
+        `{prefix}exportconfig`
         """
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         data = json.dumps(guild_config, indent=2, default=str)
@@ -228,9 +249,15 @@ class Setup(commands.Cog):
 
     @command(10, aliases=["reset_config", "reset-config"], usage="(interactive)")
     async def resetconfig(self, ctx: commands.Context) -> None:
-        """Reset server configuration to defaults with confirmation.
+        """**Reset server configuration to defaults**
 
-        Example: `!!resetconfig` and confirm with ✅
+        This command resets all server settings to their default values.
+        A confirmation is required before the reset is performed.
+
+        **Usage:**
+        `{prefix}resetconfig`
+
+        This command is interactive. You will be asked to confirm the reset.
         """
         embed = discord.Embed(
             title="⚠️ Reset Configuration",
@@ -290,7 +317,17 @@ class Setup(commands.Cog):
 
     @group(10, invoke_without_command=True)
     async def setup(self, ctx: commands.Context) -> None:
-        """Interactive server setup wizard"""
+        """**Interactive server setup wizard**
+
+        This command guides you through setting up the bot for your server.
+        You can choose between a quick setup for basic configuration or an advanced setup for more detailed options.
+
+        **Subcommands:**
+        - `quick` - Basic configuration wizard.
+        - `automod` - Configure auto-moderation features.
+        - `logging` - Set up logging channels.
+        - `permissions` - Configure permission levels.
+        """
         embed = discord.Embed(
             title="🚀 Welcome to rainbot Setup!",
             description="I'll help you configure rainbot for your server.\n\n"
@@ -321,7 +358,14 @@ class Setup(commands.Cog):
 
     @setup.command(10, name="quick")
     async def setup_quick(self, ctx: commands.Context) -> None:
-        """Quick setup wizard for basic configuration"""
+        """**Quick setup wizard for basic configuration**
+
+        This interactive command will guide you through the essential setup steps for the bot,
+        including setting the command prefix, creating a mute role, and setting up a moderation log channel.
+
+        **Usage:**
+        `{prefix}setup quick`
+        """
         embed = discord.Embed(
             title="⚡ Quick Setup",
             description="Let's get you started quickly!\n\n"
@@ -485,7 +529,13 @@ class Setup(commands.Cog):
 
     @setup.command(10, name="automod")
     async def setup_automod(self, ctx: commands.Context) -> None:
-        """Interactive auto-moderation setup"""
+        """**Interactive auto-moderation setup**
+
+        This command provides an interactive way to enable or disable various auto-moderation features.
+
+        **Usage:**
+        `{prefix}setup automod`
+        """
         embed = discord.Embed(
             title="🛡️ Auto-moderation Setup",
             description="Configure automatic moderation features.\n\n"
@@ -521,7 +571,13 @@ class Setup(commands.Cog):
 
     @setup.command(10, name="logging")
     async def setup_logging(self, ctx: commands.Context) -> None:
-        """Interactive logging setup"""
+        """**Interactive logging setup**
+
+        This command allows you to interactively configure logging channels for different server events.
+
+        **Usage:**
+        `{prefix}setup logging`
+        """
         embed = discord.Embed(
             title="📝 Logging Setup",
             description="Configure logging channels for different events.\n\n"
@@ -592,14 +648,28 @@ class Setup(commands.Cog):
         usage="<event|all> <#channel|channel name|channel id|off>",
     )
     async def setlog(self, ctx: commands.Context, log_name: str, *, channel: str = None) -> None:
-        """Configure the log channel for message/server events.
+        """**Configure the log channel for message/server events**
 
-        Valid types: all, message_delete, message_edit, member_join, member_remove, member_ban, member_unban, vc_state_change, channel_create, channel_delete, role_create, role_delete
+        This command sets the channel where various server events will be logged.
 
-        Examples:
-        - `!!setlog all #logs`
-        - `!!setlog member_join #join-log`
-        - `!!setlog message_delete off`
+        **Usage:**
+        `{prefix}setlog <event|all> <#channel|channel name|channel id|off>`
+
+        **<event|all>:**
+        - `all`: Apply the channel to all event types.
+        - Specify an event type to set the log channel for that event only.
+
+        **<#channel|channel name|channel id|off>:**
+        - Mention the channel, provide its name or ID.
+        - Use `off` to disable logging for the specified event.
+
+        **Valid Event Types:**
+        `all`, `message_delete`, `message_edit`, `member_join`, `member_remove`, `member_ban`, `member_unban`, `vc_state_change`, `channel_create`, `channel_delete`, `role_create`, `role_delete`
+
+        **Examples:**
+        - `{prefix}setlog all #logs`
+        - `{prefix}setlog member_join #join-log`
+        - `{prefix}setlog message_delete off`
         """
         valid_logs = DEFAULT["logs"].keys()
         channel_id = None
@@ -674,15 +744,28 @@ class Setup(commands.Cog):
         usage="<action|all> <#channel|channel name|channel id|off>",
     )
     async def setmodlog(self, ctx: commands.Context, log_name: str, *, channel: str = None) -> None:
-        """Configure the moderation log channel for actions.
+        """**Configure the moderation log channel for actions**
 
-        Valid types: all, ai_moderation, member_warn, member_mute, member_unmute, member_kick, member_ban, member_unban, member_softban, message_purge, channel_lockdown, channel_slowmode
+        This command sets the channel where moderation actions will be logged.
 
-        Examples:
-        - `!!setmodlog all #mod-log`
-        - `!!setmodlog ai_moderation #ai-logs`
-        - `!!setmodlog member_ban #security`
-        - `!!setmodlog member_warn off`
+        **Usage:**
+        `{prefix}setmodlog <action|all> <#channel|channel name|channel id|off>`
+
+        **<action|all>:**
+        - `all`: Apply the channel to all moderation action types.
+        - Specify an action type to set the log channel for that action only.
+
+        **<#channel|channel name|channel id|off>:**
+        - Mention the channel, provide its name or ID.
+        - Use `off` to disable logging for the specified action.
+
+        **Valid Action Types:**
+        `all`, `ai_moderation`, `member_warn`, `member_mute`, `member_unmute`, `member_kick`, `member_ban`, `member_unban`, `member_softban`, `message_purge`, `channel_lockdown`, `channel_slowmode`
+
+        **Examples:**
+        - `{prefix}setmodlog all #mod-log`
+        - `{prefix}setmodlog member_ban #security`
+        - `{prefix}setmodlog member_warn off`
         """
         channel_id = None
         if channel and channel.lower() not in ("off", "none"):
@@ -751,9 +834,24 @@ class Setup(commands.Cog):
         10, aliases=["set_perm_level", "set-perm-level"], usage="<level> <@role|role name|role id>"
     )
     async def setpermlevel(self, ctx: commands.Context, perm_level: int, *, role: str) -> None:
-        """Assign or remove a role's permission level.
+        """**Assign or remove a role's permission level**
 
-        Example: `!!setpermlevel 2 @Moderator` (use 0 to remove)
+        This command sets the permission level for a specified role.
+        Permission levels control which commands a user can access.
+
+        **Usage:**
+        `{prefix}setpermlevel <level> <@role|role name|role id>`
+
+        **<level>:**
+        - A number from 0 to 10.
+        - Use `0` to remove a permission level from a role.
+
+        **<@role|role name|role id>:**
+        - Mention the role, provide its name, or its ID.
+
+        **Example:**
+        - `{prefix}setpermlevel 2 @Moderator`
+        - `{prefix}setpermlevel 0 @Muted`
         """
         from ext.utility import select_role
 
@@ -792,11 +890,24 @@ class Setup(commands.Cog):
     async def setcommandlevel(
         self, ctx: commands.Context, perm_level: Union[int, str], *, command: str
     ) -> None:
-        """Override a command's required permission level or reset.
+        """**Override a command's required permission level**
 
-        Examples:
-        - `!!setcommandlevel reset ban`
-        - `!!setcommandlevel 8 warn add`
+        This command allows you to change the required permission level for a specific command.
+
+        **Usage:**
+        `{prefix}setcommandlevel <level|reset> <command>`
+
+        **<level|reset>:**
+        - A number from 0 to 15 to set a new permission level.
+        - `reset` to revert the command to its default permission level.
+
+        **<command>:**
+        - The name of the command you want to modify.
+
+        **Examples:**
+        - `{prefix}setcommandlevel 8 ban`
+        - `{prefix}setcommandlevel reset ban`
+        - `{prefix}setcommandlevel 5 warn add`
         """
         if isinstance(perm_level, int) and (perm_level < 0 or perm_level > 15):
             raise commands.BadArgument(
@@ -860,20 +971,37 @@ class Setup(commands.Cog):
 
     @command(10, aliases=["set_prefix", "set-prefix"])
     async def setprefix(self, ctx: commands.Context, new_prefix: str) -> None:
-        """Set the server's command prefix.
+        """**Set the server's command prefix**
 
-        Usage: `!!setprefix <prefix>`
-        Example: `!!setprefix !`
+        This command changes the prefix used to invoke bot commands in this server.
+
+        **Usage:**
+        `{prefix}setprefix <new_prefix>`
+
+        **<new_prefix>:**
+        - The new prefix you want to set.
+
+        **Example:**
+        `{prefix}setprefix !`
         """
         await self.bot.db.update_guild_config(ctx.guild.id, {"$set": {"prefix": new_prefix}})
         await ctx.send(f"Prefix set to `{new_prefix}`.")
 
     @command(10, aliases=["set_offset", "set-offset"])
     async def setoffset(self, ctx: commands.Context, offset: int) -> None:
-        """Set the server time offset from UTC (-12 to +13 hours).
+        """**Set the server time offset from UTC**
 
-        Usage: `!!setoffset <hours>`
-        Example: `!!setoffset 2`
+        This command sets the time offset for your server, which affects the timestamps in logs.
+
+        **Usage:**
+        `{prefix}setoffset <hours>`
+
+        **<hours>:**
+        - An integer between -12 and +13 representing the time offset from UTC.
+
+        **Example:**
+        - `{prefix}setoffset -5` (for EST)
+        - `{prefix}setoffset 1` (for CET)
         """
         if not -12 < offset < 14:
             raise commands.BadArgument("Offset must be between -12 and +13 hours.")
@@ -884,9 +1012,39 @@ class Setup(commands.Cog):
     async def setdetection(
         self, ctx: commands.Context, detection_type: str, value: Optional[str] = None
     ) -> None:
-        """Sets or toggle the auto moderation types
+        """**Sets or toggles auto-moderation types**
 
-        Valid types: block_invite, english_only, mention_limit, spam_detection, repetitive_message, auto_purge_trickocord, max_lines, max_words, max_characters, caps_message_percent, caps_message_min_words, repetitive_characters
+        This command enables, disables, or configures various auto-moderation filters.
+
+        **Usage:**
+        `{prefix}setdetection <type> [value]`
+
+        **<type>:**
+        The type of detection to configure.
+
+        **[value]:**
+        - For on/off toggles, use `on` or `off`.
+        - For limits, provide a number.
+        - If left blank, the detection will be disabled.
+
+        **Valid Types:**
+        - `block_invite`
+        - `english_only`
+        - `mention_limit`
+        - `spam_detection`
+        - `repetitive_message`
+        - `auto_purge_trickocord`
+        - `max_lines`
+        - `max_words`
+        - `max_characters`
+        - `caps_message_percent`
+        - `caps_message_min_words`
+        - `repetitive_characters`
+
+        **Examples:**
+        - `{prefix}setdetection block_invite on`
+        - `{prefix}setdetection mention_limit 10`
+        - `{prefix}setdetection max_lines off`
         """
         if detection_type in ("block_invite", "english_only", "auto_purge_trickocord"):
             if value is None:
@@ -951,22 +1109,33 @@ class Setup(commands.Cog):
     async def setalert(
         self, ctx: commands.Context, punishment: str, *, value: Optional[str] = None
     ) -> None:
-        """Set the message DM-ed to the user upon a punishment.
+        """**Set the message DMed to a user upon punishment**
 
-        Possible punishments: kick, ban, mute, softban, unmute
+        This command configures the direct message a user receives when they are punished.
 
-        Possible templates:
-        - `{time}` (in time offset)
-        - `{author}`
-        - `{user}`
-        - `{reason}` (will be "None" if not provided)
-        - `{channel}`
-        - `{guild}`
-        - `{duration}` (for mute only)
+        **Usage:**
+        `{prefix}setalert <punishment> [message]`
 
-        Leave value blank to remove
+        **<punishment>:**
+        The type of punishment this alert is for.
 
-        Example: !!setalert mute You have been muted in {guild.name} for {reason} for a duration of {duration}!
+        **[message]:**
+        The message to be sent. Leave blank to remove the alert.
+
+        **Valid Punishments:**
+        `kick`, `ban`, `mute`, `softban`, `unmute`
+
+        **Available Variables:**
+        - `{time}`: The time of the punishment.
+        - `{author}`: The moderator who issued the punishment.
+        - `{user}`: The user who received the punishment.
+        - `{reason}`: The reason for the punishment.
+        - `{channel}`: The channel where the infraction occurred.
+        - `{guild}`: The server where the punishment was issued.
+        - `{duration}`: The duration of the mute (for mute punishments only).
+
+        **Example:**
+        `{prefix}setalert mute You have been muted in {guild.name} for {reason} for a duration of {duration}.`
         """
         valid_punishments = ("kick", "ban", "mute", "softban", "unmute")
 
@@ -982,11 +1151,19 @@ class Setup(commands.Cog):
 
     @command(10, aliases=["set-alert-location", "set_alert_location"])
     async def setalertlocation(self, ctx: commands.Context, location: str) -> None:
-        """Set where auto-moderation alerts are sent.
+        """**Set where auto-moderation alerts are sent**
 
-        Valid locations:
+        This command determines whether auto-moderation alerts are sent to the user's DMs or in the channel of the infraction.
+
+        **Usage:**
+        `{prefix}setalertlocation <location>`
+
+        **<location>:**
         - `dm`: Send alerts to the user's direct messages.
         - `channel`: Send alerts in the channel where the infraction occurred.
+
+        **Example:**
+        `{prefix}setalertlocation dm`
         """
         location = location.lower()
         if location not in ("dm", "channel"):
@@ -1001,22 +1178,35 @@ class Setup(commands.Cog):
     async def setdetectionpunishments(
         self, ctx: commands.Context, detection_type: str, key: str, *, value: Optional[str] = None
     ) -> None:
-        """Sets punishment for the detections
+        """**Sets punishments for auto-moderation detections**
 
-        Valid detections: filters, regex_filters, image_filters, block_invite, english_only, mention_limit, spam_detection, repetitive_message, repetitive_characters, max_lines, max_words, max_characters, sexually_explicit, caps_message, ai_moderation
+        This command configures the actions taken when an auto-moderation filter is triggered.
 
-        Valid keys: warn, mute, kick, ban, delete
+        **Usage:**
+        `{prefix}setdetectionpunishments <detection_type> <action> [value]`
 
-        Warn accepts a number of warns to give to the user
-        Kick, ban and delete accepts "yes/no"
-        Mute has to be set to a time, or none (mute indefinitely).
+        **<detection_type>:**
+        The type of detection to configure a punishment for.
 
-        Examples:
-        - `!!setdetectionpunishments filters warn 1`
-        - `!!setdetectionpunishments block_invite kick yes`
-        - `!!setdetectionpunishments mention_limit mute 1d`
-        - `!!setdetectionpunishments ai_moderation delete yes`
-        - `!!setdetectionpunishments ai_moderation mute 30m`
+        **<action>:**
+        The action to take when the detection is triggered.
+
+        **[value]:**
+        - For `warn`, the number of warnings to issue.
+        - For `mute`, the duration of the mute (e.g., `1h`, `30m`). Use `none` for indefinite.
+        - For `kick`, `ban`, and `delete`, use `yes` or `no`.
+
+        **Valid Detections:**
+        `filters`, `regex_filters`, `image_filters`, `block_invite`, `english_only`, `mention_limit`, `spam_detection`, `repetitive_message`, `repetitive_characters`, `max_lines`, `max_words`, `max_characters`, `sexually_explicit`, `caps_message`, `ai_moderation`
+
+        **Valid Actions:**
+        `warn`, `mute`, `kick`, `ban`, `delete`
+
+        **Examples:**
+        - `{prefix}setdetectionpunishments filters warn 1`
+        - `{prefix}setdetectionpunishments block_invite kick yes`
+        - `{prefix}setdetectionpunishments mention_limit mute 1d`
+        - `{prefix}setdetectionpunishments ai_moderation delete yes`
         """
         valid_detections = list(DEFAULT["detection_punishments"].keys())
 
@@ -1052,13 +1242,28 @@ class Setup(commands.Cog):
 
     @command(10, aliases=["set_recommended", "set-recommended"])
     async def setrecommended(self, ctx: commands.Context) -> None:
-        """Sets a recommended set of detections"""
+        """**Applies a recommended set of auto-moderation detections**
+
+        This command quickly enables and configures a baseline set of auto-moderation filters that are recommended for most servers.
+
+        **Usage:**
+        `{prefix}setrecommended`
+        """
         await self.bot.db.update_guild_config(ctx.guild.id, {"$set": RECOMMENDED_DETECTIONS})
         await ctx.send("Recommended detections have been set.")
 
     @group(10, aliases=["set-ai-moderation", "set_ai_moderation"], invoke_without_command=True)
     async def setaimoderation(self, ctx: commands.Context) -> None:
-        """Manage AI-powered automoderation settings."""
+        """**Manage AI-powered auto-moderation settings**
+
+        This command group allows you to configure the AI-based content moderation features.
+
+        **Subcommands:**
+        - `enable` - Enable AI moderation.
+        - `disable` - Disable AI moderation.
+        - `sensitivity` - Set the sensitivity of the AI.
+        - `category` - Enable or disable specific moderation categories.
+        """
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         enabled_categories = [
             k for k, v in guild_config.detections.ai_moderation.categories.items() if v
@@ -1100,7 +1305,13 @@ class Setup(commands.Cog):
 
     @setaimoderation.command(10, name="enable")
     async def aimod_enable(self, ctx: commands.Context) -> None:
-        """Enable AI-powered automoderation."""
+        """**Enable AI-powered auto-moderation**
+
+        This command enables the AI-based content moderation. You will be asked for confirmation.
+
+        **Usage:**
+        `{prefix}setaimoderation enable`
+        """
         embed = discord.Embed(
             title="⚠️ AI Moderation Warning",
             description=(
@@ -1135,7 +1346,13 @@ class Setup(commands.Cog):
 
     @setaimoderation.command(10, name="disable")
     async def aimod_disable(self, ctx: commands.Context) -> None:
-        """Disable AI-powered automoderation."""
+        """**Disable AI-powered auto-moderation**
+
+        This command disables the AI-based content moderation.
+
+        **Usage:**
+        `{prefix}setaimoderation disable`
+        """
         await self.bot.db.update_guild_config(
             ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": False}}
         )
@@ -1143,7 +1360,20 @@ class Setup(commands.Cog):
 
     @setaimoderation.command(10, name="sensitivity")
     async def aimod_sensitivity(self, ctx: commands.Context, sensitivity: int) -> None:
-        """Set the sensitivity of the AI moderation (1-100)."""
+        """**Set the sensitivity of the AI moderation**
+
+        This command adjusts how strict the AI moderation is.
+        A higher sensitivity means the AI is more likely to flag content.
+
+        **Usage:**
+        `{prefix}setaimoderation sensitivity <percentage>`
+
+        **<percentage>:**
+        - An integer between 1 and 100.
+
+        **Example:**
+        `{prefix}setaimoderation sensitivity 80`
+        """
         if not 1 <= sensitivity <= 100:
             await ctx.send("Sensitivity must be between 1 and 100.")
             return
@@ -1155,19 +1385,27 @@ class Setup(commands.Cog):
 
     @setaimoderation.command(10, name="category")
     async def aimod_category(self, ctx: commands.Context, category: str, value: bool) -> None:
-        """
-        Enable or disable a specific AI moderation category.
+        """**Enable or disable a specific AI moderation category**
 
-        You can also use 'all' to enable or disable all categories at once.
+        This command allows you to toggle which categories of content the AI will moderate.
 
-        Available Categories:
-        - hate
-        - hate/threatening
-        - self-harm
-        - sexual
-        - sexual/minors
-        - violence
-        - violence/graphic
+        **Usage:**
+        `{prefix}setaimoderation category <name|all> <on|off>`
+
+        **<name|all>:**
+        - The name of the category to toggle.
+        - `all` to enable or disable all categories at once.
+
+        **<on|off>:**
+        - `on` to enable the category.
+        - `off` to disable the category.
+
+        **Available Categories:**
+        `hate`, `hate/threatening`, `self-harm`, `sexual`, `sexual/minors`, `violence`, `violence/graphic`
+
+        **Examples:**
+        - `{prefix}setaimoderation category hate on`
+        - `{prefix}setaimoderation category all off`
         """
         valid_categories = [
             "hate",
@@ -1202,12 +1440,21 @@ class Setup(commands.Cog):
 
     @command(10, aliases=["set-guild-whitelist", "set_guild_whitelist"])
     async def setguildwhitelist(self, ctx: commands.Context, guild_id: int = None) -> None:
-        """Adds a server to the whitelist.
+        """**Adds a server to the invite whitelist**
 
-        Invite detection will not trigger when this guild's invite is sent.
-        The current server is always whitelisted.
+        This command prevents the bot from flagging invites from whitelisted servers.
+        The current server is always whitelisted by default.
 
-        Run without arguments to clear whitelist
+        **Usage:**
+        `{prefix}setguildwhitelist [guild_id]`
+
+        **[guild_id]:**
+        - The ID of the server to whitelist.
+        - If left blank, the whitelist will be cleared.
+
+        **Examples:**
+        - `{prefix}setguildwhitelist 123456789012345678`
+        - `{prefix}setguildwhitelist`
         """
         if guild_id is None:
             await self.bot.db.update_guild_config(
@@ -1223,20 +1470,34 @@ class Setup(commands.Cog):
     async def setdetectionignore(
         self, ctx: commands.Context, detection_type: str, channel: discord.TextChannel = None
     ) -> None:
-        """Configure which channels to ignore for specific detections.
+        """**Configure channels to ignore for specific detections**
 
-        Types:
-          all              Apply to all detection types
-          filters         Word filters
-          regex_filters   Regular expression filters
-          block_invite    Invite link blocking
-          mention_limit   Mass mentions
-          spam_detection  Spam prevention
-          max_words      Maximum words per message
+        This command allows you to disable certain auto-moderation filters in specific channels.
 
-        Examples:
-          !!setdetectionignore spam #spam-ok
-          !!setdetectionignore all  (clears all ignored channels)"""
+        **Usage:**
+        `{prefix}setdetectionignore <type> [#channel]`
+
+        **<type>:**
+        The detection type to ignore in the specified channel.
+
+        **[#channel]:**
+        - The channel to ignore the detection in.
+        - If left blank, this will clear all ignored channels for the specified detection type.
+
+        **Valid Types:**
+        - `all`: Apply to all detection types.
+        - `filters`: Word filters.
+        - `regex_filters`: Regular expression filters.
+        - `block_invite`: Invite link blocking.
+        - `mention_limit`: Mass mentions.
+        - `spam_detection`: Spam prevention.
+        - `max_words`: Maximum words per message.
+
+        **Examples:**
+        - `{prefix}setdetectionignore spam_detection #spam-channel`
+        - `{prefix}setdetectionignore all #general`
+        - `{prefix}setdetectionignore filters`
+        """
         valid_detections = list(DEFAULT["ignored_channels"].keys())
 
         if detection_type not in valid_detections + ["all"]:
@@ -1272,17 +1533,30 @@ class Setup(commands.Cog):
     async def setlogignore(
         self, ctx: commands.Context, detection_type: str, channel: discord.TextChannel = None
     ) -> None:
-        """Configure which channels to ignore for logging.
+        """**Configure channels to ignore for logging**
 
-        Types:
-          all             Apply to all log types
-          message_delete  Message deletions
-          message_edit   Message edits
-          channel_delete Channel deletions
+        This command prevents logging of certain events in specific channels.
 
-        Examples:
-          !!setlogignore message_edit #bot-spam
-          !!setlogignore all  (clears all ignored channels)"""
+        **Usage:**
+        `{prefix}setlogignore <type> [#channel]`
+
+        **<type>:**
+        The log type to ignore in the specified channel.
+
+        **[#channel]:**
+        - The channel to ignore the log event in.
+        - If left blank, this will clear all ignored channels for the specified log type.
+
+        **Valid Types:**
+        - `all`: Apply to all log types.
+        - `message_delete`: Message deletions.
+        - `message_edit`: Message edits.
+        - `channel_delete`: Channel deletions.
+
+        **Examples:**
+        - `{prefix}setlogignore message_edit #bot-spam`
+        - `{prefix}setlogignore all`
+        """
         valid_logs = ["message_delete", "message_edit", "channel_delete"]
 
         if detection_type not in valid_logs + ["all"]:
@@ -1316,12 +1590,32 @@ class Setup(commands.Cog):
 
     @group(8, invoke_without_command=True)
     async def regexfilter(self, ctx: commands.Context) -> None:
-        """Controls the regex filter"""
+        """**Manages the regex filter**
+
+        This command group allows you to add, remove, and list regular expression patterns for the auto-moderation filter.
+
+        **Subcommands:**
+        - `add` - Adds a regex pattern to the filter.
+        - `remove` - Removes a regex pattern from the filter.
+        - `list` - Lists all regex patterns in the filter.
+        """
         await ctx.invoke(self.bot.get_command("help"), command_or_cog="regexfilter")
 
     @regexfilter.command(8, name="add")
     async def re_add(self, ctx: commands.Context, *, pattern) -> None:
-        """Add blacklisted regex into the regex filter"""
+        """**Adds a regex pattern to the filter**
+
+        This command adds a new regular expression pattern to the auto-moderation filter.
+
+        **Usage:**
+        `{prefix}regexfilter add <pattern>`
+
+        **<pattern>:**
+        The regex pattern to add.
+
+        **Example:**
+        `{prefix}regexfilter add bad-word`
+        """
         try:
             re.compile(pattern)
         except re.error as e:
@@ -1336,7 +1630,19 @@ class Setup(commands.Cog):
 
     @regexfilter.command(8, name="remove")
     async def re_remove(self, ctx: commands.Context, *, pattern) -> None:
-        """Removes blacklisted regex from the regex filter"""
+        """**Removes a regex pattern from the filter**
+
+        This command removes a regular expression pattern from the auto-moderation filter.
+
+        **Usage:**
+        `{prefix}regexfilter remove <pattern>`
+
+        **<pattern>:**
+        The regex pattern to remove.
+
+        **Example:**
+        `{prefix}regexfilter remove bad-word`
+        """
         await self.bot.db.update_guild_config(
             ctx.guild.id, {"$pull": {"detections.regex_filters": pattern}}
         )
@@ -1344,7 +1650,13 @@ class Setup(commands.Cog):
 
     @regexfilter.command(8, name="list")
     async def re_list_(self, ctx: commands.Context) -> None:
-        """Lists the full word filter"""
+        """**Lists all regex patterns in the filter**
+
+        This command displays a list of all regular expression patterns currently in the auto-moderation filter.
+
+        **Usage:**
+        `{prefix}regexfilter list`
+        """
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         await ctx.send(
             f"Regex Filters: {', '.join([f'`{i}`' for i in guild_config.detections.regex_filters])}"
@@ -1352,16 +1664,33 @@ class Setup(commands.Cog):
 
     @group(8, name="filter", invoke_without_command=True)
     async def filter_(self, ctx: commands.Context) -> None:
-        """Controls the word filter"""
+        """**Manages the word and image filter**
+
+        This command group allows you to add, remove, and list blacklisted words and images for the auto-moderation filter.
+
+        **Subcommands:**
+        - `add` - Adds a word or image to the filter.
+        - `remove` - Removes a word or image from the filter.
+        - `list` - Lists all words in the filter.
+        """
         await ctx.invoke(self.bot.get_command("help"), command_or_cog="filter")
 
     @filter_.command(8)
     async def add(self, ctx: commands.Context, *, word: str = None) -> None:
-        """Add blacklisted words into the word filter
+        """**Adds a word or image to the filter**
 
-        Can also add image filters if an iamge is attached,
-        do note that it can easily be bypassed by
-        slightly editing the images."""
+        This command adds a blacklisted word or image to the auto-moderation filter.
+
+        **Usage:**
+        - To add a word: `{prefix}filter add <word>`
+        - To add an image: Attach the image to the message and run `{prefix}filter add`
+
+        **Note:** Image filtering is based on image hashes and can be bypassed by simple edits.
+
+        **Examples:**
+        - `{prefix}filter add badword`
+        - (With an attached image) `{prefix}filter add`
+        """
         if word:
             await self.bot.db.update_guild_config(
                 ctx.guild.id, {"$addToSet": {"detections.filters": word}}
@@ -1399,9 +1728,18 @@ class Setup(commands.Cog):
 
     @filter_.command(8)
     async def remove(self, ctx: commands.Context, *, word: str = None) -> None:
-        """Removes blacklisted words from the word filter
+        """**Removes a word or image from the filter**
 
-        Can also remove image filters if an iamge is attached,"""
+        This command removes a blacklisted word or image from the auto-moderation filter.
+
+        **Usage:**
+        - To remove a word: `{prefix}filter remove <word>`
+        - To remove an image: Attach the image to the message and run `{prefix}filter remove`
+
+        **Examples:**
+        - `{prefix}filter remove badword`
+        - (With an attached image) `{prefix}filter remove`
+        """
         if word:
             await self.bot.db.update_guild_config(
                 ctx.guild.id, {"$pull": {"detections.filters": word}}
@@ -1439,7 +1777,13 @@ class Setup(commands.Cog):
 
     @filter_.command(8, name="list")
     async def list_(self, ctx: commands.Context) -> None:
-        """Lists the full word filter"""
+        """**Lists all words in the filter**
+
+        This command displays a list of all blacklisted words in the auto-moderation filter.
+
+        **Usage:**
+        `{prefix}filter list`
+        """
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         await ctx.send(f"Filters: {', '.join([f'`{i}`' for i in guild_config.detections.filters])}")
 
@@ -1452,20 +1796,34 @@ class Setup(commands.Cog):
         *,
         time: UserFriendlyTime = None,
     ) -> None:
-        """Configure automatic punishments after reaching warning thresholds.
+        """**Configure automatic punishments for warnings**
 
-        Punishments:
-          mute   Temporarily mute the user
-          kick   Remove from server
-          ban    Permanently ban
-          none   Remove punishment
+        This command sets an automatic punishment to be issued when a user reaches a certain number of warnings.
 
-        Examples:
-          !!setwarnpunishment 3 mute 1h
-          !!setwarnpunishment 5 kick
-          !!setwarnpunishment 7 ban
+        **Usage:**
+        `{prefix}setwarnpunishment <warn_count> <punishment> [duration]`
 
-        Note: Consider adding a final ban condition for repeat offenders."""
+        **<warn_count>:**
+        The number of warnings a user must have to trigger the punishment.
+
+        **<punishment>:**
+        The action to take.
+
+        **[duration]:**
+        Required for mute punishments.
+
+        **Valid Punishments:**
+        - `mute`: Temporarily mutes the user.
+        - `kick`: Kicks the user from the server.
+        - `ban`: Permanently bans the user.
+        - `none`: Removes the punishment for the specified warning count.
+
+        **Examples:**
+        - `{prefix}setwarnpunishment 3 mute 1h`
+        - `{prefix}setwarnpunishment 5 kick`
+        - `{prefix}setwarnpunishment 7 ban`
+        - `{prefix}setwarnpunishment 3 none`
+        """
         if punishment not in ("kick", "ban", "mute", "none"):
             raise commands.BadArgument(
                 'Invalid punishment, pick from "mute", "kick", "ban", "none".'
@@ -1513,7 +1871,24 @@ class Setup(commands.Cog):
     async def setcannedvariables(
         self, ctx: commands.Context, name: str, *, value: Optional[str] = None
     ) -> None:
-        """Set canned variables in reasons"""
+        """**Set canned variables for moderation reasons**
+
+        This command allows you to create shortcuts for frequently used phrases in moderation reasons.
+
+        **Usage:**
+        `{prefix}setcannedvariables <name> [value]`
+
+        **<name>:**
+        The name of the variable (shortcut).
+
+        **[value]:**
+        The text that the variable will be replaced with. If left blank, the variable will be removed.
+
+        **Example:**
+        - `{prefix}setcannedvariables rule1 Breaking rule 1: No spamming.`
+        - To use: `{prefix}warn @user {rule1}`
+        - `{prefix}setcannedvariables rule1` (removes the variable)
+        """
         if value is None:
             await self.bot.db.update_guild_config(
                 ctx.guild.id, {"$unset": {f"canned_variables.{name}": value}}
@@ -1526,7 +1901,20 @@ class Setup(commands.Cog):
 
     @command(10, aliases=["aimodtest"])
     async def aimoderationtest(self, ctx: commands.Context, *, text: str):
-        """Tests a string against the OpenAI moderation API and shows the results."""
+        """**Tests a string against the AI moderation filter**
+
+        This command allows you to test how the AI moderation filter will score a given piece of text.
+        This is useful for tuning your AI moderation settings.
+
+        **Usage:**
+        `{prefix}aimoderationtest <text>`
+
+        **<text>:**
+        The text you want to test.
+
+        **Example:**
+        `{prefix}aimoderationtest I really like this bot!`
+        """
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             return await ctx.send("The `OPENAI_API_KEY` is not set in the bot's environment.")
@@ -1576,6 +1964,118 @@ class Setup(commands.Cog):
         )
 
         await ctx.send(embed=embed)
+
+    @command(6, name="setautorole")
+    async def setautorole(self, ctx: commands.Context, *, role: str):
+        """**Set the autorole for new members**
+
+        This command allows you to automatically assign a role to new members when they join the server.
+
+        **Usage:**
+        `{prefix}setautorole <role>`
+
+        **<role>:**
+        - Mention the role, e.g., `@Member`
+        - Provide the role ID, e.g., `123456789012345678`
+        - Provide the role name, e.g., `Member`
+
+        **Example:**
+        `{prefix}setautorole @Member`
+        `{prefix}setautorole 123456789012345678`
+        `{prefix}setautorole Member`
+        """
+        from ext.utility import select_role
+
+        role_obj = await select_role(ctx, role)
+        if not role_obj:
+            return
+        await self.bot.db.update_guild_config(ctx.guild.id, {"$set": {"autoroles": [role_obj.id]}})
+        await ctx.send(f"Autorole set to {role_obj.mention} for new members.")
+
+    @command(6, name="setselfrole")
+    async def setselfrole(self, ctx: commands.Context, *, role: str):
+        """**Add a self-assignable role**
+
+        This command allows you to add a role that members can assign to themselves using the `{prefix}role` command.
+
+        **Usage:**
+        `{prefix}setselfrole <role>`
+
+        **<role>:**
+        - Mention the role, e.g., `@Updates`
+        - Provide the role ID, e.g., `123456789012345678`
+        - Provide the role name, e.g., `Updates`
+
+        **Example:**
+        `{prefix}setselfrole @Updates`
+        `{prefix}setselfrole 123456789012345678`
+        `{prefix}setselfrole Updates`
+        """
+        from ext.utility import select_role
+
+        role_obj = await select_role(ctx, role)
+        if not role_obj:
+            return
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {"$addToSet": {"selfroles": role_obj.id}}
+        )
+        await ctx.send(f"Added {role_obj.mention} as a self-assignable role.")
+
+    @command(6, name="setreactionrole")
+    async def setreactionrole(self, ctx: commands.Context, *, role: str):
+        """**Add a reaction role**
+
+        This command allows you to add a role that members can get by reacting to a message.
+
+        **Usage:**
+        `{prefix}setreactionrole <role>`
+
+        **<role>:**
+        - Mention the role, e.g., `@Color`
+        - Provide the role ID, e.g., `123456789012345678`
+        - Provide the role name, e.g., `Color`
+
+        **Example:**
+        `{prefix}setreactionrole @Color`
+        `{prefix}setreactionrole 123456789012345678`
+        `{prefix}setreactionrole Color`
+        """
+        from ext.utility import select_role
+
+        role_obj = await select_role(ctx, role)
+        if not role_obj:
+            return
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {"$addToSet": {"reaction_roles": role_obj.id}}
+        )
+        await ctx.send(f"Added {role_obj.mention} as a reaction role.")
+
+    @command(6, name="setmuterole")
+    async def setmuterole(self, ctx: commands.Context, *, role: str):
+        """**Set the mute role**
+
+        This command allows you to set the role that will be used to mute members.
+
+        **Usage:**
+        `{prefix}setmuterole <role>`
+
+        **<role>:**
+        - Mention the role, e.g., `@Muted`
+        - Provide the role ID, e.g., `123456789012345678`
+        - Provide the role name, e.g., `Muted`
+
+        **Example:**
+        `{prefix}setmuterole @Muted`
+        `{prefix}setmuterole 123456789012345678`
+        `{prefix}setmuterole Muted`
+        """
+        from ext.utility import select_role
+
+        role_obj = await select_role(ctx, role)
+        if not role_obj:
+            return
+        await self.bot.db.update_guild_config(ctx.guild.id, {"$set": {"mute_role": role_obj.id}})
+        await ctx.send(f"Mute role set to {role_obj.mention}.")
 
 
 async def setup(bot: rainbot) -> None:

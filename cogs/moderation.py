@@ -80,7 +80,21 @@ class Moderation(commands.Cog):
 
     @group(6, invoke_without_command=True, usage="\u003cuser_id\u003e")
     async def modlogs(self, ctx: commands.Context, user: MemberOrID = None) -> None:
-        """View all modlogs for a user by ID or mention."""
+        """**View moderation logs for a user**
+
+        This command displays a paginated list of all moderation actions taken against a specific user.
+
+        **Usage:**
+        `{prefix}modlogs <user>`
+
+        **<user>:**
+        - Mention the user, e.g., `@user`
+        - Provide the user's ID, e.g., `123456789012345678`
+
+        **Subcommands:**
+        - `all` - View all modlogs in the server.
+        - `remove` - Remove a modlog entry.
+        """
         if user is None:
             await ctx.invoke(self.bot.get_command("help"), command_or_cog="modlogs")
             return
@@ -287,7 +301,13 @@ class Moderation(commands.Cog):
 
     @modlogs.command(6, name="all")
     async def modlogs_all(self, ctx: commands.Context) -> None:
-        """View all modlogs in the server, paginated 10 per page."""
+        """**View all modlogs in the server**
+
+        This command displays a paginated list of all moderation logs for the entire server.
+
+        **Usage:**
+        `{prefix}modlogs all`
+        """
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         # Gather all moderation actions
         modlogs = getattr(guild_config, "modlog", [])
@@ -428,7 +448,20 @@ class Moderation(commands.Cog):
 
     @modlogs.command(6, name="remove", aliases=["delete", "del"], usage="<case_number>")
     async def modlogs_remove(self, ctx: commands.Context, case_number: int = None) -> None:
-        """Remove a modlog entry by case number, with confirmation dialog."""
+        """**Remove a modlog entry by case number**
+
+        This command removes a specific moderation log entry, identified by its case number.
+        A confirmation is required before deletion.
+
+        **Usage:**
+        `{prefix}modlogs remove <case_number>`
+
+        **<case_number>:**
+        The case number of the modlog entry to remove.
+
+        **Example:**
+        `{prefix}modlogs remove 123`
+        """
         if case_number is None:
             prefix = getattr(ctx, "prefix", "!!")
             await ctx.send(
@@ -684,7 +717,20 @@ class Moderation(commands.Cog):
 
     @command(5)
     async def user(self, ctx: commands.Context, member: discord.Member) -> None:
-        """Get a user's info"""
+        """**Get information about a user**
+
+        This command displays detailed information about a server member, including their roles, join date, and account creation date.
+
+        **Usage:**
+        `{prefix}user <member>`
+
+        **<member>:**
+        - Mention the user, e.g., `@user`
+        - Provide the user's ID, e.g., `123456789012345678`
+
+        **Example:**
+        `{prefix}user @TestUser`
+        """
 
         async def timestamp(created):
             delta = format_timedelta(ctx.message.created_at - created)
@@ -718,12 +764,37 @@ class Moderation(commands.Cog):
 
     @group(6, invoke_without_command=True)
     async def note(self, ctx: commands.Context) -> None:
-        """Manage notes"""
+        """**Manage notes for users**
+
+        This command group allows you to add, remove, and view notes about users.
+        Notes are visible to moderators and can be used to track user behavior.
+
+        **Subcommands:**
+        - `add` - Add a note to a user.
+        - `remove` - Remove a note from a user.
+        - `list` - List all notes for a user.
+        """
         await ctx.invoke(self.bot.get_command("help"), command_or_cog="note")
 
     @note.command(6)
     async def add(self, ctx: commands.Context, member: MemberOrID, *, note):
-        """Add a note"""
+        """**Add a note to a user**
+
+        This command adds a private note to a user's record.
+
+        **Usage:**
+        `{prefix}note add <member> <note>`
+
+        **<member>:**
+        - Mention the user, e.g., `@user`
+        - Provide the user's ID, e.g., `123456789012345678`
+
+        **<note>:**
+        The content of the note.
+
+        **Example:**
+        `{prefix}note add @TestUser Investigating potential alt account.`
+        """
         if (
             get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
             >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]
@@ -752,7 +823,19 @@ class Moderation(commands.Cog):
 
     @note.command(6, aliases=["delete", "del"])
     async def remove(self, ctx: commands.Context, case_number: int) -> None:
-        """Remove a note"""
+        """**Remove a note from a user**
+
+        This command removes a note from a user's record, identified by its case number.
+
+        **Usage:**
+        `{prefix}note remove <case_number>`
+
+        **<case_number>:**
+        The case number of the note to remove.
+
+        **Example:**
+        `{prefix}note remove 456`
+        """
         guild_data = await self.bot.db.get_guild_config(ctx.guild.id)
         notes = guild_data.notes
         note = list(filter(lambda w: w["case_number"] == case_number, notes))
@@ -764,7 +847,20 @@ class Moderation(commands.Cog):
 
     @note.command(6, name="list", aliases=["view"])
     async def _list(self, ctx: commands.Context, member: MemberOrID) -> None:
-        """View the notes of a user"""
+        """**View the notes of a user**
+
+        This command displays all notes that have been added to a user's record.
+
+        **Usage:**
+        `{prefix}note list <member>`
+
+        **<member>:**
+        - Mention the user, e.g., `@user`
+        - Provide the user's ID, e.g., `123456789012345678`
+
+        **Example:**
+        `{prefix}note list @TestUser`
+        """
         guild_data = await self.bot.db.get_guild_config(ctx.guild.id)
         notes = guild_data.notes
         notes = list(filter(lambda w: w["member_id"] == str(member.id), notes))
@@ -790,7 +886,16 @@ class Moderation(commands.Cog):
         *,
         reason: CannedStr = None,
     ) -> None:
-        """Manage warns"""
+        """**Manage user warnings**
+
+        This command group allows you to add, remove, and view user warnings.
+        You can also use `{prefix}warn <member> [reason]` as a shortcut for `{prefix}warn add <member> [reason]`.
+
+        **Subcommands:**
+        - `add` - Add a warning to a user.
+        - `remove` - Remove a warning from a user.
+        - `list` - List all warnings for a user.
+        """
         if isinstance(member, (discord.User, discord.Member)):
             if reason:
                 ctx.command = self.add_
@@ -802,9 +907,25 @@ class Moderation(commands.Cog):
 
     @warn.command(6, name="add")
     async def add_(self, ctx: commands.Context, member: MemberOrID, *, reason: CannedStr) -> None:
-        """Warn a user
+        """**Warn a user**
 
-        Can also be used as `warn <member> [reason]`"""
+        This command issues a formal warning to a user and logs it.
+        Automatic punishments can be configured to trigger after a certain number of warnings.
+
+        **Usage:**
+        `{prefix}warn add <member> <reason>`
+        Can also be used as `{prefix}warn <member> <reason>`.
+
+        **<member>:**
+        - Mention the user, e.g., `@user`
+        - Provide the user's ID, e.g., `123456789012345678`
+
+        **<reason>:**
+        The reason for the warning.
+
+        **Example:**
+        `{prefix}warn add @TestUser Spamming in #general.`
+        """
         if (
             get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
             >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]
@@ -899,7 +1020,19 @@ class Moderation(commands.Cog):
 
     @warn.command(6, name="remove", aliases=["delete", "del"])
     async def remove_(self, ctx: commands.Context, case_number: int) -> None:
-        """Remove a warn"""
+        """**Remove a warning from a user**
+
+        This command removes a warning from a user's record, identified by its case number.
+
+        **Usage:**
+        `{prefix}warn remove <case_number>`
+
+        **<case_number>:**
+        The case number of the warning to remove.
+
+        **Example:**
+        `{prefix}warn remove 789`
+        """
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         warns = guild_config.warns
         warn = next((w for w in warns if w.get("case_number") == case_number), None)
@@ -915,9 +1048,58 @@ class Moderation(commands.Cog):
             await ctx.send(f"Warn #{case_number} removed from <@{warn['member_id']}>.")
             await self.send_log(ctx, case_number, warn_reason)
 
+    @warn.command(6, name="clear")
+    async def clear_(self, ctx: commands.Context, member: MemberOrID) -> None:
+        """**Clear all warnings from a user**
+
+        This command removes all warnings from a user's record.
+
+        **Usage:**
+        `{prefix}warn clear <member>`
+
+        **<member>:**
+        - Mention the user, e.g., `@user`
+        - Provide the user's ID, e.g., `123456789012345678`
+
+        **Example:**
+        `{prefix}warn clear @TestUser`
+        """
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        warns = guild_config.warns
+        user_warns = [w for w in warns if w.get("member_id") == str(member.id)]
+
+        if not user_warns:
+            await ctx.send(f"{member.mention} has no warnings to clear.")
+            return
+
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {"$pull": {"warns": {"member_id": str(member.id)}}}
+        )
+        await ctx.send(f"Cleared all warnings for {member.mention}.")
+
+    @commands.Cog.listener()
+    async def on_member_remove(self, member: discord.Member) -> None:
+        """Clear a user's warns when they leave the server."""
+        await self.bot.db.update_guild_config(
+            member.guild.id, {"$pull": {"warns": {"member_id": str(member.id)}}}
+        )
+
     @warn.command(6, name="list", aliases=["view"])
     async def list_(self, ctx: commands.Context, member: MemberOrID) -> None:
-        """View the warns of a user"""
+        """**View the warnings of a user**
+
+        This command displays all warnings that have been issued to a user.
+
+        **Usage:**
+        `{prefix}warn list <member>`
+
+        **<member>:**
+        - Mention the user, e.g., `@user`
+        - Provide the user's ID, e.g., `123456789012345678`
+
+        **Example:**
+        `{prefix}warn list @TestUser`
+        """
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         warns = guild_config.warns
         warns = list(filter(lambda w: w["member_id"] == str(member.id), warns))
@@ -943,7 +1125,28 @@ class Moderation(commands.Cog):
         *,
         time: UserFriendlyTime = None,
     ) -> None:
-        """Mute a member for an optional duration and reason."""
+        """**Mute a member**
+
+        This command prevents a member from sending messages and speaking in voice channels.
+
+        **Usage:**
+        `{prefix}mute <member> [duration] [reason]`
+
+        **<member>:**
+        - Mention the user, e.g., `@user`
+        - Provide the user's ID, e.g., `123456789012345678`
+
+        **[duration]:**
+        - Optional duration for the mute (e.g., `1h`, `30m`).
+        - If not provided, the mute will be indefinite.
+
+        **[reason]:**
+        - An optional reason for the mute.
+
+        **Examples:**
+        - `{prefix}mute @TestUser 1h Spamming.`
+        - `{prefix}mute @TestUser Being disruptive.`
+        """
         # Check permission level only if they're in the server
         if (
             get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
@@ -1002,9 +1205,12 @@ class Moderation(commands.Cog):
 
     @command(6, name="muted")
     async def muted(self, ctx: commands.Context) -> None:
-        """List currently muted members for this server.
+        """**List currently muted members**
 
-        Example: `!!muted`
+        This command displays a list of all members who are currently muted in the server.
+
+        **Usage:**
+        `{prefix}muted`
         """
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         mutes = getattr(guild_config, "mutes", [])
@@ -1027,7 +1233,23 @@ class Moderation(commands.Cog):
     async def unmute(
         self, ctx: commands.Context, member: MemberOrID, *, reason: CannedStr = "No reason"
     ) -> None:
-        """Unmute a previously muted member."""
+        """**Unmute a member**
+
+        This command removes the mute from a member, allowing them to send messages and speak again.
+
+        **Usage:**
+        `{prefix}unmute <member> [reason]`
+
+        **<member>:**
+        - Mention the user, e.g., `@user`
+        - Provide the user's ID, e.g., `123456789012345678`
+
+        **[reason]:**
+        - An optional reason for the unmute.
+
+        **Example:**
+        `{prefix}unmute @TestUser Appealed successfully.`
+        """
         # Check permission level only if they're in the server
         if (
             get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
@@ -1043,11 +1265,23 @@ class Moderation(commands.Cog):
 
     @command(6, aliases=["clean", "prune"], usage="<limit> [member]")
     async def purge(self, ctx: commands.Context, limit: int, *, member: MemberOrID = None) -> None:
-        """Bulk delete messages in the current channel.
+        """**Bulk delete messages**
 
-        Usage:
-        - `!!purge 50`  (delete last 50 messages)
-        - `!!purge 100 @User`  (delete up to 100 messages from a specific user)
+        This command deletes a specified number of messages from the current channel.
+        You can also target messages from a specific user.
+
+        **Usage:**
+        `{prefix}purge <limit> [member]`
+
+        **<limit>:**
+        The number of messages to delete (max 2000).
+
+        **[member]:**
+        - Optional: Mention a user or provide their ID to delete messages from only that user.
+
+        **Examples:**
+        - `{prefix}purge 50`
+        - `{prefix}purge 100 @TestUser`
         """
         count = min(2000, limit)
         try:
@@ -1095,11 +1329,20 @@ class Moderation(commands.Cog):
 
     @command(6)
     async def lockdown(self, ctx: commands.Context, channel: discord.TextChannel = None) -> None:
-        """Toggle send permissions for @everyone in a channel.
+        """**Toggle send permissions for @everyone in a channel**
 
-        Examples:
-        - `!!lockdown` (toggle current channel)
-        - `!!lockdown #general`
+        This command prevents the `@everyone` role from sending messages in a specified channel.
+        Running it again will unlock the channel.
+
+        **Usage:**
+        `{prefix}lockdown [channel]`
+
+        **[channel]:**
+        - Optional: The channel to lock down. If not provided, the current channel will be used.
+
+        **Examples:**
+        - `{prefix}lockdown`
+        - `{prefix}lockdown #general`
         """
         channel = channel or ctx.channel
         overwrite = channel.overwrites_for(ctx.guild.default_role)
@@ -1132,13 +1375,25 @@ class Moderation(commands.Cog):
         *,
         time: UserFriendlyTime,
     ) -> None:
-        """Enable or disable channel slowmode (max 6h).
+        """**Enable or disable channel slowmode**
 
-        Examples:
-        - `!!slowmode 2h`
-        - `!!slowmode 2h #general`
-        - `!!slowmode off`
-        - `!!slowmode 0s #general`
+        This command sets a cooldown on how often users can send messages in a channel.
+
+        **Usage:**
+        `{prefix}slowmode <duration> [channel]`
+
+        **<duration>:**
+        - The length of the slowmode (e.g., `10s`, `5m`).
+        - Use `0s` or `off` to disable slowmode.
+        - Maximum is 6 hours.
+
+        **[channel]:**
+        - Optional: The channel to apply the slowmode to. Defaults to the current channel.
+
+        **Examples:**
+        - `{prefix}slowmode 10s`
+        - `{prefix}slowmode 5m #general`
+        - `{prefix}slowmode off`
         """
         duration = timedelta()
         channel = ctx.channel
@@ -1171,9 +1426,22 @@ class Moderation(commands.Cog):
     async def kick(
         self, ctx: commands.Context, member: MemberOrID, *, reason: CannedStr = None
     ) -> None:
-        """Kick a member from the server.
+        """**Kick a member from the server**
 
-        Example: `!!kick @User Spamming`
+        This command removes a member from the server. They can rejoin if they have an invite.
+
+        **Usage:**
+        `{prefix}kick <member> [reason]`
+
+        **<member>:**
+        - Mention the user, e.g., `@user`
+        - Provide the user's ID, e.g., `123456789012345678`
+
+        **[reason]:**
+        - An optional reason for the kick.
+
+        **Example:**
+        `{prefix}kick @TestUser Breaking rules.`
         """
         # Permission level check
         if (
@@ -1294,9 +1562,22 @@ class Moderation(commands.Cog):
     async def softban(
         self, ctx: commands.Context, member: discord.Member, *, reason: CannedStr = None
     ) -> None:
-        """Ban then immediately unban to purge messages.
+        """**Ban and immediately unban a member to purge their messages**
 
-        Example: `!!softban @User Advertising`
+        This command is a quick way to delete all messages from a user in the last 7 days.
+
+        **Usage:**
+        `{prefix}softban <member> [reason]`
+
+        **<member>:**
+        - Mention the user, e.g., `@user`
+        - Provide the user's ID, e.g., `123456789012345678`
+
+        **[reason]:**
+        - An optional reason for the softban.
+
+        **Example:**
+        `{prefix}softban @TestUser Advertising.`
         """
         if (
             get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
@@ -1326,6 +1607,28 @@ class Moderation(commands.Cog):
         time_or_reason: str = None,
         prune_days: int = None,
     ) -> None:
+        """**Ban a member from the server**
+
+        This command permanently removes a member from the server and prevents them from rejoining.
+        You can also specify a duration for a temporary ban.
+
+        **Usage:**
+        `{prefix}ban <member> [duration] [reason]`
+
+        **<member>:**
+        - Mention the user, e.g., `@user`
+        - Provide the user's ID, e.g., `123456789012345678`
+
+        **[duration]:**
+        - Optional duration for a temporary ban (e.g., `7d`, `1h`).
+
+        **[reason]:**
+        - An optional reason for the ban.
+
+        **Examples:**
+        - `{prefix}ban @TestUser Persistent rule-breaking.`
+        - `{prefix}ban @TestUser 7d Cooling off period.`
+        """
         # Check user permission level (only if they're in the server)
         if (
             get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
