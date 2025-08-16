@@ -1775,4 +1775,4 @@ class Moderation(commands.Cog):
 
         if str(reaction.emoji) == "✅":
             # Check bot permissions
-            if not ctx.guild.me
+                if not ctx.guild.me:
