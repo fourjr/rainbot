@@ -1,3 +1,5 @@
+import discord
+import asyncio
 from datetime import timedelta
 from time import time as unixs
 from typing import Union
@@ -11,6 +13,7 @@ from bot import rainbot
 from ext.command import command, group
 from ext.utility import format_timedelta, get_perm_level
 from ext.time import UserFriendlyTime
+
 
 class Moderation(commands.Cog):
     # ...existing code...
@@ -49,7 +52,10 @@ class Moderation(commands.Cog):
                 await ctx.send("Warn removal cancelled.")
         except asyncio.TimeoutError:
             await ctx.send("Warn removal timed out. Command cancelled.")
+
     # ...existing code...
+
+
 from ext.utility import DBDict, tryint
 from ext.utility import CannedStr
 from discord.ext import commands
@@ -59,8 +65,11 @@ from ext.command import command, group
 from ext.utility import format_timedelta, get_perm_level
 from ext.time import UserFriendlyTime
 
+
 class MemberOrID(commands.IDConverter):
-    async def convert(self, ctx: commands.Context, argument: str) -> Union[discord.Member, discord.User]:
+    async def convert(
+        self, ctx: commands.Context, argument: str
+    ) -> Union[discord.Member, discord.User]:
         try:
             return await commands.MemberConverter().convert(ctx, argument)
         except commands.BadArgument:
@@ -69,9 +78,17 @@ class MemberOrID(commands.IDConverter):
             except Exception:
                 raise commands.BadArgument(f"Member {argument} not found")
 
+
 class Moderation(commands.Cog):
     @command(7, usage="<member> [duration] [reason]")
-    async def ban(self, ctx: commands.Context, member: MemberOrID, *, time_or_reason: str = None, prune_days: int = None) -> None:
+    async def ban(
+        self,
+        ctx: commands.Context,
+        member: MemberOrID,
+        *,
+        time_or_reason: str = None,
+        prune_days: int = None,
+    ) -> None:
         # Check user permission level
         if (
             get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
@@ -175,7 +192,14 @@ class Moderation(commands.Cog):
                 seconds += unixs()
                 await self.bot.db.update_guild_config(
                     ctx.guild.id,
-                    {"$push": {"tempbans": {"member": str(getattr(member, "id", member)), "time": seconds}}}
+                    {
+                        "$push": {
+                            "tempbans": {
+                                "member": str(getattr(member, "id", member)),
+                                "time": seconds,
+                            }
+                        }
+                    },
                 )
                 self.bot.loop.create_task(
                     self.bot.unban(ctx.guild.id, getattr(member, "id", member), seconds)
@@ -244,7 +268,6 @@ class Moderation(commands.Cog):
         await msg.add_reaction("✅")
         await msg.add_reaction("❌")
 
-
         def check(reaction, user):
             return (
                 user == ctx.author
@@ -264,7 +287,7 @@ class Moderation(commands.Cog):
 
     # ...existing code...
     async def remove_warn(self, ctx, case_number):
-    # ...existing code...
+        # ...existing code...
         warns = await self.bot.db.get_guild_warns(ctx.guild.id)
         warn = next((w for w in warns if w.get("case_number") == case_number), None)
         if not warn:
@@ -661,7 +684,9 @@ class Moderation(commands.Cog):
         if not isinstance(member, discord.Member):
             member_obj = ctx.guild.get_member(getattr(member, "id", member))
             if not member_obj:
-                await ctx.send(f"User {getattr(member, 'mention', member)} is not present in this server and cannot be muted.")
+                await ctx.send(
+                    f"User {getattr(member, 'mention', member)} is not present in this server and cannot be muted."
+                )
                 return
             member = member_obj
 
@@ -683,9 +708,7 @@ class Moderation(commands.Cog):
                     f"{member.mention} has been muted for {format_timedelta(duration)}. Reason: {reason}"
                 )
             else:
-                await ctx.send(
-                    f"{member.mention} has been muted indefinitely. Reason: {reason}"
-                )
+                await ctx.send(f"{member.mention} has been muted indefinitely. Reason: {reason}")
 
     @command(6, name="muted")
     async def muted(self, ctx: commands.Context) -> None:
@@ -867,7 +890,9 @@ class Moderation(commands.Cog):
         if not isinstance(member, discord.Member):
             member_obj = ctx.guild.get_member(getattr(member, "id", member))
             if not member_obj:
-                await ctx.send(f"User {getattr(member, 'mention', member)} is not present in this server and cannot be kicked.")
+                await ctx.send(
+                    f"User {getattr(member, 'mention', member)} is not present in this server and cannot be kicked."
+                )
                 return
             member = member_obj
 
@@ -919,7 +944,9 @@ class Moderation(commands.Cog):
                 await ctx.send(f"{member.mention} ({member.id}) has been kicked. Reason: {reason}")
                 await self.send_log(ctx, member, reason)
             except discord.Forbidden:
-                await ctx.send("I don't have permission to kick that member! They might have a higher role than me.")
+                await ctx.send(
+                    "I don't have permission to kick that member! They might have a higher role than me."
+                )
             except discord.NotFound:
                 await ctx.send(f"Could not find user {member}")
             except Exception as e:
@@ -952,7 +979,14 @@ class Moderation(commands.Cog):
             await self.send_log(ctx, member, reason)
 
     @command(7, usage="<member> [duration] [reason]")
-    async def ban(self, ctx: commands.Context, member: MemberOrID, *, time_or_reason: str = None, prune_days: int = None) -> None:
+    async def ban(
+        self,
+        ctx: commands.Context,
+        member: MemberOrID,
+        *,
+        time_or_reason: str = None,
+        prune_days: int = None,
+    ) -> None:
         # Check user permission level
         if (
             get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
@@ -1056,7 +1090,14 @@ class Moderation(commands.Cog):
                 seconds += unixs()
                 await self.bot.db.update_guild_config(
                     ctx.guild.id,
-                    {"$push": {"tempbans": {"member": str(getattr(member, "id", member)), "time": seconds}}}
+                    {
+                        "$push": {
+                            "tempbans": {
+                                "member": str(getattr(member, "id", member)),
+                                "time": seconds,
+                            }
+                        }
+                    },
                 )
                 self.bot.loop.create_task(
                     self.bot.unban(ctx.guild.id, getattr(member, "id", member), seconds)
@@ -1080,9 +1121,6 @@ class Moderation(commands.Cog):
             await ctx.send("Ban cancelled.")
 
     async def remove_warn(self, ctx, case_number):
-
-    async def remove_warn(self, ctx, case_number):
-    # ...existing code...
         warns = await self.bot.db.get_guild_warns(ctx.guild.id)
         warn = next((w for w in warns if w.get("case_number") == case_number), None)
         if not warn:
@@ -1105,19 +1143,18 @@ class Moderation(commands.Cog):
                 and reaction.message.id == msg.id
             )
 
-        reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
-        if str(reaction.emoji) == "✅":
-            await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"warns": warn}})
-            await ctx.send(f"Warn #{case_number} removed.")
-            await self.send_log(
-                ctx, case_number, warn["reason"], warn["member_id"], warn["moderator_id"]
-            )
-        else:
-            await ctx.send("Warn removal cancelled.")
-
-    async def remove_warn(self, ctx, case_number):
-        warns = await self.bot.db.get_guild_warns(ctx.guild.id)
-        warn = next((w for w in warns if w.get("case_number") == case_number), None)
+        try:
+            reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
+            if str(reaction.emoji) == "✅":
+                await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"warns": warn}})
+                await ctx.send(f"Warn #{case_number} removed.")
+                await self.send_log(
+                    ctx, case_number, warn["reason"], warn["member_id"], warn["moderator_id"]
+                )
+            else:
+                await ctx.send("Warn removal cancelled.")
+        except asyncio.TimeoutError:
+            await ctx.send("Warn removal timed out. Command cancelled.")
         if not warn:
             await ctx.send(f"Modlog #{case_number} does not exist.")
             return
@@ -1512,7 +1549,9 @@ class Moderation(commands.Cog):
         if not isinstance(member, discord.Member):
             member_obj = ctx.guild.get_member(getattr(member, "id", member))
             if not member_obj:
-                await ctx.send(f"User {getattr(member, 'mention', member)} is not present in this server and cannot be muted.")
+                await ctx.send(
+                    f"User {getattr(member, 'mention', member)} is not present in this server and cannot be muted."
+                )
                 return
             member = member_obj
 
@@ -1534,9 +1573,7 @@ class Moderation(commands.Cog):
                     f"{member.mention} has been muted for {format_timedelta(duration)}. Reason: {reason}"
                 )
             else:
-                await ctx.send(
-                    f"{member.mention} has been muted indefinitely. Reason: {reason}"
-                )
+                await ctx.send(f"{member.mention} has been muted indefinitely. Reason: {reason}")
 
     @command(6, name="muted")
     async def muted(self, ctx: commands.Context) -> None:
@@ -1718,7 +1755,9 @@ class Moderation(commands.Cog):
         if not isinstance(member, discord.Member):
             member_obj = ctx.guild.get_member(getattr(member, "id", member))
             if not member_obj:
-                await ctx.send(f"User {getattr(member, 'mention', member)} is not present in this server and cannot be kicked.")
+                await ctx.send(
+                    f"User {getattr(member, 'mention', member)} is not present in this server and cannot be kicked."
+                )
                 return
             member = member_obj
 
@@ -1770,7 +1809,9 @@ class Moderation(commands.Cog):
                 await ctx.send(f"{member.mention} ({member.id}) has been kicked. Reason: {reason}")
                 await self.send_log(ctx, member, reason)
             except discord.Forbidden:
-                await ctx.send("I don't have permission to kick that member! They might have a higher role than me.")
+                await ctx.send(
+                    "I don't have permission to kick that member! They might have a higher role than me."
+                )
             except discord.NotFound:
                 await ctx.send(f"Could not find user {member}")
             except Exception as e:
@@ -1803,7 +1844,14 @@ class Moderation(commands.Cog):
             await self.send_log(ctx, member, reason)
 
     @command(7, usage="<member> [duration] [reason]")
-    async def ban(self, ctx: commands.Context, member: MemberOrID, *, time_or_reason: str = None, prune_days: int = None) -> None:
+    async def ban(
+        self,
+        ctx: commands.Context,
+        member: MemberOrID,
+        *,
+        time_or_reason: str = None,
+        prune_days: int = None,
+    ) -> None:
         # Check user permission level
         if (
             get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
@@ -1850,6 +1898,6 @@ class Moderation(commands.Cog):
 
         if str(reaction.emoji) == "✅":
             # Check bot permissions
-                if not ctx.guild.me:
-                    await ctx.send("Bot is not a member of this guild. Cannot proceed with ban.")
-                    return
+            if not ctx.guild.me:
+                await ctx.send("Bot is not a member of this guild. Cannot proceed with ban.")
+                return
