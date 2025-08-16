@@ -1547,9 +1547,9 @@ class Setup(commands.Cog):
                 ctx.guild.id, {"$unset": {f"canned_variables.{name}": value}}
             )
         else:
-        await self.bot.db.update_guild_config(
-            ctx.guild.id, {"$set": {f"canned_variables.{name}": value}}
-        )
+            await self.bot.db.update_guild_config(
+                ctx.guild.id, {"$set": {f"canned_variables.{name}": value}}
+            )
         await ctx.send(f"Canned variable `{name}` set to: {value if value else 'removed'}.")
 
     @command(10, aliases=["aimodtest"])
@@ -1575,7 +1575,7 @@ class Setup(commands.Cog):
 
         embed = discord.Embed(
             title="AI Moderation Test Results",
-            description=f"Testing the string: \"{text}\"",
+            description=f'Testing the string: "{text}"',
             color=discord.Color.green() if not result["flagged"] else discord.Color.red(),
         )
 
@@ -1585,7 +1585,8 @@ class Setup(commands.Cog):
         embed.add_field(name="OpenAI API Scores", value=scores_text, inline=False)
 
         flagged_categories = [
-            k for k, v in result["category_scores"].items()
+            k
+            for k, v in result["category_scores"].items()
             if v > sensitivity and settings.categories.get(k)
         ]
 
