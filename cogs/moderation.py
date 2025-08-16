@@ -185,7 +185,7 @@ class Moderation(commands.Cog):
                     moderator = ctx.guild.get_member(moderator_id)
                 except (ValueError, TypeError):
                     # Handle invalid integer conversion
-                    continue
+                    pass
                 mod_name = moderator.mention if moderator else f"<@{m['moderator_id']}>"
                 entries.append(
                     {
