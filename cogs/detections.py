@@ -1,5 +1,6 @@
 import asyncio
 import functools
+import datetime
 import io
 import os
 import re
@@ -166,7 +167,7 @@ class Detections(commands.Cog):
 
     @detection("spam_detection")
     async def spam_detection(self, m: MessageWrapper, guild_config) -> None:
-        now = m.created_at.timestamp()
+        now = datetime.datetime.now(datetime.timezone.utc).timestamp()
         self.spam_detection[str(m.author.id)].append(now)
         # Remove messages older than 5 seconds
         self.spam_detection[str(m.author.id)] = [
@@ -188,7 +189,7 @@ class Detections(commands.Cog):
 
     @detection("repetitive_message")
     async def repetitive_message(self, m: MessageWrapper, guild_config) -> None:
-        now = m.created_at.timestamp()
+        now = datetime.datetime.now(datetime.timezone.utc).timestamp()
         author_messages = self.repetitive_message[str(m.author.id)]
 
         # Add current message timestamp
