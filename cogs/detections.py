@@ -292,10 +292,11 @@ class Detections(commands.Cog):
                 self.bot.executor, lambda: openai.Moderation.create(input=m.content)
             )
             if response["results"][0]["flagged"]:
+                sensitivity = guild_config.detections.ai_moderation.sensitivity / 100
                 flagged_categories = [
                     k
-                    for k, v in response["results"][0]["categories"].items()
-                    if v and guild_config.detections.ai_moderation.categories.get(k)
+                    for k, v in response["results"][0]["category_scores"].items()
+                    if v > sensitivity and guild_config.detections.ai_moderation.categories.get(k)
                 ]
                 if flagged_categories:
                     reason = f"AI moderation triggered for: {', '.join(flagged_categories)}"

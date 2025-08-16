@@ -64,6 +64,7 @@ DEFAULT: Dict[str, Any] = {
                 "violence": True,
                 "violence/graphic": True,
             },
+            "sensitivity": 90,
         },
     },
     "detection_punishments": {

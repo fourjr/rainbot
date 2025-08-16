@@ -1138,6 +1138,18 @@ class Setup(commands.Cog):
         )
         await ctx.send("AI moderation has been disabled.")
 
+    @setaimoderation.command(10, name="sensitivity")
+    async def aimod_sensitivity(self, ctx: commands.Context, sensitivity: int) -> None:
+        """Set the sensitivity of the AI moderation (1-100)."""
+        if not 1 <= sensitivity <= 100:
+            await ctx.send("Sensitivity must be between 1 and 100.")
+            return
+
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {"$set": {"detections.ai_moderation.sensitivity": sensitivity}}
+        )
+        await ctx.send(f"AI moderation sensitivity set to {sensitivity}%.")
+
     @setaimoderation.command(10, name="category")
     async def aimod_category(self, ctx: commands.Context, category: str, value: bool) -> None:
         """
