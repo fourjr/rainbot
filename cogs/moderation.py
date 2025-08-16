@@ -884,7 +884,7 @@ class Moderation(commands.Cog):
         try:
             reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
         except asyncio.TimeoutError:
-                await msg.edit(embed=discord.Embed(title="Kick Cancelled", description="Kick confirmation timed out. Command cancelled.", color=discord.Color.red()))
+            await msg.edit(embed=discord.Embed(title="Kick Cancelled", description="Kick confirmation timed out. Command cancelled.", color=discord.Color.red()))
             return
 
         if str(reaction.emoji) == "✅":
