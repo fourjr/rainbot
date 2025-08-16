@@ -93,6 +93,7 @@ class Moderation(commands.Cog):
         entries = []
         # Modlogs
         for m in modlogs:
+            pass
 
     @modlogs.command(6, name="remove", aliases=["delete", "del"], usage="<case_number>")
     async def modlogs_remove(self, ctx: commands.Context, case_number: int = None) -> None:
