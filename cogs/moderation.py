@@ -25,8 +25,30 @@ class MemberOrID(commands.IDConverter):
 
 
 class Moderation(commands.Cog):
-    # ...existing code...
-    @group(6, invoke_without_command=True, usage="<user_id>")
+    # Helper to safely send to a channel given a channel object or ID
+    async def _send_to_log(self, bot, target, *, content=None, embed=None):
+        try:
+            channel = None
+            if hasattr(target, "send"):
+                channel = target
+            else:
+                try:
+                    channel = bot.get_channel(int(target))
+                except Exception:
+                    channel = None
+            if not channel:
+                return
+            if embed is not None and content is not None:
+                await channel.send(content, embed=embed)
+            elif embed is not None:
+                await channel.send(embed=embed)
+            else:
+                await channel.send(content)
+        except Exception:
+            # Swallow send errors to avoid crashing command handlers
+            pass
+
+    @group(6, invoke_without_command=True, usage="\u003cuser_id\u003e")
     async def modlogs(self, ctx: commands.Context, user: MemberOrID = None) -> None:
         """View all modlogs for a user by ID or mention."""
         # ...existing code...
@@ -859,19 +881,10 @@ class Moderation(commands.Cog):
                     await channel.send(fmt)
             elif ctx.command.qualified_name == "modlogs remove":
                 case_num, original_reason, member_id, mod_id = args
-                member = ctx.guild.get_member(int(member_id)) or f"<@{member_id}>"
-                original_mod = ctx.guild.get_member(int(mod_id)) or f"<@{mod_id}>"
+                member = ctx.guild.get_member(int(member_id)) or f"\u003c@{member_id}\u003e"
+                original_mod = ctx.guild.get_member(int(mod_id)) or f"\u003c@{mod_id}\u003e"
                 fmt = f"{current_time} {ctx.author} has deleted modlog #{case_num}\n• Target: {member} ({member_id})\n• Original Moderator: {original_mod}\n• Original Reason: {original_reason}"
-                # Debug: check what we're getting
-                channel_id = modlogs.member_warn
-                print(f"DEBUG: modlogs.member_warn = {channel_id} (type: {type(channel_id)})")
-                channel = ctx.bot.get_channel(channel_id)
-                print(f"DEBUG: ctx.bot.get_channel result = {channel} (type: {type(channel)})")
-                if channel:
-                    print(f"DEBUG: About to call channel.send() on {channel}")
-                    await channel.send(fmt)
-                else:
-                    print(f"DEBUG: Channel is None, skipping send for channel_id {channel_id}")
+                await self._send_to_log(ctx.bot, modlogs.member_warn, content=fmt)
             elif ctx.command.name == "lockdown":
                 fmt = f'{current_time} {ctx.author} has {"enabled" if args[0] else "disabled"} lockdown for {args[1].mention}'
                 channel = ctx.bot.get_channel(modlogs.channel_lockdown)
@@ -1741,12 +1754,10 @@ class Moderation(commands.Cog):
                     await channel.send(fmt)
             elif ctx.command.qualified_name == "modlogs remove":
                 case_num, original_reason, member_id, mod_id = args
-                member = ctx.guild.get_member(int(member_id)) or f"<@{member_id}>"
-                original_mod = ctx.guild.get_member(int(mod_id)) or f"<@{mod_id}>"
+                member = ctx.guild.get_member(int(member_id)) or f"\u003c@{member_id}\u003e"
+                original_mod = ctx.guild.get_member(int(mod_id)) or f"\u003c@{mod_id}\u003e"
                 fmt = f"{current_time} {ctx.author} has deleted modlog #{case_num}\n• Target: {member} ({member_id})\n• Original Moderator: {original_mod}\n• Original Reason: {original_reason}"
-                channel = ctx.bot.get_channel(modlogs.member_warn)
-                if channel:
-                    await channel.send(fmt)
+                await self._send_to_log(ctx.bot, modlogs.member_warn, content=fmt)
             elif ctx.command.name == "lockdown":
                 fmt = f'{current_time} {ctx.author} has {"enabled" if args[0] else "disabled"} lockdown for {args[1].mention}'
                 channel = ctx.bot.get_channel(modlogs.channel_lockdown)
