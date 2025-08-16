@@ -400,23 +400,98 @@ class Moderation(commands.Cog):
             return
 
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        
+        # Search across all moderation arrays
         modlogs = getattr(guild_config, "modlog", [])
-        modlog = next((m for m in modlogs if isinstance(m, dict) and m.get("case_number") == case_number), None)
-        if not modlog:
-            await ctx.send(f"❌ Modlog #{case_number} does not exist.")
+        warns = getattr(guild_config, "warns", [])
+        kicks = getattr(guild_config, "kicks", [])
+        softbans = getattr(guild_config, "softbans", [])
+        bans = getattr(guild_config, "bans", [])
+        mutes = getattr(guild_config, "mutes", [])
+        unmutes = getattr(guild_config, "unmutes", [])
+        notes = getattr(guild_config, "notes", [])
+        
+        entry = None
+        entry_type = None
+        
+        # Check modlogs
+        for m in modlogs:
+            if isinstance(m, dict) and m.get("case_number") == case_number:
+                entry = m
+                entry_type = "modlog"
+                break
+        
+        # Check warns
+        if not entry:
+            for w in warns:
+                if isinstance(w, dict) and w.get("case_number") == case_number:
+                    entry = w
+                    entry_type = "warns"
+                    break
+        
+        # Check kicks
+        if not entry:
+            for k in kicks:
+                if isinstance(k, dict) and k.get("case_number") == case_number:
+                    entry = k
+                    entry_type = "kicks"
+                    break
+        
+        # Check softbans
+        if not entry:
+            for sb in softbans:
+                if isinstance(sb, dict) and sb.get("case_number") == case_number:
+                    entry = sb
+                    entry_type = "softbans"
+                    break
+        
+        # Check bans
+        if not entry:
+            for b in bans:
+                if isinstance(b, dict) and b.get("case_number") == case_number:
+                    entry = b
+                    entry_type = "bans"
+                    break
+        
+        # Check mutes
+        if not entry:
+            for m in mutes:
+                if isinstance(m, dict) and m.get("case_number") == case_number:
+                    entry = m
+                    entry_type = "mutes"
+                    break
+        
+        # Check unmutes
+        if not entry:
+            for u in unmutes:
+                if isinstance(u, dict) and u.get("case_number") == case_number:
+                    entry = u
+                    entry_type = "unmutes"
+                    break
+        
+        # Check notes
+        if not entry:
+            for n in notes:
+                if isinstance(n, dict) and n.get("case_number") == case_number:
+                    entry = n
+                    entry_type = "notes"
+                    break
+        
+        if not entry:
+            await ctx.send(f"❌ Case #{case_number} does not exist.")
             return
 
         # Prepare details for confirmation
-        member = ctx.guild.get_member(int(modlog.get("member_id", 0))) or f"<@{modlog.get('member_id', 0)}>"
-        moderator = ctx.guild.get_member(int(modlog.get("moderator_id", 0)))
-        moderator_mention = moderator.mention if moderator else f"<@{modlog.get('moderator_id', 0)}>"
-        reason = modlog.get("reason", "No reason provided")
-        date = modlog.get("date", "Unknown")
+        member = ctx.guild.get_member(int(entry.get("member_id", 0))) or f"<@{entry.get('member_id', 0)}>"
+        moderator = ctx.guild.get_member(int(entry.get("moderator_id", 0)))
+        moderator_mention = moderator.mention if moderator else f"<@{entry.get('moderator_id', 0)}>"
+        reason = entry.get("reason", entry.get("note", "No reason provided"))
+        date = entry.get("date", "Unknown")
 
         embed = discord.Embed(
-            title="Confirm Modlog Removal",
+            title="Confirm Entry Removal",
             description=(
-                f"Are you sure you want to remove Modlog #{case_number}?\n\n"
+                f"Are you sure you want to remove {entry_type.title()} #{case_number}?\n\n"
                 f"**Target:** {member}\n"
                 f"**Reason:** {reason}\n"
                 f"**Original Moderator:** {moderator_mention}\n"
@@ -439,33 +514,28 @@ class Moderation(commands.Cog):
             reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
             if str(reaction.emoji) == "✅":
                 await self.bot.db.update_guild_config(
-                    ctx.guild.id, {"$pull": {"modlog": {"case_number": case_number}}}
+                    ctx.guild.id, {"$pull": {entry_type: {"case_number": case_number}}}
                 )
                 await msg.edit(
                     embed=discord.Embed(
-                        title="Modlog Removed",
-                        description=f"Modlog #{case_number} has been successfully removed.",
+                        title="Entry Removed",
+                        description=f"{entry_type.title()} #{case_number} has been successfully removed.",
                         color=discord.Color.green(),
                     )
                 )
-                # Uncomment below to log removal event (if desired):
-                # try:
-                #     await self.send_log(ctx, case_number, reason, modlog["member_id"], modlog["moderator_id"])
-                # except Exception:
-                #     pass
             else:
                 await msg.edit(
                     embed=discord.Embed(
-                        title="Modlog Removal Cancelled",
-                        description="Modlog removal cancelled by user.",
+                        title="Entry Removal Cancelled",
+                        description="Entry removal cancelled by user.",
                         color=discord.Color.red(),
                     )
                 )
         except asyncio.TimeoutError:
             await msg.edit(
                 embed=discord.Embed(
-                    title="Modlog Removal Cancelled",
-                    description="Modlog removal timed out. Command cancelled.",
+                    title="Entry Removal Cancelled",
+                    description="Entry removal timed out. Command cancelled.",
                     color=discord.Color.red(),
                 )
             )
