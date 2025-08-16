@@ -1063,7 +1063,15 @@ class Setup(commands.Cog):
             value=(
                 "`setaimoderation enable` - Enable AI moderation\n"
                 "`setaimoderation disable` - Disable AI moderation\n"
-                "`setaimoderation category <name> <on|off>` - Toggle a category"
+                "`setaimoderation category <name | all> <on|off>` - Toggle a category"
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="Configuring Actions",
+            value=(
+                "Actions (delete, warn, mute, etc.) are configured with the `setdetectionpunishments` command.\n"
+                "**Example:** `!!setdetectionpunishments ai_moderation mute 10m`"
             ),
             inline=False,
         )
@@ -1114,7 +1122,20 @@ class Setup(commands.Cog):
 
     @setaimoderation.command(10, name="category")
     async def aimod_category(self, ctx: commands.Context, category: str, value: bool) -> None:
-        """Enable or disable a specific AI moderation category."""
+        """
+        Enable or disable a specific AI moderation category.
+
+        You can also use 'all' to enable or disable all categories at once.
+
+        Available Categories:
+        - hate
+        - hate/threatening
+        - self-harm
+        - sexual
+        - sexual/minors
+        - violence
+        - violence/graphic
+        """
         valid_categories = [
             "hate",
             "hate/threatening",
@@ -1124,8 +1145,21 @@ class Setup(commands.Cog):
             "violence",
             "violence/graphic",
         ]
+
+        if category.lower() == "all":
+            update_payload = {
+                f"detections.ai_moderation.categories.{cat}": value for cat in valid_categories
+            }
+            await self.bot.db.update_guild_config(ctx.guild.id, {"$set": update_payload})
+            await ctx.send(
+                f"All AI moderation categories have been {'enabled' if value else 'disabled'}."
+            )
+            return
+
         if category not in valid_categories:
-            await ctx.send(f"Invalid category. Valid categories are: {', '.join(valid_categories)}")
+            await ctx.send(
+                f"Invalid category. Valid categories are: `all`, `{', '.join(valid_categories)}`"
+            )
             return
 
         await self.bot.db.update_guild_config(
