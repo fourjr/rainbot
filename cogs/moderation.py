@@ -35,7 +35,6 @@ class Moderation(commands.Cog):
             await ctx.invoke(self.bot.get_command("help"), command_or_cog="modlogs")
             return
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-        modlogs = guild_config.modlog
         # Accept both MemberOrID and raw string/ID
         if isinstance(user, (discord.Member, discord.User)):
             user_id = str(user.id)
@@ -46,16 +45,44 @@ class Moderation(commands.Cog):
             except Exception:
                 user_id = str(user)
             user_name = f"<@{user_id}>"
-        logs = [m for m in modlogs if isinstance(m, dict) and str(m.get("member_id", "")) == user_id]
-        if not logs:
+
+        # Gather all moderation actions for the user
+        modlogs = getattr(guild_config, "modlog", [])
+        warns = getattr(guild_config, "warns", [])
+        mutes = getattr(guild_config, "mutes", [])
+        tempbans = getattr(guild_config, "tempbans", [])
+        # Add more if needed (e.g., kicks, softbans) if stored separately
+
+        entries = []
+        # Modlogs
+        for m in modlogs:
+            if isinstance(m, dict) and str(m.get("member_id", "")) == user_id:
+                moderator = ctx.guild.get_member(int(m["moderator_id"]))
+                mod_name = moderator.mention if moderator else f"<@{m['moderator_id']}>"
+                entries.append(f"`{m['date']}` Case #{m['case_number']}: {mod_name} - {m['reason']} [modlog]")
+        # Warns
+        for w in warns:
+            if isinstance(w, dict) and str(w.get("member_id", "")) == user_id:
+                moderator = ctx.guild.get_member(int(w["moderator_id"]))
+                mod_name = moderator.mention if moderator else f"<@{w['moderator_id']}>"
+                entries.append(f"`{w['date']}` Warn #{w['case_number']}: {mod_name} - {w['reason']} [warn]")
+        # Mutes
+        for mute in mutes:
+            if isinstance(mute, dict) and str(mute.get("member", "")) == user_id:
+                until = mute.get("time")
+                until_str = f"until <t:{int(until)}:F>" if until else "indefinite"
+                entries.append(f"Mute: {user_name} {until_str} [mute]")
+        # Tempbans
+        for tb in tempbans:
+            if isinstance(tb, dict) and str(tb.get("member", "")) == user_id:
+                until = tb.get("time")
+                until_str = f"until <t:{int(until)}:F>" if until else "indefinite"
+                entries.append(f"Tempban: {user_name} {until_str} [tempban]")
+
+        if not entries:
             await ctx.send(f"No modlogs found for {user_name} ({user_id}).")
             return
-        # Format output as in master branch
-        fmt = f"**Modlogs for {user_name} ({user_id}):**\n"
-        for m in logs:
-            moderator = ctx.guild.get_member(int(m["moderator_id"]))
-            mod_name = moderator.mention if moderator else f"<@{m['moderator_id']}>"
-            fmt += f"\n`{m['date']}` Case #{m['case_number']}: {mod_name} - {m['reason']}"
+        fmt = f"**Modlogs for {user_name} ({user_id}):**\n" + "\n".join(entries)
         await ctx.send(fmt)
 
     @modlogs.command(6, name="remove", aliases=["delete", "del"])
