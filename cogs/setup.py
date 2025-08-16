@@ -7,6 +7,7 @@ from typing import Optional, Union, List, Dict, Any
 
 import discord
 import asyncio
+import openai
 from discord.ext import commands
 
 from bot import rainbot
