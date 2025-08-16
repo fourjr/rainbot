@@ -4,6 +4,8 @@ import datetime
 import io
 import os
 import re
+import json
+import base64
 from collections import Counter, defaultdict
 from tempfile import NamedTemporaryFile
 from typing import DefaultDict, List
@@ -295,49 +297,61 @@ class Detections(commands.Cog):
 
     @detection("image_moderation", require_attachment=True)
     async def image_moderation(self, m: MessageWrapper, guild_config) -> None:
-        """Use OpenAI's Moderation API for image moderation by URL"""
+        """Use a third-party API for image moderation"""
         if not guild_config.detections.ai_moderation.enabled:
             return
 
-        openai.api_key = os.getenv("OPENAI_API_KEY")
-        if not openai.api_key:
-            self.logger.warning("OPENAI_API_KEY is not set, AI moderation is disabled.")
+        api_key = os.getenv("DEEPAI_API_KEY")
+        if not api_key:
+            self.logger.warning("DEEPAI_API_KEY is not set, AI moderation is disabled.")
             return
-
-        sensitivity = guild_config.detections.ai_moderation.sensitivity / 100
 
         for attachment in m.attachments:
             if any(
                 attachment.filename.lower().endswith(ext)
-                for ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"]
+                for ext in [".png", ".jpg", ".jpeg", ".webp"]
             ):
                 try:
-                    # Note: This moderates the image URL, not the image content.
-                    response = await self.bot.loop.run_in_executor(
-                        self.bot.executor,
-                        lambda: openai.Moderation.create(input=attachment.url),
-                    )
-                    result = response["results"][0]
-                    if result["flagged"]:
-                        flagged_categories = [
-                            k
-                            for k, v in result["category_scores"].items()
-                            if v > sensitivity
-                            and guild_config.detections.ai_moderation.categories.get(k)
-                        ]
-                        if flagged_categories:
-                            reason = f"AI moderation triggered for image URL: {', '.join(flagged_categories)}"
-                            await m.detection.punish(
-                                self.bot,
-                                m,
-                                guild_config,
-                                reason=reason,
-                                ai_scores=result["category_scores"],
-                                detection_name="image_moderation",
-                            )
-                            return
+                    image_bytes = await attachment.read()
+
+                    # Use a temporary file to send the image data
+                    with NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
+                        temp_file.write(image_bytes)
+                        temp_filename = temp_file.name
+
+                    headers = {"api-key": api_key}
+
+                    async with aiohttp.ClientSession() as session:
+                        with open(temp_filename, "rb") as f:
+                            data = {"image": f}
+                            async with session.post(
+                                "https://api.deepai.org/api/nsfw-detector",
+                                data=data,
+                                headers=headers,
+                            ) as resp:
+                                if resp.status == 200:
+                                    result = await resp.json()
+                                else:
+                                    self.logger.error(
+                                        f"DeepAI API request failed with status {resp.status}: {await resp.text()}"
+                                    )
+                                    os.remove(temp_filename)
+                                    continue
+
+                    os.remove(temp_filename)
+
+                    if result.get("output") and result["output"].get("nsfw_score") > 0.75:
+                        reason = "Potentially inappropriate image detected"
+                        await m.detection.punish(
+                            self.bot,
+                            m,
+                            guild_config,
+                            reason=reason,
+                            detection_name="image_moderation",
+                        )
+                        return
                 except Exception as e:
-                    self.logger.error(f"Error calling OpenAI Moderation API for image URL: {e}")
+                    self.logger.error(f"Error calling moderation API for image: {e}")
 
 
 async def setup(bot: rainbot) -> None:
