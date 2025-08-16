@@ -738,59 +738,63 @@ class Moderation(commands.Cog):
             await self.send_log(ctx, member, reason)
 
     @command(7, usage="<member> [duration] [reason]")
-    async def ban(
-        self,
-        ctx: commands.Context,
-        member: MemberOrID,
-        *,
-        time: UserFriendlyTime = None,
-    ) -> None:
-        """Ban a member, optionally as a tempban.
-
+    async def ban(self, ctx: commands.Context, member: MemberOrID, *, time: UserFriendlyTime = None) -> None:
+        """Ban a member from the server, optionally with a duration.
+        
         Examples:
-        - `!!ban @User 7d Toxic behavior`
-        - `!!ban 123456789012345678 Spamming`
-        """
-        if (
-            get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
-            >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]
-        ):
+        - `!!ban @User Spamming` (permanent ban)
+        - `!!ban @User 7d Spamming` (7 day ban)
+        - `!!ban 123456789 24h Raid` (24 hour ban by ID)"""
+        # Check user permission level
+        if (get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0] 
+            >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]):
             await ctx.send("User has insufficient permissions")
             return
 
-        duration = None
-        reason = None
-        if time:
-            if time.dt:
-                duration = time.dt - ctx.message.created_at
-            if time.arg:
-                reason = time.arg
-
         try:
-            await self.alert_user(ctx, member, reason)
-            await ctx.guild.ban(member, reason=reason)
-            await self.send_log(ctx, member, reason, duration)
-            
-            if ctx.author != ctx.guild.me:
-                if duration:
-                    await ctx.send(
-                        f"{member.mention} has been temporarily banned for {format_timedelta(duration)}. Reason: {reason}"
-                    )
-                else:
-                    await ctx.send(f"{member.mention} has been banned. Reason: {reason}")
+            # Parse duration and reason
+            duration = None
+            reason = None
+            if time:
+                if time.dt:
+                    duration = time.dt - ctx.message.created_at
+                if time.arg:
+                    reason = time.arg
 
-            # log complete, save to DB
-            if duration is not None:
+            # Check bot permissions
+            if not ctx.guild.me.guild_permissions.ban_members:
+                await ctx.send("I don't have permission to ban members!")
+                return
+
+            # Alert user and execute ban
+            await self.alert_user(ctx, member, reason, duration=format_timedelta(duration))
+            await ctx.guild.ban(member, reason=f"{ctx.author}: {reason}" if reason else f"Ban by {ctx.author}")
+            
+            # Set up temporary ban if duration specified
+            if duration:
                 seconds = duration.total_seconds()
                 seconds += unixs()
                 await self.bot.db.update_guild_config(
-                    ctx.guild.id, {"$push": {"tempbans": {"member": str(member.id), "time": seconds}}}
+                    ctx.guild.id, 
+                    {"$push": {"tempbans": {"member": str(member.id), "time": seconds}}}
                 )
                 self.bot.loop.create_task(self.bot.unban(ctx.guild.id, member.id, seconds))
-        
+
+            # Send confirmation
+            if ctx.author != ctx.guild.me:
+                if duration:
+                    await ctx.send(f"✅ {member.mention} has been banned for {format_timedelta(duration)}. Reason: {reason}")
+                else:
+                    await ctx.send(f"✅ {member.mention} has been banned permanently. Reason: {reason}")
+
+            # Log the ban
+            await self.send_log(ctx, member, reason, duration)
+
         except discord.Forbidden:
-            await ctx.send("I don't have permission to ban members!")
-        except discord.HTTPException as e:
+            await ctx.send("I don't have permission to ban that member! They might have a higher role than me.")
+        except discord.NotFound:
+            await ctx.send(f"Could not find user {member}")
+        except Exception as e:
             await ctx.send(f"Failed to ban member: {str(e)}")
 
     @command(7, usage="<member> [duration] [reason]")
