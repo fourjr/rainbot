@@ -4,7 +4,7 @@ import re
 import emoji
 import string
 from datetime import timedelta
-from typing import Any, Callable, Optional, Tuple, Union, TYPE_CHECKING
+from typing import Any, Callable, Optional, Tuple, Union, TYPE_CHECKING, Dict
 import asyncio
 
 import discord
@@ -325,7 +325,7 @@ class Detection:
             await self.callback(cog, message, guild_config)
 
     async def punish(
-        self, bot: rainbot, message: discord.Message, guild_config, *, reason=None, purge_limit=None
+        self, bot: rainbot, message: discord.Message, guild_config, *, reason=None, purge_limit=None, ai_scores: Optional[Dict[str, float]] = None
     ):
         ctx = DummyContext(await bot.get_context(message))
         ctx.author = message.guild.me
@@ -368,10 +368,38 @@ class Detection:
 
                 embed = discord.Embed(
                     title="AI Moderation Action",
-                    description=f"**User:** {message.author.mention}\n**Reason:** {reason}\n**Action(s):** {', '.join(actions_taken)}",
+                    description=(
+                        f"**User:** {message.author.mention} (`{message.author.id}`)\n"
+                        f"**Channel:** {message.channel.mention}\n"
+                        f"**Reason:** {reason}"
+                    ),
                     color=discord.Color.red(),
                 )
-                embed.set_footer(text=f"User ID: {message.author.id}")
+
+                if message.content:
+                    embed.add_field(name="Content", value=f"```{discord.utils.escape_markdown(message.content)}```", inline=False)
+                
+                if message.attachments:
+                    urls = "\n".join([a.url for a in message.attachments])
+                    embed.add_field(name="Attachments", value=urls, inline=False)
+
+                if ai_scores:
+                    triggered_categories_str = reason.replace("AI moderation triggered for: ", "").replace("Potentially inappropriate image detected for: ", "")
+                    triggered_categories = [c.strip() for c in triggered_categories_str.split(',')]
+                    
+                    scores_text = ""
+                    for category, score in sorted(ai_scores.items(), key=lambda item: item[1], reverse=True):
+                        if score > 0.01: # Only show scores over 1%
+                            if category in triggered_categories:
+                                scores_text += f"**{category}: {score:.2%}**\n"
+                            else:
+                                scores_text += f"{category}: {score:.2%}\n"
+                    if scores_text:
+                        embed.add_field(name="AI Scores", value=scores_text, inline=False)
+                
+                if actions_taken:
+                    embed.add_field(name="Action(s)", value=', '.join(actions_taken), inline=False)
+
                 await log_channel.send(embed=embed)
 
         for _ in range(punishments.warn):

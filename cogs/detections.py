@@ -68,7 +68,7 @@ class Detections(commands.Cog):
                 and getattr(self.bot, "dev_guild_id", None)
                 and (m.guild and m.guild.id != getattr(self.bot, "dev_guild_id", None))
             )
-            or m.type != discord.MessageType.default
+            or m.type not in (discord.MessageType.default, discord.MessageType.reply)
             or not m.guild
         ):
             return
@@ -76,19 +76,6 @@ class Detections(commands.Cog):
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
         for func in self.detections:
             await func.trigger(self, m, guild_config)
-
-    @detection("sexually_explicit", require_attachment=True)
-    async def sexually_explicit(self, m: MessageWrapper, guild_config) -> None:
-        if not guild_config.detections.sexually_explicit:
-            return
-
-        for i in m.attachments:
-            if (
-                i.filename.endswith(".png")
-                or i.filename.endswith(".jpg")
-                or i.filename.endswith(".jpeg")
-            ):
-                await self.get_openai_classifications(m, guild_config, i.url)
 
     @detection("mention_limit")
     async def mention_limit(self, m: MessageWrapper, guild_config) -> None:
@@ -268,47 +255,64 @@ class Detections(commands.Cog):
                 most_common_count = len(timestamps)
         return most_common_count
 
-    async def get_openai_classifications(self, m, guild_config, url) -> None:
-        """Use OpenAI's Moderation API for NSFW detection"""
-        try:
-            openai.api_key = os.getenv("OPENAI_API_KEY")
-            response = await self.bot.loop.run_in_executor(
-                self.bot.executor, lambda: openai.Moderation.create(input=url)
-            )
-            if response["results"][0]["flagged"]:
-                await self.openai_callback(m, guild_config, response["results"][0]["categories"])
-        except Exception as e:
-            self.logger.error(f"Error calling OpenAI Image Moderation API: {e}")
-
     @detection("ai_moderation")
     async def ai_moderation(self, m: MessageWrapper, guild_config) -> None:
-        """Use OpenAI's Moderation API for text moderation"""
+        """Use OpenAI's Moderation API for text and image moderation"""
         if not guild_config.detections.ai_moderation.enabled:
             return
 
-        try:
-            openai.api_key = os.getenv("OPENAI_API_KEY")
-            response = await self.bot.loop.run_in_executor(
-                self.bot.executor, lambda: openai.Moderation.create(input=m.content)
-            )
-            if response["results"][0]["flagged"]:
-                sensitivity = guild_config.detections.ai_moderation.sensitivity / 100
-                flagged_categories = [
-                    k
-                    for k, v in response["results"][0]["category_scores"].items()
-                    if v > sensitivity and guild_config.detections.ai_moderation.categories.get(k)
-                ]
-                if flagged_categories:
-                    reason = f"AI moderation triggered for: {', '.join(flagged_categories)}"
-                    await m.detection.punish(self.bot, m, guild_config, reason=reason)
-        except Exception as e:
-            self.logger.error(f"Error calling OpenAI Moderation API: {e}")
+        openai.api_key = os.getenv("OPENAI_API_KEY")
+        if not openai.api_key:
+            self.logger.warning("OPENAI_API_KEY is not set, AI moderation is disabled.")
+            return
 
-    async def openai_callback(self, m, guild_config, categories) -> None:
-        flagged_categories = [k for k, v in categories.items() if v]
-        reason = f"Potentially inappropriate image detected for: {', '.join(flagged_categories)}"
-        await m.detection.punish(self.bot, m, guild_config, reason=reason)
+        sensitivity = guild_config.detections.ai_moderation.sensitivity / 100
 
+        # --- Text Moderation ---
+        if m.content:
+            try:
+                response = await self.bot.loop.run_in_executor(
+                    self.bot.executor, lambda: openai.Moderation.create(input=m.content)
+                )
+                result = response["results"][0]
+                if result["flagged"]:
+                    flagged_categories = [
+                        k for k, v in result["category_scores"].items()
+                        if v > sensitivity and guild_config.detections.ai_moderation.categories.get(k)
+                    ]
+                    if flagged_categories:
+                        reason = f"AI moderation triggered for: {', '.join(flagged_categories)}"
+                        await m.detection.punish(self.bot, m, guild_config, reason=reason, ai_scores=result["category_scores"])
+                        return # Stop after the first punishment
+            except Exception as e:
+                self.logger.error(f"Error calling OpenAI Moderation API for text: {e}")
+
+        # --- Image Moderation ---
+        for attachment in m.attachments:
+            if any(attachment.filename.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp']):
+                try:
+                    # Using a free, privacy-focused NSFW detection API
+                    async with self.bot.session.get(f"https://nsfw.rain-api.com/v1/scan?url={attachment.url}") as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            # Remap scores to OpenAI format for consistency
+                            scores = {
+                                'sexual': data.get('sexual_explicit', 0) + data.get('sexual_suggestive', 0),
+                                'violence': data.get('violence', 0),
+                                'hate': 0, 
+                            }
+                            is_flagged = any(score > sensitivity for score in scores.values())
+
+                            if is_flagged:
+                                flagged_categories = [k for k, v in scores.items() if v > sensitivity]
+                                reason = f"AI moderation triggered for image: {', '.join(flagged_categories)}"
+                                await m.detection.punish(self.bot, m, guild_config, reason=reason, ai_scores=scores)
+                                return # Stop after the first punishment
+                        else:
+                            self.logger.error(f"Image moderation API returned status {resp.status}")
+
+                except Exception as e:
+                    self.logger.error(f"Error calling Image Moderation API: {e}")
 
 async def setup(bot: rainbot) -> None:
     await bot.add_cog(Detections(bot))
