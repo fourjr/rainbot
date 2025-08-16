@@ -33,8 +33,10 @@ class Moderation(commands.Cog):
                 channel = target
             else:
                 try:
-                    channel = bot.get_channel(int(target))
-                except Exception:
+                    channel_id = int(target) if target else None
+                    if channel_id:
+                        channel = bot.get_channel(channel_id)
+                except (ValueError, TypeError):
                     channel = None
             if not channel:
                 return
