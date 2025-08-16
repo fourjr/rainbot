@@ -288,13 +288,13 @@ class Detection:
         self.force_enable = force_enable
         self.__cog_detection__ = True
 
-    async def check_constraints(self, bot: rainbot, message: discord.Message) -> bool:
+    async def check_constraints(self, bot: rainbot, message: discord.Message, guild_config=None) -> bool:
         if self.require_guild and not message.guild:
             return False
         if self.force_enable and bot.dev_mode:
             return True
         if message.guild:
-            guild_config = await bot.db.get_guild_config(message.guild.id)
+            guild_config = guild_config or await bot.db.get_guild_config(message.guild.id)
             if self.check_enabled and not guild_config.detections[self.name]:
                 return False
             if str(message.channel.id) in guild_config.ignored_channels[self.name]:
@@ -316,18 +316,17 @@ class Detection:
             return False
         return True
 
-    async def trigger(self, cog: commands.Cog, message: discord.Message) -> Any:
-        if await self.check_constraints(cog.bot, message):
+    async def trigger(self, cog: commands.Cog, message: discord.Message, guild_config=None) -> Any:
+        if await self.check_constraints(cog.bot, message, guild_config):
             message = MessageWrapper(message)
             message.detection = self
-            cog.bot.loop.create_task(self.callback(cog, message))
+            await self.callback(cog, message, guild_config)
 
     async def punish(
-        self, bot: rainbot, message: discord.Message, *, reason=None, purge_limit=None
+        self, bot: rainbot, message: discord.Message, guild_config, *, reason=None, purge_limit=None
     ):
         ctx = DummyContext(await bot.get_context(message))
         ctx.author = message.guild.me
-        guild_config = await bot.db.get_guild_config(message.guild.id)
         punishments = guild_config.detection_punishments[self.name]
         reason = reason or f"Detection triggered: {self.name}"
 

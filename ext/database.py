@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Union
 
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
+from cachetools import TTLCache
 
 DEFAULT: Dict[str, Any] = {
     "guild_id": None,
@@ -310,56 +311,51 @@ class DatabaseManager:
         self.mongo = AsyncIOMotorClient(mongo_uri)
         self.coll = self.mongo.rainbot.guilds
         self.users = self.mongo.rainbot.users
-        self.guilds_data: Dict[int, DBDict] = {}
+        self.guild_cache = TTLCache(maxsize=1000, ttl=300)
         self.users_data: Dict[int, DBDict] = {}
 
         self.loop = loop or asyncio.get_event_loop()
 
     def start_change_listener(self) -> None:
         """Start the change listener task"""
-        self.loop.create_task(self.change_listener())
-
-    async def change_listener(self) -> None:
-        """Listen to change streams when supported; otherwise, silently disable live updates."""
-        try:
-            async with self.coll.watch(full_document="updateLookup") as change_stream:
-                async for change in change_stream:
-                    self.guilds_data[int(change["fullDocument"]["guild_id"])] = DBDict(
-                        change["fullDocument"]
-                    )
-        except Exception:
-            # Change streams require a replica set; ignore if unsupported
-            return
+        pass # Disabling change listener in favor of cache
 
     async def get_guild_config(self, guild_id: int) -> DBDict:
-        if guild_id not in self.guilds_data:
-            data = await self.coll.find_one({"guild_id": str(guild_id)})
-            if data:
-                self.guilds_data[guild_id] = DBDict(data)
-            else:
-                await self.create_new_config(guild_id)
+        if guild_id in self.guild_cache:
+            return self.guild_cache[guild_id]
+        
+        data = await self.coll.find_one({"guild_id": str(guild_id)})
+        if not data:
+            config = await self.create_new_config(guild_id)
+        else:
+            config = DBDict(data)
 
-        return self.guilds_data[guild_id]
+        self.guild_cache[guild_id] = config
+        return config
 
     # Guilds
     async def update_guild_config(self, guild_id: int, update: dict, **kwargs: Any) -> DBDict:
-        self.guilds_data[guild_id] = DBDict(
-            await self.coll.find_one_and_update(
-                {"guild_id": str(guild_id)},
-                update,
-                upsert=True,
-                return_document=ReturnDocument.AFTER,
-                **kwargs,
-            )
+        if guild_id in self.guild_cache:
+            del self.guild_cache[guild_id] # Invalidate cache
+
+        updated_document = await self.coll.find_one_and_update(
+            {"guild_id": str(guild_id)},
+            update,
+            upsert=True,
+            return_document=ReturnDocument.AFTER,
+            **kwargs,
         )
-        return self.guilds_data[guild_id]
+        config = DBDict(updated_document)
+        self.guild_cache[guild_id] = config
+        return config
 
     async def create_new_config(self, guild_id: int) -> DBDict:
         data = copy.copy(DEFAULT)
         data["guild_id"] = str(guild_id)
         await self.coll.insert_one(data)
-        self.guilds_data[guild_id] = DBDict(data)
-        return self.guilds_data[guild_id]
+        config = DBDict(data)
+        self.guild_cache[guild_id] = config
+        return config
 
     # Users
     async def get_user(self, user_id: int) -> DBDict:

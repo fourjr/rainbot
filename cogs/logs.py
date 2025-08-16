@@ -13,7 +13,7 @@ from ext.utility import QuickId, format_timedelta
 class Logging(commands.Cog):
     def __init__(self, bot: rainbot) -> None:
         self.bot = bot
-        self.bot.loop.create_task(self.fill_message_cache())
+        # self.bot.loop.create_task(self.fill_message_cache())
 
     async def fill_message_cache(self) -> None:
         await self.bot.wait_until_ready()
