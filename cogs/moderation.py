@@ -3,66 +3,11 @@ import asyncio
 from datetime import timedelta
 from time import time as unixs
 from typing import Union
-from ext.utility import SafeFormat
+from ext.utility import SafeFormat, DBDict, tryint, CannedStr, format_timedelta, get_perm_level
 from ext.database import DEFAULT
-from ext.utility import DBDict, tryint
-from ext.utility import CannedStr
 from discord.ext import commands
-
 from bot import rainbot
 from ext.command import command, group
-from ext.utility import format_timedelta, get_perm_level
-from ext.time import UserFriendlyTime
-
-
-class Moderation(commands.Cog):
-    # ...existing code...
-    async def remove_warn(self, ctx, case_number):
-        warns = await self.bot.db.get_guild_warns(ctx.guild.id)
-        warn = next((w for w in warns if w.get("case_number") == case_number), None)
-        if not warn:
-            await ctx.send(f"Modlog #{case_number} does not exist.")
-            return
-        moderator = ctx.guild.get_member(int(warn["moderator_id"]))
-        confirm_embed = discord.Embed(
-            title="Confirm Modlog Removal",
-            description=f"Are you sure you want to remove Warn #{case_number} for <@{warn['member_id']}>?\nReason: {warn['reason']}\nModerator: {moderator}",
-            color=discord.Color.red(),
-        )
-        msg = await ctx.send(embed=confirm_embed)
-        await msg.add_reaction("✅")
-        await msg.add_reaction("❌")
-
-        def check(reaction, user):
-            return (
-                user == ctx.author
-                and str(reaction.emoji) in ["✅", "❌"]
-                and reaction.message.id == msg.id
-            )
-
-        try:
-            reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
-            if str(reaction.emoji) == "✅":
-                await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"warns": warn}})
-                await ctx.send(f"Warn #{case_number} removed.")
-                await self.send_log(
-                    ctx, case_number, warn["reason"], warn["member_id"], warn["moderator_id"]
-                )
-            else:
-                await ctx.send("Warn removal cancelled.")
-        except asyncio.TimeoutError:
-            await ctx.send("Warn removal timed out. Command cancelled.")
-
-    # ...existing code...
-
-
-from ext.utility import DBDict, tryint
-from ext.utility import CannedStr
-from discord.ext import commands
-
-from bot import rainbot
-from ext.command import command, group
-from ext.utility import format_timedelta, get_perm_level
 from ext.time import UserFriendlyTime
 
 
@@ -1123,38 +1068,6 @@ class Moderation(commands.Cog):
     async def remove_warn(self, ctx, case_number):
         warns = await self.bot.db.get_guild_warns(ctx.guild.id)
         warn = next((w for w in warns if w.get("case_number") == case_number), None)
-        if not warn:
-            await ctx.send(f"Modlog #{case_number} does not exist.")
-            return
-        moderator = ctx.guild.get_member(int(warn["moderator_id"]))
-        confirm_embed = discord.Embed(
-            title="Confirm Modlog Removal",
-            description=f"Are you sure you want to remove Warn #{case_number} for <@{warn['member_id']}>?\nReason: {warn['reason']}\nModerator: {moderator}",
-            color=discord.Color.red(),
-        )
-        msg = await ctx.send(embed=confirm_embed)
-        await msg.add_reaction("✅")
-        await msg.add_reaction("❌")
-
-        def check(reaction, user):
-            return (
-                user == ctx.author
-                and str(reaction.emoji) in ["✅", "❌"]
-                and reaction.message.id == msg.id
-            )
-
-        try:
-            reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
-            if str(reaction.emoji) == "✅":
-                await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"warns": warn}})
-                await ctx.send(f"Warn #{case_number} removed.")
-                await self.send_log(
-                    ctx, case_number, warn["reason"], warn["member_id"], warn["moderator_id"]
-                )
-            else:
-                await ctx.send("Warn removal cancelled.")
-        except asyncio.TimeoutError:
-            await ctx.send("Warn removal timed out. Command cancelled.")
         if not warn:
             await ctx.send(f"Modlog #{case_number} does not exist.")
             return
