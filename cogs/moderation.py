@@ -943,7 +943,8 @@ class Moderation(commands.Cog):
             except discord.NotFound as e:
                 await ctx.send(f"Unable to unban user: {e}")
             else:
-                await ctx.send(f"{member.mention} has been unbanned. Reason: {reason}")
+                user_id = getattr(member, "id", member)
+                await ctx.send(f"{member.mention} ({user_id}) has been unbanned. Reason: {reason}")
                 await self.send_log(ctx, member, reason)
         else:
             await ctx.send(
