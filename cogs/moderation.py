@@ -36,21 +36,21 @@ class Moderation(commands.Cog):
             return
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         modlogs = guild_config.modlog
-        # Support both MemberOrID and raw string/ID
+        # Accept both MemberOrID and raw string/ID
         if isinstance(user, (discord.Member, discord.User)):
             user_id = str(user.id)
             user_name = user.mention
         else:
-            # Accept both int and str for user_id
             try:
                 user_id = str(int(user))
             except Exception:
                 user_id = str(user)
             user_name = f"<@{user_id}>"
-        logs = [m for m in modlogs if str(m.get("member_id", "")) == user_id]
+        logs = [m for m in modlogs if isinstance(m, dict) and str(m.get("member_id", "")) == user_id]
         if not logs:
             await ctx.send(f"No modlogs found for {user_name} ({user_id}).")
             return
+        # Format output as in master branch
         fmt = f"**Modlogs for {user_name} ({user_id}):**\n"
         for m in logs:
             moderator = ctx.guild.get_member(int(m["moderator_id"]))
