@@ -41,9 +41,13 @@ class Moderation(commands.Cog):
             user_id = str(user.id)
             user_name = user.mention
         else:
-            user_id = str(user)
+            # Accept both int and str for user_id
+            try:
+                user_id = str(int(user))
+            except Exception:
+                user_id = str(user)
             user_name = f"<@{user_id}>"
-        logs = [m for m in modlogs if str(m["member_id"]) == user_id]
+        logs = [m for m in modlogs if str(m.get("member_id", "")) == user_id]
         if not logs:
             await ctx.send(f"No modlogs found for {user_name} ({user_id}).")
             return
