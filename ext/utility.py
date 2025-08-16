@@ -449,11 +449,12 @@ class Detection:
 
         if punishments.mute:
             try:
+                time_obj = await UserFriendlyTime().convert(ctx, punishments.mute + " " + reason)
                 ctx.command = bot.get_command("mute")
                 await ctx.invoke(
                     bot.get_command("mute"),
                     member=message.author,
-                    time=punishments.mute + " " + reason,
+                    time=time_obj,
                 )
             except (commands.BadArgument, discord.NotFound):
                 pass
