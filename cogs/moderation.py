@@ -795,14 +795,7 @@ class Moderation(commands.Cog):
                 channel = ctx.bot.get_channel(modlogs.member_warn)
                 if channel and hasattr(channel, 'send'):
                     await channel.send(fmt)
-            elif ctx.command.qualified_name == "modlogs remove":
-                case_num, original_reason, member_id, mod_id = args
-                member = ctx.guild.get_member(int(member_id)) or f"\u003c@{member_id}\u003e"
-                original_mod = ctx.guild.get_member(int(mod_id)) or f"\u003c@{mod_id}\u003e"
-                fmt = f"{current_time} {ctx.author} has deleted modlog #{case_num}\n• Target: {member} ({member_id})\n• Original Moderator: {original_mod}\n• Original Reason: {original_reason}"
-                channel = ctx.bot.get_channel(modlogs.member_warn)
-                if channel:
-                    await channel.send(fmt)
+            # (Removed duplicate unsafe modlogs remove block)
             elif ctx.command.name == "lockdown":
                 fmt = f'{current_time} {ctx.author} has {"enabled" if args[0] else "disabled"} lockdown for {args[1].mention}'
                 channel = ctx.bot.get_channel(modlogs.channel_lockdown)
