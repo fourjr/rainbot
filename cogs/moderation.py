@@ -173,6 +173,7 @@ class Moderation(commands.Cog):
         await msg.add_reaction("✅")
         await msg.add_reaction("❌")
 
+
         def check(reaction, user):
             return (
                 user == ctx.author
@@ -180,16 +181,15 @@ class Moderation(commands.Cog):
                 and reaction.message.id == msg.id
             )
 
-    # Removed stray try statement
-            reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
-            if str(reaction.emoji) == "✅":
-                await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"warns": warn}})
-                await ctx.send(f"Warn #{case_number} removed.")
-                await self.send_log(
-                    ctx, case_number, warn["reason"], warn["member_id"], warn["moderator_id"]
-                )
-            else:
-                await ctx.send("Warn removal cancelled.")
+        reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
+        if str(reaction.emoji) == "✅":
+            await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"warns": warn}})
+            await ctx.send(f"Warn #{case_number} removed.")
+            await self.send_log(
+                ctx, case_number, warn["reason"], warn["member_id"], warn["moderator_id"]
+            )
+        else:
+            await ctx.send("Warn removal cancelled.")
 
     async def remove_warn(self, ctx, case_number):
         warns = await self.bot.db.get_guild_warns(ctx.guild.id)
