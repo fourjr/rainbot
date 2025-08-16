@@ -886,7 +886,9 @@ class Moderation(commands.Cog):
                 member = ctx.guild.get_member(int(member_id)) or f"\u003c@{member_id}\u003e"
                 original_mod = ctx.guild.get_member(int(mod_id)) or f"\u003c@{mod_id}\u003e"
                 fmt = f"{current_time} {ctx.author} has deleted modlog #{case_num}\n• Target: {member} ({member_id})\n• Original Moderator: {original_mod}\n• Original Reason: {original_reason}"
-                await self._send_to_log(ctx.bot, modlogs.member_warn, content=fmt)
+                channel = ctx.bot.get_channel(modlogs.member_warn)
+                if channel:
+                    await channel.send(fmt)
             elif ctx.command.name == "lockdown":
                 fmt = f'{current_time} {ctx.author} has {"enabled" if args[0] else "disabled"} lockdown for {args[1].mention}'
                 channel = ctx.bot.get_channel(modlogs.channel_lockdown)
@@ -1759,7 +1761,9 @@ class Moderation(commands.Cog):
                 member = ctx.guild.get_member(int(member_id)) or f"\u003c@{member_id}\u003e"
                 original_mod = ctx.guild.get_member(int(mod_id)) or f"\u003c@{mod_id}\u003e"
                 fmt = f"{current_time} {ctx.author} has deleted modlog #{case_num}\n• Target: {member} ({member_id})\n• Original Moderator: {original_mod}\n• Original Reason: {original_reason}"
-                await self._send_to_log(ctx.bot, modlogs.member_warn, content=fmt)
+                channel = ctx.bot.get_channel(modlogs.member_warn)
+                if channel:
+                    await channel.send(fmt)
             elif ctx.command.name == "lockdown":
                 fmt = f'{current_time} {ctx.author} has {"enabled" if args[0] else "disabled"} lockdown for {args[1].mention}'
                 channel = ctx.bot.get_channel(modlogs.channel_lockdown)
