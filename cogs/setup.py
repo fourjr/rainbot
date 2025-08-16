@@ -676,10 +676,11 @@ class Setup(commands.Cog):
     async def setmodlog(self, ctx: commands.Context, log_name: str, *, channel: str = None) -> None:
         """Configure the moderation log channel for actions.
 
-        Valid types: all, member_warn, member_mute, member_unmute, member_kick, member_ban, member_unban, member_softban, message_purge, channel_lockdown, channel_slowmode
+        Valid types: all, ai_moderation, member_warn, member_mute, member_unmute, member_kick, member_ban, member_unban, member_softban, message_purge, channel_lockdown, channel_slowmode
 
         Examples:
         - `!!setmodlog all #mod-log`
+        - `!!setmodlog ai_moderation #ai-logs`
         - `!!setmodlog member_ban #security`
         - `!!setmodlog member_warn off`
         """

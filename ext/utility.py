@@ -350,13 +350,25 @@ class Detection:
                 pass  # Can't send messages in this channel
 
         # Log to modlog channel
-        log_channel_id = guild_config.modlog.get("message_delete")
+        log_channel_id = guild_config.modlog.get("ai_moderation")
         if log_channel_id:
             log_channel = bot.get_channel(int(log_channel_id))
             if log_channel:
+                actions_taken = []
+                if punishments.delete:
+                    actions_taken.append("Message Deleted")
+                if punishments.warn:
+                    actions_taken.append(f"Warned ({punishments.warn}x)")
+                if punishments.kick:
+                    actions_taken.append("Kicked")
+                if punishments.ban:
+                    actions_taken.append("Banned")
+                if punishments.mute:
+                    actions_taken.append(f"Muted ({punishments.mute})")
+
                 embed = discord.Embed(
                     title="AI Moderation Action",
-                    description=f"**User:** {message.author.mention}\n**Reason:** {reason}\n**Action:** Message Deleted",
+                    description=f"**User:** {message.author.mention}\n**Reason:** {reason}\n**Action(s):** {', '.join(actions_taken)}",
                     color=discord.Color.red(),
                 )
                 embed.set_footer(text=f"User ID: {message.author.id}")

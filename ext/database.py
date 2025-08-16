@@ -24,6 +24,7 @@ DEFAULT: Dict[str, Any] = {
         "role_delete": None,
     },
     "modlog": {
+        "ai_moderation": None,
         "member_warn": None,
         "member_mute": None,
         "member_unmute": None,
