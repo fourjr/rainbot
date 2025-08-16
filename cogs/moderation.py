@@ -277,6 +277,7 @@ class Moderation(commands.Cog):
         )
 
         entries = []
+        
         # Modlogs
         for m in modlogs:
             if not isinstance(m, dict):
@@ -289,6 +290,66 @@ class Moderation(commands.Cog):
             case_number = m.get("case_number", 0)
             date = m.get("date", "Unknown")
             entries.append(f"Case #{case_number}: {member_name} by {mod_name} - {reason} | {date}")
+        
+        # Warns
+        for w in warns:
+            if isinstance(w, dict):
+                member = ctx.guild.get_member(int(w.get("member_id", 0)))
+                member_name = member.mention if member else f"<@{w.get('member_id', 0)}>"
+                moderator = ctx.guild.get_member(int(w.get("moderator_id", 0)))
+                mod_name = moderator.mention if moderator else f"<@{w.get('moderator_id', 0)}>"
+                reason = w.get("reason", "No reason")
+                case_number = w.get("case_number", 0)
+                date = w.get("date", "Unknown")
+                entries.append(f"Warn #{case_number}: {member_name} by {mod_name} - {reason} | {date}")
+        
+        # Mutes
+        for mute in mutes:
+            if isinstance(mute, dict):
+                member_id = mute.get("member", "")
+                member = ctx.guild.get_member(int(member_id)) if member_id else None
+                member_name = member.mention if member else f"<@{member_id}>"
+                until = mute.get("time")
+                until_str = f"until <t:{int(until)}:F>" if until else "indefinite"
+                date = mute.get("date", "Unknown")
+                entries.append(f"Mute: {member_name} {until_str} | {date}")
+        
+        # Tempbans
+        for tb in tempbans:
+            if isinstance(tb, dict):
+                member_id = tb.get("member", "")
+                member = ctx.guild.get_member(int(member_id)) if member_id else None
+                member_name = member.mention if member else f"<@{member_id}>"
+                until = tb.get("time")
+                until_str = f"until <t:{int(until)}:F>" if until else "indefinite"
+                date = tb.get("date", "Unknown")
+                entries.append(f"Tempban: {member_name} {until_str} | {date}")
+        
+        # Kicks
+        for k in kicks:
+            if isinstance(k, dict):
+                member_id = k.get("member_id", "")
+                member = ctx.guild.get_member(int(member_id)) if member_id else None
+                member_name = member.mention if member else f"<@{member_id}>"
+                moderator = ctx.guild.get_member(int(k.get("moderator_id", 0)))
+                mod_name = moderator.mention if moderator else f"<@{k.get('moderator_id', 0)}>"
+                reason = k.get("reason", "No reason")
+                case_number = k.get("case_number", 0)
+                date = k.get("date", "Unknown")
+                entries.append(f"Kick #{case_number}: {member_name} by {mod_name} - {reason} | {date}")
+        
+        # Softbans
+        for sb in softbans:
+            if isinstance(sb, dict):
+                member_id = sb.get("member_id", "")
+                member = ctx.guild.get_member(int(member_id)) if member_id else None
+                member_name = member.mention if member else f"<@{member_id}>"
+                moderator = ctx.guild.get_member(int(sb.get("moderator_id", 0)))
+                mod_name = moderator.mention if moderator else f"<@{sb.get('moderator_id', 0)}>"
+                reason = sb.get("reason", "No reason")
+                case_number = sb.get("case_number", 0)
+                date = sb.get("date", "Unknown")
+                entries.append(f"Softban #{case_number}: {member_name} by {mod_name} - {reason} | {date}")
         
         if not entries:
             await ctx.send("No moderation logs found.")
@@ -408,66 +469,6 @@ class Moderation(commands.Cog):
                     color=discord.Color.red(),
                 )
             )
-        
-        # Warns
-        for w in warns:
-            if isinstance(w, dict):
-                member = ctx.guild.get_member(int(w.get("member_id", 0)))
-                member_name = member.mention if member else f"<@{w.get('member_id', 0)}>"
-                moderator = ctx.guild.get_member(int(w.get("moderator_id", 0)))
-                mod_name = moderator.mention if moderator else f"<@{w.get('moderator_id', 0)}>"
-                reason = w.get("reason", "No reason")
-                case_number = w.get("case_number", 0)
-                date = w.get("date", "Unknown")
-                entries.append(f"Warn #{case_number}: {member_name} by {mod_name} - {reason} | {date}")
-        
-        # Mutes
-        for mute in mutes:
-            if isinstance(mute, dict):
-                member_id = mute.get("member", "")
-                member = ctx.guild.get_member(int(member_id)) if member_id else None
-                member_name = member.mention if member else f"<@{member_id}>"
-                until = mute.get("time")
-                until_str = f"until <t:{int(until)}:F>" if until else "indefinite"
-                date = mute.get("date", "Unknown")
-                entries.append(f"Mute: {member_name} {until_str} | {date}")
-        
-        # Tempbans
-        for tb in tempbans:
-            if isinstance(tb, dict):
-                member_id = tb.get("member", "")
-                member = ctx.guild.get_member(int(member_id)) if member_id else None
-                member_name = member.mention if member else f"<@{member_id}>"
-                until = tb.get("time")
-                until_str = f"until <t:{int(until)}:F>" if until else "indefinite"
-                date = tb.get("date", "Unknown")
-                entries.append(f"Tempban: {member_name} {until_str} | {date}")
-        
-        # Kicks
-        for k in kicks:
-            if isinstance(k, dict):
-                member_id = k.get("member_id", "")
-                member = ctx.guild.get_member(int(member_id)) if member_id else None
-                member_name = member.mention if member else f"<@{member_id}>"
-                moderator = ctx.guild.get_member(int(k.get("moderator_id", 0)))
-                mod_name = moderator.mention if moderator else f"<@{k.get('moderator_id', 0)}>"
-                reason = k.get("reason", "No reason")
-                case_number = k.get("case_number", 0)
-                date = k.get("date", "Unknown")
-                entries.append(f"Kick #{case_number}: {member_name} by {mod_name} - {reason} | {date}")
-        
-        # Softbans
-        for sb in softbans:
-            if isinstance(sb, dict):
-                member_id = sb.get("member_id", "")
-                member = ctx.guild.get_member(int(member_id)) if member_id else None
-                member_name = member.mention if member else f"<@{member_id}>"
-                moderator = ctx.guild.get_member(int(sb.get("moderator_id", 0)))
-                mod_name = moderator.mention if moderator else f"<@{sb.get('moderator_id', 0)}>"
-                reason = sb.get("reason", "No reason")
-                case_number = sb.get("case_number", 0)
-                date = sb.get("date", "Unknown")
-                entries.append(f"Softban #{case_number}: {member_name} by {mod_name} - {reason} | {date}")
 
     # Consolidated modlogs implementation with proper structure
 
