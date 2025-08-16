@@ -153,6 +153,7 @@ DEFAULT: Dict[str, Any] = {
     "canned_variables": {},
     "ignored_channels_in_prod": [],
     "mute_role": None,
+    "ban_prune_days": 3,
     "prefix": "!!",
 }
 
