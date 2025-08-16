@@ -1035,46 +1035,103 @@ class Setup(commands.Cog):
         await self.bot.db.update_guild_config(ctx.guild.id, {"$set": RECOMMENDED_DETECTIONS})
         await ctx.send("Recommended detections have been set.")
 
-    @command(10, aliases=["set-ai-moderation", "set_ai_moderation"])
-    async def setaimoderation(self, ctx: commands.Context, value: bool) -> None:
-        """Enable or disable AI-powered automoderation."""
-        if value:
-            embed = discord.Embed(
-                title="⚠️ AI Moderation Warning",
-                description=(
-                    "Enabling AI moderation can lead to **false positives**. "
-                    "The AI may incorrectly flag innocent messages.\n\n"
-                    "Please confirm that you understand this risk and wish to enable the feature."
-                ),
-                color=discord.Color.orange(),
-            )
-            msg = await ctx.send(embed=embed)
-            await msg.add_reaction("✅")
-            await msg.add_reaction("❌")
+    @group(10, aliases=["set-ai-moderation", "set_ai_moderation"], invoke_without_command=True)
+    async def setaimoderation(self, ctx: commands.Context) -> None:
+        """Manage AI-powered automoderation settings."""
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        enabled_categories = [
+            k for k, v in guild_config.detections.ai_moderation.categories.items() if v
+        ]
 
-            def check(reaction, user):
-                return (
-                    user == ctx.author
-                    and str(reaction.emoji) in ["✅", "❌"]
-                    and reaction.message.id == msg.id
+        embed = discord.Embed(
+            title="AI Moderation Settings",
+            description="Control the AI-powered automoderation features.",
+            color=discord.Color.blue(),
+        )
+        embed.add_field(
+            name="Status",
+            value="Enabled" if guild_config.detections.ai_moderation.enabled else "Disabled",
+            inline=False,
+        )
+        embed.add_field(
+            name="Enabled Categories",
+            value=", ".join(enabled_categories) if enabled_categories else "None",
+            inline=False,
+        )
+        embed.add_field(
+            name="Usage",
+            value=(
+                "`setaimoderation enable` - Enable AI moderation\n"
+                "`setaimoderation disable` - Disable AI moderation\n"
+                "`setaimoderation category <name> <on|off>` - Toggle a category"
+            ),
+            inline=False,
+        )
+        await ctx.send(embed=embed)
+
+    @setaimoderation.command(name="enable")
+    async def aimod_enable(self, ctx: commands.Context) -> None:
+        """Enable AI-powered automoderation."""
+        embed = discord.Embed(
+            title="⚠️ AI Moderation Warning",
+            description=(
+                "Enabling AI moderation can lead to **false positives**. "
+                "The AI may incorrectly flag innocent messages.\n\n"
+                "Please confirm that you understand this risk and wish to enable the feature."
+            ),
+            color=discord.Color.orange(),
+        )
+        msg = await ctx.send(embed=embed)
+        await msg.add_reaction("✅")
+        await msg.add_reaction("❌")
+
+        def check(reaction, user):
+            return (
+                user == ctx.author
+                and str(reaction.emoji) in ["✅", "❌"]
+                and reaction.message.id == msg.id
+            )
+
+        try:
+            reaction, user = await self.bot.wait_for("reaction_add", timeout=30.0, check=check)
+            if str(reaction.emoji) == "✅":
+                await self.bot.db.update_guild_config(
+                    ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": True}}
                 )
+                await ctx.send("AI moderation has been enabled.")
+            else:
+                await ctx.send("AI moderation setup cancelled.")
+        except asyncio.TimeoutError:
+            await ctx.send("Confirmation timed out. AI moderation remains disabled.")
 
-            try:
-                reaction, user = await self.bot.wait_for("reaction_add", timeout=30.0, check=check)
-                if str(reaction.emoji) == "✅":
-                    await self.bot.db.update_guild_config(
-                        ctx.guild.id, {"$set": {"detections.ai_moderation": True}}
-                    )
-                    await ctx.send("AI moderation has been enabled.")
-                else:
-                    await ctx.send("AI moderation setup cancelled.")
-            except asyncio.TimeoutError:
-                await ctx.send("Confirmation timed out. AI moderation remains disabled.")
-        else:
-            await self.bot.db.update_guild_config(
-                ctx.guild.id, {"$set": {"detections.ai_moderation": False}}
-            )
-            await ctx.send("AI moderation has been disabled.")
+    @setaimoderation.command(name="disable")
+    async def aimod_disable(self, ctx: commands.Context) -> None:
+        """Disable AI-powered automoderation."""
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": False}}
+        )
+        await ctx.send("AI moderation has been disabled.")
+
+    @setaimoderation.command(name="category")
+    async def aimod_category(self, ctx: commands.Context, category: str, value: bool) -> None:
+        """Enable or disable a specific AI moderation category."""
+        valid_categories = [
+            "hate",
+            "hate/threatening",
+            "self-harm",
+            "sexual",
+            "sexual/minors",
+            "violence",
+            "violence/graphic",
+        ]
+        if category not in valid_categories:
+            await ctx.send(f"Invalid category. Valid categories are: {', '.join(valid_categories)}")
+            return
+
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {"$set": {f"detections.ai_moderation.categories.{category}": value}}
+        )
+        await ctx.send(f"Category `{category}` has been {'enabled' if value else 'disabled'}.")
 
     @command(10, aliases=["set-guild-whitelist", "set_guild_whitelist"])
     async def setguildwhitelist(self, ctx: commands.Context, guild_id: int = None) -> None:

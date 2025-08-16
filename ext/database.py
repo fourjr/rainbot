@@ -53,7 +53,18 @@ DEFAULT: Dict[str, Any] = {
         "sexually_explicit": [],
         "caps_message_percent": None,
         "caps_message_min_words": None,
-        "ai_moderation": False,
+        "ai_moderation": {
+            "enabled": False,
+            "categories": {
+                "hate": True,
+                "hate/threatening": True,
+                "self-harm": True,
+                "sexual": True,
+                "sexual/minors": True,
+                "violence": True,
+                "violence/graphic": True,
+            },
+        },
     },
     "detection_punishments": {
         "filters": {"warn": 1, "mute": None, "kick": False, "ban": False, "delete": True},

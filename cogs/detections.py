@@ -282,7 +282,7 @@ class Detections(commands.Cog):
     @detection("ai_moderation")
     async def ai_moderation(self, m: MessageWrapper, guild_config) -> None:
         """Use OpenAI's Moderation API for text moderation"""
-        if not guild_config.detections.ai_moderation:
+        if not guild_config.detections.ai_moderation.enabled:
             return
 
         try:
@@ -291,10 +291,13 @@ class Detections(commands.Cog):
             )
             if response["results"][0]["flagged"]:
                 flagged_categories = [
-                    k for k, v in response["results"][0]["categories"].items() if v
+                    k
+                    for k, v in response["results"][0]["categories"].items()
+                    if v and guild_config.detections.ai_moderation.categories.get(k)
                 ]
-                reason = f"AI moderation triggered for: {', '.join(flagged_categories)}"
-                await m.detection.punish(self.bot, m, guild_config, reason=reason)
+                if flagged_categories:
+                    reason = f"AI moderation triggered for: {', '.join(flagged_categories)}"
+                    await m.detection.punish(self.bot, m, guild_config, reason=reason)
         except Exception as e:
             self.logger.error(f"Error calling OpenAI Moderation API: {e}")
 
