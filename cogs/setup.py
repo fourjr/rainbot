@@ -1547,10 +1547,62 @@ class Setup(commands.Cog):
                 ctx.guild.id, {"$unset": {f"canned_variables.{name}": value}}
             )
         else:
-            await self.bot.db.update_guild_config(
-                ctx.guild.id, {"$set": {f"canned_variables.{name}": value}}
-            )
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {"$set": {f"canned_variables.{name}": value}}
+        )
         await ctx.send(f"Canned variable `{name}` set to: {value if value else 'removed'}.")
+
+    @command(10, aliases=["aimodtest"])
+    async def aimoderationtest(self, ctx: commands.Context, *, text: str):
+        """Tests a string against the OpenAI moderation API and shows the results."""
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            return await ctx.send("The `OPENAI_API_KEY` is not set in the bot's environment.")
+
+        try:
+            openai.api_key = api_key
+            response = await self.bot.loop.run_in_executor(
+                self.bot.executor, lambda: openai.Moderation.create(input=text)
+            )
+        except Exception as e:
+            await ctx.send(f"An error occurred while calling the OpenAI API: `{e}`")
+            return
+
+        result = response["results"][0]
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        settings = guild_config.detections.ai_moderation
+        sensitivity = settings.sensitivity / 100
+
+        embed = discord.Embed(
+            title="AI Moderation Test Results",
+            description=f"Testing the string: \"{text}\"",
+            color=discord.Color.green() if not result["flagged"] else discord.Color.red(),
+        )
+
+        scores_text = ""
+        for category, score in result["category_scores"].items():
+            scores_text += f"`{category:<20}`: {score:.4f}\n"
+        embed.add_field(name="OpenAI API Scores", value=scores_text, inline=False)
+
+        flagged_categories = [
+            k for k, v in result["category_scores"].items()
+            if v > sensitivity and settings.categories.get(k)
+        ]
+
+        verdict = "NOT FLAGGED"
+        if flagged_categories:
+            verdict = f"FLAGGED for: {', '.join(flagged_categories)}"
+
+        embed.add_field(
+            name="Bot's Decision",
+            value=(
+                f"**Verdict:** {verdict}\n"
+                f"**Reasoning:** The message was compared against your server's sensitivity (`{settings.sensitivity}%`) and enabled categories."
+            ),
+            inline=False,
+        )
+
+        await ctx.send(embed=embed)
 
 
 async def setup(bot: rainbot) -> None:
