@@ -36,31 +36,118 @@ class Moderation(commands.Cog):
     async def modlogs_all(self, ctx: commands.Context) -> None:
         """View all modlogs in the server, paginated 10 per page."""
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        # Gather all moderation actions
         modlogs = getattr(guild_config, "modlog", [])
-        if not modlogs:
-            await ctx.send("No modlogs found in this server.")
-            return
-        # Sort newest to oldest
-        modlogs_sorted = sorted(
-            [m for m in modlogs if isinstance(m, dict)],
-            key=lambda m: m.get("case_number", 0),
-            reverse=True
-        )
-        # Paginate
-        page_size = 10
-        pages = [modlogs_sorted[i:i+page_size] for i in range(0, len(modlogs_sorted), page_size)]
-        total_pages = len(pages)
-        def format_page(page, page_num):
-            fmt = f"**All Modlogs (Page {page_num+1}/{total_pages}):**\n"
-            for m in page:
+        warns = getattr(guild_config, "warns", [])
+        mutes = getattr(guild_config, "mutes", [])
+        tempbans = getattr(guild_config, "tempbans", [])
+        kicks = getattr(guild_config, "kicks", []) if hasattr(guild_config, "kicks") else []
+        softbans = getattr(guild_config, "softbans", []) if hasattr(guild_config, "softbans") else []
+
+        entries = []
+        # Modlogs
+        for m in modlogs:
+            if isinstance(m, dict):
                 member = ctx.guild.get_member(int(m["member_id"]))
                 member_name = member.mention if member else f"<@{m['member_id']}>"
                 moderator = ctx.guild.get_member(int(m["moderator_id"]))
                 mod_name = moderator.mention if moderator else f"<@{m['moderator_id']}>"
-                fmt += f"{m['date']} Case #{m['case_number']}: {member_name} - {mod_name} - {m['reason']}\n"
+                entries.append({
+                    "date": m["date"],
+                    "case_number": m.get("case_number", 0),
+                    "type": "modlog",
+                    "text": f"{m['date']} Case #{m['case_number']}: {member_name} - {mod_name} - {m['reason']} [modlog]"
+                })
+        # Warns
+        for w in warns:
+            if isinstance(w, dict):
+                member = ctx.guild.get_member(int(w["member_id"]))
+                member_name = member.mention if member else f"<@{w['member_id']}>"
+                moderator = ctx.guild.get_member(int(w["moderator_id"]))
+                mod_name = moderator.mention if moderator else f"<@{w['moderator_id']}>"
+                entries.append({
+                    "date": w["date"],
+                    "case_number": w.get("case_number", 0),
+                    "type": "warn",
+                    "text": f"{w['date']} Warn #{w['case_number']}: {member_name} - {mod_name} - {w['reason']} [warn]"
+                })
+        # Mutes
+        for mute in mutes:
+            if isinstance(mute, dict):
+                member_id = mute.get("member", "")
+                member = ctx.guild.get_member(int(member_id)) if member_id else None
+                member_name = member.mention if member else f"<@{member_id}>"
+                until = mute.get("time")
+                until_str = f"until <t:{int(until)}:F>" if until else "indefinite"
+                entries.append({
+                    "date": mute.get("date", ""),
+                    "case_number": mute.get("case_number", 0),
+                    "type": "mute",
+                    "text": f"Mute: {member_name} {until_str} [mute]"
+                })
+        # Tempbans
+        for tb in tempbans:
+            if isinstance(tb, dict):
+                member_id = tb.get("member", "")
+                member = ctx.guild.get_member(int(member_id)) if member_id else None
+                member_name = member.mention if member else f"<@{member_id}>"
+                until = tb.get("time")
+                until_str = f"until <t:{int(until)}:F>" if until else "indefinite"
+                entries.append({
+                    "date": tb.get("date", ""),
+                    "case_number": tb.get("case_number", 0),
+                    "type": "tempban",
+                    "text": f"Tempban: {member_name} {until_str} [tempban]"
+                })
+        # Kicks
+        for k in kicks:
+            if isinstance(k, dict):
+                member_id = k.get("member_id", "")
+                member = ctx.guild.get_member(int(member_id)) if member_id else None
+                member_name = member.mention if member else f"<@{member_id}>"
+                moderator = ctx.guild.get_member(int(k.get("moderator_id", 0)))
+                mod_name = moderator.mention if moderator else f"<@{k.get('moderator_id', 0)}>"
+                reason = k.get("reason", "No reason")
+                entries.append({
+                    "date": k.get("date", ""),
+                    "case_number": k.get("case_number", 0),
+                    "type": "kick",
+                    "text": f"{k.get('date', '')} Kick: {member_name} - {mod_name} - {reason} [kick]"
+                })
+        # Softbans
+        for sb in softbans:
+            if isinstance(sb, dict):
+                member_id = sb.get("member_id", "")
+                member = ctx.guild.get_member(int(member_id)) if member_id else None
+                member_name = member.mention if member else f"<@{member_id}>"
+                moderator = ctx.guild.get_member(int(sb.get("moderator_id", 0)))
+                mod_name = moderator.mention if moderator else f"<@{sb.get('moderator_id', 0)}>"
+                reason = sb.get("reason", "No reason")
+                entries.append({
+                    "date": sb.get("date", ""),
+                    "case_number": sb.get("case_number", 0),
+                    "type": "softban",
+                    "text": f"{sb.get('date', '')} Softban: {member_name} - {mod_name} - {reason} [softban]"
+                })
+
+        # Sort newest to oldest by case_number if present, else by date
+        def sort_key(e):
+            return e.get("case_number", 0) or 0
+        entries_sorted = sorted(entries, key=sort_key, reverse=True)
+
+        # Paginate
+        page_size = 10
+        pages = [entries_sorted[i:i+page_size] for i in range(0, len(entries_sorted), page_size)]
+        total_pages = len(pages)
+        def format_page(page, page_num):
+            fmt = f"**All Moderation Actions (Page {page_num+1}/{total_pages}):**\n"
+            for entry in page:
+                fmt += entry["text"] + "\n"
             return fmt
-        # Send first page
         page_num = 0
+        if not pages:
+            await ctx.send("No moderation actions found in this server.")
+            return
         msg = await ctx.send(format_page(pages[page_num], page_num))
         if total_pages > 1:
             await msg.add_reaction("⬅️")
