@@ -968,10 +968,14 @@ class Setup(commands.Cog):
         valid_punishments = ("kick", "ban", "mute", "softban", "unmute")
 
         if punishment in valid_punishments:
-        await self.bot.db.update_guild_config(
-            ctx.guild.id, {"$set": {f"alert.{punishment}": value}}
-        )
-        await ctx.send(f"Alert for `{punishment}` set to: {value if value else 'removed'}.")
+            await self.bot.db.update_guild_config(
+                ctx.guild.id, {"$set": {f"alert.{punishment}": value}}
+            )
+            await ctx.send(f"Alert for `{punishment}` set to: {value if value else 'removed'}.")
+        else:
+            raise commands.BadArgument(
+                f'Invalid punishment. Pick from {", ".join(valid_punishments)}.'
+            )
 
     @command(10, aliases=["set-alert-location", "set_alert_location"])
     async def setalertlocation(self, ctx: commands.Context, location: str) -> None:
@@ -989,10 +993,6 @@ class Setup(commands.Cog):
             ctx.guild.id, {"$set": {f"alert.alert_location": location}}
         )
         await ctx.send(f"Alert location set to `{location}`.")
-        else:
-            raise commands.BadArgument(
-                f'Invalid punishment. Pick from {", ".join(valid_punishments)}.'
-            )
 
     @command(10, aliases=["set_detection_punishments", "set-detection-punishments"])
     async def setdetectionpunishments(
