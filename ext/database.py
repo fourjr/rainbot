@@ -159,6 +159,7 @@ DEFAULT: Dict[str, Any] = {
         "max_characters": [],
         "sexually_explicit": [],
         "caps_message": [],
+        "ai_moderation": [],
         "message_delete": [],
         "message_edit": [],
         "channel_delete": [],

@@ -1069,7 +1069,7 @@ class Setup(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-    @setaimoderation.command(name="enable")
+    @setaimoderation.command(10, name="enable")
     async def aimod_enable(self, ctx: commands.Context) -> None:
         """Enable AI-powered automoderation."""
         embed = discord.Embed(
@@ -1104,7 +1104,7 @@ class Setup(commands.Cog):
         except asyncio.TimeoutError:
             await ctx.send("Confirmation timed out. AI moderation remains disabled.")
 
-    @setaimoderation.command(name="disable")
+    @setaimoderation.command(10, name="disable")
     async def aimod_disable(self, ctx: commands.Context) -> None:
         """Disable AI-powered automoderation."""
         await self.bot.db.update_guild_config(
@@ -1112,7 +1112,7 @@ class Setup(commands.Cog):
         )
         await ctx.send("AI moderation has been disabled.")
 
-    @setaimoderation.command(name="category")
+    @setaimoderation.command(10, name="category")
     async def aimod_category(self, ctx: commands.Context, category: str, value: bool) -> None:
         """Enable or disable a specific AI moderation category."""
         valid_categories = [
