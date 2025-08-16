@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta, timezone  # Add timezone import
 from typing import Any, List, Union
 
@@ -17,21 +18,103 @@ class Logging(commands.Cog):
     async def fill_message_cache(self) -> None:
         await self.bot.wait_until_ready()
 
-        after = datetime.utcnow()
-        after -= timedelta(minutes=30)
+        after = datetime.utcnow() - timedelta(minutes=30)
 
         for i in self.bot.get_all_channels():
             if isinstance(i, discord.TextChannel):
-                try:
-                    messages = [msg async for msg in i.history(limit=30, after=after)]
-                except discord.Forbidden:
-                    pass
+                attempt = 0
+                max_attempts = 5
+                backoff = 2
+                while attempt < max_attempts:
+                    try:
+                        messages = [msg async for msg in i.history(limit=30, after=after)]
+                        break
+                    except discord.Forbidden:
+                        break
+                    except discord.errors.DiscordServerError as e:
+                        attempt += 1
+                        if attempt >= max_attempts:
+                            print(
+                                f"[Logging] Failed to fetch history for {i} after {max_attempts} attempts: {e}"
+                            )
+                            break
+                        await asyncio.sleep(backoff)
+                        backoff *= 2
+                    except discord.errors.HTTPException as e:
+                        # Handle rate limits (429) and other HTTP errors
+                        if hasattr(e, "status") and e.status == 429:
+                            retry_after = getattr(e, "retry_after", backoff)
+                            ratelimit_channel_id = getattr(
+                                self.bot, "RATELIMIT_LOG_CHANNEL_ID", None
+                            )
+                            ratelimit_channel = (
+                                self.bot.get_channel(ratelimit_channel_id)
+                                if ratelimit_channel_id
+                                else None
+                            )
+                            if ratelimit_channel:
+                                await ratelimit_channel.send(
+                                    f"[RATELIMIT] Channel: {i} ({getattr(i, 'id', None)}), retrying in {retry_after} seconds."
+                                )
+                            await asyncio.sleep(retry_after)
+                        else:
+                            attempt += 1
+                            if attempt >= max_attempts:
+                                print(
+                                    f"[Logging] HTTPException for {i} after {max_attempts} attempts: {e}"
+                                )
+                                break
+                            await asyncio.sleep(backoff)
+                            backoff *= 2
                 else:
-                    if not messages:
-                        messages = [
-                            msg async for msg in i.history(limit=5)
-                        ]  # get 5 messages if no messages are recent
-                    self.bot._connection._messages += messages
+                    messages = []
+                if not messages:
+                    # Try to get 5 messages if no messages are recent, with retry
+                    attempt = 0
+                    backoff = 2
+                    while attempt < max_attempts:
+                        try:
+                            messages = [msg async for msg in i.history(limit=5)]
+                            break
+                        except discord.Forbidden:
+                            break
+                        except discord.errors.DiscordServerError as e:
+                            attempt += 1
+                            if attempt >= max_attempts:
+                                print(
+                                    f"[Logging] Failed to fetch fallback history for {i} after {max_attempts} attempts: {e}"
+                                )
+                                break
+                            await asyncio.sleep(backoff)
+                            backoff *= 2
+                        except discord.errors.HTTPException as e:
+                            if hasattr(e, "status") and e.status == 429:
+                                retry_after = getattr(e, "retry_after", backoff)
+                                ratelimit_channel_id = getattr(
+                                    self.bot, "RATELIMIT_LOG_CHANNEL_ID", None
+                                )
+                                ratelimit_channel = (
+                                    self.bot.get_channel(ratelimit_channel_id)
+                                    if ratelimit_channel_id
+                                    else None
+                                )
+                                if ratelimit_channel:
+                                    await ratelimit_channel.send(
+                                        f"[RATELIMIT] Channel: {i} ({getattr(i, 'id', None)}), retrying in {retry_after} seconds."
+                                    )
+                                await asyncio.sleep(retry_after)
+                            else:
+                                attempt += 1
+                                if attempt >= max_attempts:
+                                    print(
+                                        f"[Logging] HTTPException for fallback {i} after {max_attempts} attempts: {e}"
+                                    )
+                                    break
+                                await asyncio.sleep(backoff)
+                                backoff *= 2
+                    else:
+                        messages = []
+                self.bot._connection._messages += messages
 
     async def check_enabled(self, guild_id: int, item: Any, channel_id: int = None):
         guild_config = await self.bot.db.get_guild_config(guild_id)
