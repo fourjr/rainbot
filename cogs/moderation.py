@@ -3,8 +3,8 @@ import asyncio
 from datetime import timedelta
 from time import time as unixs
 from typing import Union
-from ext.utility import SafeFormat, DBDict, tryint, CannedStr, format_timedelta, get_perm_level
-from ext.database import DEFAULT
+from ext.utility import SafeFormat, tryint, CannedStr, format_timedelta, get_perm_level
+from ext.database import DEFAULT, DBDict
 from discord.ext import commands
 from bot import rainbot
 from ext.command import command, group
