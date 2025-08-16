@@ -268,11 +268,14 @@ class Detections(commands.Cog):
                 most_common_count = len(timestamps)
         return most_common_count
 
+    def _run_openai_moderation(self, content):
+        return openai.Moderation.create(input=content)
+
     async def get_openai_classifications(self, m, guild_config, url) -> None:
         """Use OpenAI's Moderation API for NSFW detection"""
         try:
             response = await self.bot.loop.run_in_executor(
-                self.bot.executor, lambda: openai.Moderation.create(input=url)
+                self.bot.executor, self._run_openai_moderation, url
             )
             if response["results"][0]["flagged"]:
                 await self.openai_callback(m, guild_config, response["results"][0]["categories"])
@@ -287,7 +290,7 @@ class Detections(commands.Cog):
 
         try:
             response = await self.bot.loop.run_in_executor(
-                self.bot.executor, lambda: openai.Moderation.create(input=m.content)
+                self.bot.executor, self._run_openai_moderation, m.content
             )
             if response["results"][0]["flagged"]:
                 flagged_categories = [
