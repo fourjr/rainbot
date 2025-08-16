@@ -330,6 +330,25 @@ class Detection:
         punishments = guild_config.detection_punishments[self.name]
         reason = reason or f"Detection triggered: {self.name}"
 
+        # Notify user
+        try:
+            await message.author.send(f"Your message in {message.guild.name} was flagged for '{reason}' and has been removed.")
+        except discord.Forbidden:
+            pass # User has DMs disabled
+
+        # Log to modlog channel
+        log_channel_id = guild_config.modlog.get("message_delete")
+        if log_channel_id:
+            log_channel = bot.get_channel(int(log_channel_id))
+            if log_channel:
+                embed = discord.Embed(
+                    title="AI Moderation Action",
+                    description=f"**User:** {message.author.mention}\n**Reason:** {reason}\n**Action:** Message Deleted",
+                    color=discord.Color.red()
+                )
+                embed.set_footer(text=f"User ID: {message.author.id}")
+                await log_channel.send(embed=embed)
+
         for _ in range(punishments.warn):
             ctx.command = bot.get_command("warn add")
             await ctx.invoke(bot.get_command("warn add"), member=message.author, reason=reason)

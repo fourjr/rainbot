@@ -982,7 +982,7 @@ class Setup(commands.Cog):
     ) -> None:
         """Sets punishment for the detections
 
-        Valid detections: filters, regex_filters, block_invite, english_only, mention_limit, spam_detection, repetitive_message, sexually_explicit, auto_purge_trickocord, max_lines, max_words, max_characters, caps_message, repetitive_characters
+        Valid detections: filters, regex_filters, image_filters, block_invite, english_only, mention_limit, spam_detection, repetitive_message, repetitive_characters, max_lines, max_words, max_characters, sexually_explicit, caps_message, ai_moderation
 
         Valid keys: warn, mute, kick, ban, delete
 
@@ -994,6 +994,8 @@ class Setup(commands.Cog):
         - `!!setdetectionpunishments filters warn 1`
         - `!!setdetectionpunishments block_invite kick yes`
         - `!!setdetectionpunishments mention_limit mute 1d`
+        - `!!setdetectionpunishments ai_moderation delete yes`
+        - `!!setdetectionpunishments ai_moderation mute 30m`
         """
         valid_detections = list(DEFAULT["detection_punishments"].keys())
 
@@ -1032,6 +1034,47 @@ class Setup(commands.Cog):
         """Sets a recommended set of detections"""
         await self.bot.db.update_guild_config(ctx.guild.id, {"$set": RECOMMENDED_DETECTIONS})
         await ctx.send("Recommended detections have been set.")
+
+    @command(10, aliases=["set-ai-moderation", "set_ai_moderation"])
+    async def setaimoderation(self, ctx: commands.Context, value: bool) -> None:
+        """Enable or disable AI-powered automoderation."""
+        if value:
+            embed = discord.Embed(
+                title="⚠️ AI Moderation Warning",
+                description=(
+                    "Enabling AI moderation can lead to **false positives**. "
+                    "The AI may incorrectly flag innocent messages.\n\n"
+                    "Please confirm that you understand this risk and wish to enable the feature."
+                ),
+                color=discord.Color.orange(),
+            )
+            msg = await ctx.send(embed=embed)
+            await msg.add_reaction("✅")
+            await msg.add_reaction("❌")
+
+            def check(reaction, user):
+                return (
+                    user == ctx.author
+                    and str(reaction.emoji) in ["✅", "❌"]
+                    and reaction.message.id == msg.id
+                )
+
+            try:
+                reaction, user = await self.bot.wait_for("reaction_add", timeout=30.0, check=check)
+                if str(reaction.emoji) == "✅":
+                    await self.bot.db.update_guild_config(
+                        ctx.guild.id, {"$set": {"detections.ai_moderation": True}}
+                    )
+                    await ctx.send("AI moderation has been enabled.")
+                else:
+                    await ctx.send("AI moderation setup cancelled.")
+            except asyncio.TimeoutError:
+                await ctx.send("Confirmation timed out. AI moderation remains disabled.")
+        else:
+            await self.bot.db.update_guild_config(
+                ctx.guild.id, {"$set": {"detections.ai_moderation": False}}
+            )
+            await ctx.send("AI moderation has been disabled.")
 
     @command(10, aliases=["set-guild-whitelist", "set_guild_whitelist"])
     async def setguildwhitelist(self, ctx: commands.Context, guild_id: int = None) -> None:
