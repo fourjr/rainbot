@@ -998,6 +998,7 @@ class Moderation(commands.Cog):
             )
         else:
             await ctx.send(f"{user_mention} has been muted indefinitely. Reason: {reason}")
+        await self.send_log(ctx, member, reason, duration)
 
     @command(6, name="muted")
     async def muted(self, ctx: commands.Context) -> None:
@@ -1038,6 +1039,7 @@ class Moderation(commands.Cog):
             await self.bot.unmute(ctx.guild.id, user_id, None, reason=reason)
             user_mention = getattr(member, "mention", f"<@{user_id}>")
             await ctx.send(f"{user_mention} has been unmuted. Reason: {reason}")
+            await self.send_log(ctx, member, reason)
 
     @command(6, aliases=["clean", "prune"], usage="<limit> [member]")
     async def purge(self, ctx: commands.Context, limit: int, *, member: MemberOrID = None) -> None:
