@@ -286,9 +286,14 @@ class Moderation(commands.Cog):
             await ctx.send(f"Modlog #{case_number} does not exist.")
             return
         moderator = ctx.guild.get_member(int(modlog["moderator_id"]))
+        moderator_name = moderator.name if moderator else f"ID:{modlog['moderator_id']}"
         confirm_embed = discord.Embed(
             title="Confirm Modlog Removal",
-            description=f"Are you sure you want to remove Modlog #{case_number} for ID:{modlog['member_id']}?\nReason: {modlog['reason']}\nModerator: {moderator.name if moderator else f'ID:{modlog['moderator_id']}' }",
+            description=(
+                f"Are you sure you want to remove Modlog #{case_number} for ID:{modlog['member_id']}?\n"
+                f"Reason: {modlog['reason']}\n"
+                f"Moderator: {moderator_name}"
+            ),
             color=discord.Color.red(),
         )
         msg = await ctx.send(embed=confirm_embed)
