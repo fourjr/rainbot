@@ -303,35 +303,29 @@ class Detections(commands.Cog):
                 for ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"]
             ):
                 try:
-                    # Using a free, privacy-focused NSFW detection API
-                    async with self.bot.session.get(
-                        f"https://nsfw.rain-api.com/v1/scan?url={attachment.url}"
-                    ) as resp:
-                        if resp.status == 200:
-                            data = await resp.json()
-                            # Remap scores to OpenAI format for consistency
-                            scores = {
-                                "sexual": data.get("sexual_explicit", 0)
-                                + data.get("sexual_suggestive", 0),
-                                "violence": data.get("violence", 0),
-                                "hate": 0,
-                            }
-                            is_flagged = any(score > sensitivity for score in scores.values())
-
-                            if is_flagged:
-                                flagged_categories = [
-                                    k for k, v in scores.items() if v > sensitivity
-                                ]
-                                reason = f"AI moderation triggered for image: {', '.join(flagged_categories)}"
-                                await m.detection.punish(
-                                    self.bot, m, guild_config, reason=reason, ai_scores=scores
-                                )
-                                return  # Stop after the first punishment
-                        else:
-                            self.logger.error(f"Image moderation API returned status {resp.status}")
-
+                    response = await self.bot.loop.run_in_executor(
+                        self.bot.executor, lambda: openai.Moderation.create(input=attachment.url)
+                    )
+                    result = response["results"][0]
+                    if result["flagged"]:
+                        flagged_categories = [
+                            k
+                            for k, v in result["category_scores"].items()
+                            if v > sensitivity
+                            and guild_config.detections.ai_moderation.categories.get(k)
+                        ]
+                        if flagged_categories:
+                            reason = f"AI moderation triggered for image: {', '.join(flagged_categories)}"
+                            await m.detection.punish(
+                                self.bot,
+                                m,
+                                guild_config,
+                                reason=reason,
+                                ai_scores=result["category_scores"],
+                            )
+                            return  # Stop after the first punishment
                 except Exception as e:
-                    self.logger.error(f"Error calling Image Moderation API: {e}")
+                    self.logger.error(f"Error calling OpenAI Moderation API for image: {e}")
 
 
 async def setup(bot: rainbot) -> None:
