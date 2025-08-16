@@ -769,12 +769,13 @@ class Moderation(commands.Cog):
                             color=discord.Color.green(),
                         )
                     )
+                    # Sends log with all required info for modlog removal
                     await self.send_log(
                         ctx,
                         case_number,
                         modlog["reason"],
                         modlog["member_id"],
-                        modlog["moderator_id"],
+                        modlog["moderator_id"]
                     )
                 else:
                     await msg.edit(
