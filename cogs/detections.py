@@ -256,8 +256,8 @@ class Detections(commands.Cog):
                 most_common_count = len(timestamps)
         return most_common_count
 
-    @detection("ai_moderation")
-    async def ai_moderation(self, m: MessageWrapper, guild_config) -> None:
+    @detection("ai_text_moderation")
+    async def ai_text_moderation(self, m: MessageWrapper, guild_config) -> None:
         """Use OpenAI's Moderation API for text moderation"""
         if not guild_config.detections.ai_moderation.enabled or not m.content:
             return

@@ -333,11 +333,13 @@ class Detection:
         reason=None,
         purge_limit=None,
         ai_scores: Optional[Dict[str, float]] = None,
+        detection_name: Optional[str] = None,
     ):
         ctx = DummyContext(await bot.get_context(message))
         ctx.author = message.guild.me
-        punishments = guild_config.detection_punishments[self.name]
-        reason = reason or f"Detection triggered: {self.name}"
+        name = detection_name or self.name
+        punishments = guild_config.detection_punishments[name]
+        reason = reason or f"Detection triggered: {name}"
 
         # Notify user
         alert_location = guild_config.alert.alert_location

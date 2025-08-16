@@ -53,21 +53,8 @@ DEFAULT: Dict[str, Any] = {
         "max_characters": None,
         "caps_message_percent": None,
         "caps_message_min_words": None,
-        "ai_text_moderation": {
+        "ai_moderation": {
             "enabled": False,
-            "categories": {
-                "hate": True,
-                "hate/threatening": True,
-                "self-harm": True,
-                "sexual": True,
-                "sexual/minors": True,
-                "violence": True,
-                "violence/graphic": True,
-            },
-            "sensitivity": 90,
-        },
-        "ai_image_moderation": {
-            "enabled": True,
             "categories": {
                 "hate": True,
                 "hate/threatening": True,
@@ -91,7 +78,7 @@ DEFAULT: Dict[str, Any] = {
             "ban": False,
             "delete": True,
         },
-        "english_.only": {"warn": 0, "mute": None, "kick": False, "ban": False, "delete": True},
+        "english_only": {"warn": 0, "mute": None, "kick": False, "ban": False, "delete": True},
         "mention_limit": {
             "warn": 1,
             "mute": "10 minutes",
@@ -259,6 +246,8 @@ class DBDict(dict):
         super().__init__(*args, **kwargs)
 
     def __getitem__(self, key: str) -> Any:
+        if key == "ai_text_moderation":
+            key = "ai_moderation"
         try:
             item = super().__getitem__(key)
         except KeyError:
