@@ -74,7 +74,6 @@ class rainbot(commands.Bot):
         self.successful_commands = 0
         self._startup_announced = False
 
-
     def setup_logging(self) -> None:
         """Set up enhanced logging with Rich formatting"""
         self.logger = logging.getLogger("rainbot")
