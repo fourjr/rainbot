@@ -779,7 +779,7 @@ class Moderation(commands.Cog):
             elif ctx.command.qualified_name == "warn remove":
                 fmt = f"{current_time} {ctx.author} has deleted warn #{args[0]} - {args[1]}"
                 channel = ctx.bot.get_channel(modlogs.member_warn)
-                if channel:
+                if channel and hasattr(channel, 'send'):
                     await channel.send(fmt)
             elif ctx.command.qualified_name == "modlogs remove":
                 case_num, original_reason, member_id, mod_id = args
