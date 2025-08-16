@@ -705,17 +705,55 @@ class Moderation(commands.Cog):
 
         Example: `!!kick @User Spamming`
         """
+        # Permission level check
         if (
             get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
             >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]
         ):
             await ctx.send("User has insufficient permissions")
-        else:
+            return
+
+        # Check if member is in the server
+        if not isinstance(member, discord.Member):
+            member_obj = ctx.guild.get_member(getattr(member, "id", member))
+            if not member_obj:
+                await ctx.send("User is not in this server.")
+                return
+            member = member_obj
+
+        # Check bot permissions
+        if not ctx.guild.me.guild_permissions.kick_members:
+            await ctx.send("I don't have permission to kick members!")
+            return
+
+        # Check role hierarchy
+        if member.top_role >= ctx.guild.me.top_role:
+            await ctx.send("I cannot kick this user due to role hierarchy!")
+            return
+
+        # Prevent kicking self or owner
+        if member == ctx.guild.me:
+            await ctx.send("I cannot kick myself!")
+            return
+        if member == ctx.guild.owner:
+            await ctx.send("I cannot kick the server owner!")
+            return
+
+        try:
             await self.alert_user(ctx, member, reason)
             await member.kick(reason=reason)
             if ctx.author != ctx.guild.me:
-                await ctx.send(f"{member.mention} has been kicked. Reason: {reason}")
+                await ctx.send(f"{member.mention} ({member.id}) has been kicked. Reason: {reason}")
             await self.send_log(ctx, member, reason)
+        except discord.Forbidden:
+            await ctx.send("I don't have permission to kick that member! They might have a higher role than me.")
+        except discord.NotFound:
+            await ctx.send(f"Could not find user {member}")
+        except Exception as e:
+            try:
+                await ctx.send(f"Failed to kick member: {e}")
+            except Exception:
+                pass
 
     @command(7)
     async def softban(
