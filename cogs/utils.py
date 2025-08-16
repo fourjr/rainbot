@@ -340,8 +340,6 @@ class Utility(commands.Cog):
                 lines: list[str] = []
                 for cmd in cmds:
                     cmd_desc = cmd.short_doc or "No description"
-                    if len(cmd_desc) > 80:
-                        cmd_desc = cmd_desc[:77] + "..."
                     lines.append(f"• `{prefix}{cmd.name}` — {cmd_desc}")
 
                 value = "\n".join(lines)
