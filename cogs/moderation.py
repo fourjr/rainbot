@@ -287,9 +287,13 @@ class Moderation(commands.Cog):
             return
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         modlogs = getattr(guild_config, "modlog", [])
-        modlog = next((m for m in modlogs if m.get("case_number") == case_number), None)
-        if not modlog:
-            await ctx.send(f"Modlog #{case_number} does not exist.")
+        try:
+            modlog = next((m for m in modlogs if m.get("case_number") == case_number), None)
+            if not modlog:
+                await ctx.send(f"Modlog #{case_number} does not exist.")
+                return
+        except Exception:
+            await ctx.send(f"Failed to find modlog #{case_number}.")
             return
         moderator = ctx.guild.get_member(int(modlog["moderator_id"]))
         moderator_name = moderator.name if moderator else f"ID:{modlog['moderator_id']}"
@@ -858,7 +862,7 @@ class Moderation(commands.Cog):
                 member = ctx.guild.get_member(int(member_id)) or f"<@{member_id}>"
                 original_mod = ctx.guild.get_member(int(mod_id)) or f"<@{mod_id}>"
                 fmt = f"{current_time} {ctx.author} has deleted modlog #{case_num}\n• Target: {member} ({member_id})\n• Original Moderator: {original_mod}\n• Original Reason: {original_reason}"
-                channel = ctx.bot.get_channel(modlogs.member_warn)
+                channel = ctx.bot.get_channel(modlogs.modlog)
                 if channel:
                     await channel.send(fmt)
             elif ctx.command.name == "lockdown":
