@@ -295,8 +295,8 @@ class Detections(commands.Cog):
 
     @detection("image_moderation", require_attachment=True)
     async def image_moderation(self, m: MessageWrapper, guild_config) -> None:
-        """Use OpenAI's Moderation API for image moderation"""
-        if not guild_config.detections.image_moderation.enabled:
+        """Use OpenAI's Moderation API for image moderation by URL"""
+        if not guild_config.detections.ai_moderation.enabled:
             return
 
         openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -304,17 +304,18 @@ class Detections(commands.Cog):
             self.logger.warning("OPENAI_API_KEY is not set, AI moderation is disabled.")
             return
 
-        sensitivity = guild_config.detections.image_moderation.sensitivity / 100
+        sensitivity = guild_config.detections.ai_moderation.sensitivity / 100
 
-        # --- Image Moderation ---
         for attachment in m.attachments:
             if any(
                 attachment.filename.lower().endswith(ext)
                 for ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"]
             ):
                 try:
+                    # Note: This moderates the image URL, not the image content.
                     response = await self.bot.loop.run_in_executor(
-                        self.bot.executor, lambda: openai.Moderation.create(input=attachment.url)
+                        self.bot.executor,
+                        lambda: openai.Moderation.create(input=attachment.url),
                     )
                     result = response["results"][0]
                     if result["flagged"]:
@@ -322,11 +323,10 @@ class Detections(commands.Cog):
                             k
                             for k, v in result["category_scores"].items()
                             if v > sensitivity
-                            and guild_config.detections.image_moderation.categories.get(k)
+                            and guild_config.detections.ai_moderation.categories.get(k)
                         ]
                         if flagged_categories:
-                            reason = f"AI moderation triggered for image: {', '.join(flagged_categories)}"
-                            # Use the punishment settings for 'image_moderation'
+                            reason = f"AI moderation triggered for image URL: {', '.join(flagged_categories)}"
                             await m.detection.punish(
                                 self.bot,
                                 m,
@@ -335,9 +335,9 @@ class Detections(commands.Cog):
                                 ai_scores=result["category_scores"],
                                 detection_name="image_moderation",
                             )
-                            return  # Stop after the first punishment
+                            return
                 except Exception as e:
-                    self.logger.error(f"Error calling OpenAI Moderation API for image: {e}")
+                    self.logger.error(f"Error calling OpenAI Moderation API for image URL: {e}")
 
 
 async def setup(bot: rainbot) -> None:
