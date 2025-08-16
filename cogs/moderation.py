@@ -771,6 +771,14 @@ class Moderation(commands.Cog):
                 channel = ctx.bot.get_channel(modlogs.member_unban)
                 if channel:
                     await channel.send(fmt)
+            elif ctx.command.qualified_name == "modlogs remove":
+                channel = ctx.bot.get_channel(modlogs.member_warn)
+                if channel and hasattr(channel, 'send'):
+                    fmt = (
+                        f"{current_time} {ctx.author} removed modlog case #{args[0]}: Reason: {args[1]}, "
+                        f"Target: <@{args[2]}>, Moderator: <@{args[3]}>"
+                    )
+                    await channel.send(fmt)
             elif ctx.command.qualified_name == "warn add":
                 fmt = f"{current_time} {ctx.author} warned #{args[2]} {args[0]} ({args[0].id}), reason: {args[1]}"
                 channel = ctx.bot.get_channel(modlogs.member_warn)
