@@ -862,7 +862,7 @@ class Moderation(commands.Cog):
                 member = ctx.guild.get_member(int(member_id)) or f"<@{member_id}>"
                 original_mod = ctx.guild.get_member(int(mod_id)) or f"<@{mod_id}>"
                 fmt = f"{current_time} {ctx.author} has deleted modlog #{case_num}\n• Target: {member} ({member_id})\n• Original Moderator: {original_mod}\n• Original Reason: {original_reason}"
-                channel = ctx.bot.get_channel(modlogs.modlog)
+                channel = ctx.bot.get_channel(modlogs.member_warn)  # Changed from modlogs.modlog to modlogs.member_warn for consistency
                 if channel:
                     await channel.send(fmt)
             elif ctx.command.name == "lockdown":
@@ -2320,7 +2320,33 @@ class Moderation(commands.Cog):
             await ctx.send(f"{member.mention} has been softbanned (ban/unban). Reason: {reason}")
             await self.send_log(ctx, member, reason)
 
-    # ...existing code...
+    async def alert_user(self, ctx: commands.Context, member, reason: str = None, *, duration: str = None) -> None:
+        """Send a DM to a user about their punishment"""
+        if not hasattr(member, 'send'):
+            # If member is just an ID, try to get the user object
+            try:
+                member = await ctx.bot.fetch_user(int(getattr(member, 'id', member)))
+            except:
+                # If we can't fetch the user, just return silently
+                return
+        
+        try:
+            action_name = ctx.command.name if ctx.command else "moderated"
+            msg = f"You have been {action_name} in **{ctx.guild.name}**."
+            
+            if reason:
+                msg += f"\nReason: {reason}"
+            
+            if duration:
+                msg += f"\nDuration: {duration}"
+            
+            await member.send(msg)
+        except (discord.Forbidden, discord.HTTPException):
+            # User has DMs disabled or blocked the bot
+            pass
+        except Exception:
+            # Any other error, fail silently
+            pass
 
 
 # Extension loader required by discord.py
