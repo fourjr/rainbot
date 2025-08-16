@@ -739,7 +739,8 @@ class Moderation(commands.Cog):
                     fmt += f", from {args[1]}"
                 channel = ctx.bot.get_channel(modlogs.message_purge)
                 if channel and hasattr(channel, 'send'):
-                    await channel.send(fmt)
+                    if hasattr(channel, 'send'):
+                        await channel.send(fmt)
             elif ctx.command.name == "kick":
                 fmt = f"{current_time} {ctx.author} kicked {args[0]} ({args[0].id}), reason: {args[1]}"
                 channel = ctx.bot.get_channel(modlogs.member_kick)
