@@ -1776,3 +1776,5 @@ class Moderation(commands.Cog):
         if str(reaction.emoji) == "✅":
             # Check bot permissions
                 if not ctx.guild.me:
+                    await ctx.send("Bot is not a member of this guild. Cannot proceed with ban.")
+                    return
