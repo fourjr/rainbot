@@ -862,9 +862,16 @@ class Moderation(commands.Cog):
                 member = ctx.guild.get_member(int(member_id)) or f"<@{member_id}>"
                 original_mod = ctx.guild.get_member(int(mod_id)) or f"<@{mod_id}>"
                 fmt = f"{current_time} {ctx.author} has deleted modlog #{case_num}\n• Target: {member} ({member_id})\n• Original Moderator: {original_mod}\n• Original Reason: {original_reason}"
-                channel = ctx.bot.get_channel(modlogs.member_warn)  # Changed from modlogs.modlog to modlogs.member_warn for consistency
+                # Debug: check what we're getting
+                channel_id = modlogs.member_warn
+                print(f"DEBUG: modlogs.member_warn = {channel_id} (type: {type(channel_id)})")
+                channel = ctx.bot.get_channel(channel_id)
+                print(f"DEBUG: ctx.bot.get_channel result = {channel} (type: {type(channel)})")
                 if channel:
+                    print(f"DEBUG: About to call channel.send() on {channel}")
                     await channel.send(fmt)
+                else:
+                    print(f"DEBUG: Channel is None, skipping send for channel_id {channel_id}")
             elif ctx.command.name == "lockdown":
                 fmt = f'{current_time} {ctx.author} has {"enabled" if args[0] else "disabled"} lockdown for {args[1].mention}'
                 channel = ctx.bot.get_channel(modlogs.channel_lockdown)
