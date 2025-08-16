@@ -766,8 +766,28 @@ class Moderation(commands.Cog):
                 await ctx.send("I don't have permission to ban members!")
                 return
 
-            # Alert user and execute ban
-            await self.alert_user(ctx, member, reason, duration=format_timedelta(duration))
+            # Check if user is already banned
+            try:
+                ban_entry = await ctx.guild.fetch_ban(member)
+                if ban_entry:
+                    await ctx.send(f"{member} is already banned (Reason: {ban_entry.reason})")
+                    return
+            except discord.NotFound:
+                # Not banned, proceed with ban
+                pass
+
+            # Get member object if in guild, otherwise proceed with ID
+            guild_member = ctx.guild.get_member(member.id if isinstance(member, discord.Member) else member.id)
+            
+            # If in guild, check hierarchy and alert
+            if guild_member:
+                if guild_member.top_role >= ctx.guild.me.top_role:
+                    await ctx.send("I cannot ban this user due to role hierarchy!")
+                    return
+                # Alert user if they're in the guild
+                await self.alert_user(ctx, guild_member, reason, duration=format_timedelta(duration))
+
+            # Execute ban
             await ctx.guild.ban(member, reason=f"{ctx.author}: {reason}" if reason else f"Ban by {ctx.author}")
             
             # Set up temporary ban if duration specified
@@ -781,11 +801,12 @@ class Moderation(commands.Cog):
                 self.bot.loop.create_task(self.bot.unban(ctx.guild.id, member.id, seconds))
 
             # Send confirmation
+            name = str(guild_member) if guild_member else f"{member.name}#{member.discriminator}" if hasattr(member, "name") else f"User ID: {member.id}"
             if ctx.author != ctx.guild.me:
                 if duration:
-                    await ctx.send(f"✅ {member.mention} has been banned for {format_timedelta(duration)}. Reason: {reason}")
+                    await ctx.send(f"✅ {name} has been banned for {format_timedelta(duration)}. Reason: {reason}")
                 else:
-                    await ctx.send(f"✅ {member.mention} has been banned permanently. Reason: {reason}")
+                    await ctx.send(f"✅ {name} has been banned permanently. Reason: {reason}")
 
             # Log the ban
             await self.send_log(ctx, member, reason, duration)
