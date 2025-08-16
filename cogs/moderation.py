@@ -59,13 +59,13 @@ class Moderation(commands.Cog):
             if isinstance(m, dict) and str(m.get("member_id", "")) == user_id:
                 moderator = ctx.guild.get_member(int(m["moderator_id"]))
                 mod_name = moderator.mention if moderator else f"<@{m['moderator_id']}>"
-                entries.append(f"`{m['date']}` Case #{m['case_number']}: {mod_name} - {m['reason']} [modlog]")
+                entries.append(f"{m['date']} Case #{m['case_number']}: {mod_name} - {m['reason']} [modlog]")
         # Warns
         for w in warns:
             if isinstance(w, dict) and str(w.get("member_id", "")) == user_id:
                 moderator = ctx.guild.get_member(int(w["moderator_id"]))
                 mod_name = moderator.mention if moderator else f"<@{w['moderator_id']}>"
-                entries.append(f"`{w['date']}` Warn #{w['case_number']}: {mod_name} - {w['reason']} [warn]")
+                entries.append(f"{w['date']} Warn #{w['case_number']}: {mod_name} - {w['reason']} [warn]")
         # Mutes
         for mute in mutes:
             if isinstance(mute, dict) and str(mute.get("member", "")) == user_id:
