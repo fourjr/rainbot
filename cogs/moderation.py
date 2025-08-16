@@ -26,6 +26,12 @@ class MemberOrID(commands.IDConverter):
 
 
 class Moderation(commands.Cog):
+    # ...existing code...
+    @group(6, invoke_without_command=True, usage="<user_id>")
+    async def modlogs(self, ctx: commands.Context, user: MemberOrID = None) -> None:
+        """View all modlogs for a user by ID or mention."""
+        # ...existing code...
+
     @modlogs.command(6, name="all")
     async def modlogs_all(self, ctx: commands.Context) -> None:
         """View all modlogs in the server, paginated 10 per page."""
