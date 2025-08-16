@@ -485,6 +485,7 @@ class Moderation(commands.Cog):
     def __init__(self, bot: rainbot) -> None:
         self.bot = bot
         self.order = 2
+        self.kick_confirm_timeouts = set()  # Track member IDs for which kick confirmation timed out
 
     async def cog_error(self, ctx: commands.Context, error: Exception) -> None:
         """Handles discord.Forbidden"""
@@ -778,7 +779,13 @@ class Moderation(commands.Cog):
                     else:
                         kwargs = {"reason": f"Hit warn limit {num_warns}"}
 
-                    await ctx.invoke(ctx.command, member, **kwargs)
+                    # If previous kick confirmation timed out for this member, resend dialog
+                    if cmd == "kick" and str(member.id) in self.kick_confirm_timeouts:
+                        await ctx.send(f"Previous kick confirmation for {member} timed out. Resending confirmation dialog.")
+                        self.kick_confirm_timeouts.remove(str(member.id))
+                        await self.kick(ctx, member, reason=kwargs.get("reason"))
+                    else:
+                        await ctx.invoke(ctx.command, member, **kwargs)
 
     @warn.command(6, name="remove", aliases=["delete", "del"])
     async def remove_(self, ctx: commands.Context, case_number: int) -> None:
@@ -1095,6 +1102,8 @@ class Moderation(commands.Cog):
             reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
         except asyncio.TimeoutError:
             await msg.edit(embed=discord.Embed(title="Kick Cancelled", description="Kick confirmation timed out. Command cancelled.", color=discord.Color.red()))
+            # Track that this member's kick confirmation timed out
+            self.kick_confirm_timeouts.add(str(member.id))
             return
 
         if str(reaction.emoji) == "✅":
