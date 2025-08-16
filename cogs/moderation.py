@@ -891,19 +891,16 @@ class Moderation(commands.Cog):
             try:
                 await self.alert_user(ctx, member, reason)
                 await member.kick(reason=reason)
-                    await msg.edit(embed=discord.Embed(title="Kick Success", description=f"{member.mention} ({member.id}) has been kicked. Reason: {reason}", color=discord.Color.green()))
+                await msg.edit(embed=discord.Embed(title="Kick Success", description=f"{member.mention} ({member.id}) has been kicked. Reason: {reason}", color=discord.Color.green()))
                 await self.send_log(ctx, member, reason)
             except discord.Forbidden:
-                    await msg.edit(embed=discord.Embed(title="Kick Failed", description="I don't have permission to kick that member! They might have a higher role than me.", color=discord.Color.red()))
+                await msg.edit(embed=discord.Embed(title="Kick Failed", description="I don't have permission to kick that member! They might have a higher role than me.", color=discord.Color.red()))
             except discord.NotFound:
-                    await msg.edit(embed=discord.Embed(title="Kick Failed", description=f"Could not find user {member}", color=discord.Color.red()))
+                await msg.edit(embed=discord.Embed(title="Kick Failed", description=f"Could not find user {member}", color=discord.Color.red()))
             except Exception as e:
-                try:
-                        await msg.edit(embed=discord.Embed(title="Kick Failed", description=f"Failed to kick member: {e}", color=discord.Color.red()))
-                except Exception:
-                    pass
+                await msg.edit(embed=discord.Embed(title="Kick Failed", description=f"Failed to kick member: {e}", color=discord.Color.red()))
         else:
-                await msg.edit(embed=discord.Embed(title="Kick Cancelled", description="Kick cancelled.", color=discord.Color.red()))
+            await msg.edit(embed=discord.Embed(title="Kick Cancelled", description="Kick cancelled.", color=discord.Color.red()))
 
     @command(7)
     async def softban(
@@ -930,19 +927,17 @@ class Moderation(commands.Cog):
     async def ban(
         self,
         ctx: commands.Context,
-        member: MemberOrID,
-                await msg.edit(embed=discord.Embed(title="Mute Cancelled", description="Mute confirmation timed out. Command cancelled.", color=discord.Color.red()))
-        time_or_reason: str = None,
-        prune_days: int = None,
+    member: MemberOrID,
+    time_or_reason: str = None,
+    prune_days: int = None,
     ) -> None:
         # Check user permission level
         if (
             get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
-                    await msg.edit(embed=discord.Embed(title="Mute Success", description=f"{member.mention} has been muted for {format_timedelta(duration)}. Reason: {reason}", color=discord.Color.green()))
+            >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]
         ):
-                    await msg.edit(embed=discord.Embed(title="Mute Failed", description=f"Failed to mute member: {e}", color=discord.Color.red()))
+            await ctx.send("User has insufficient permissions")
             return
-                await msg.edit(embed=discord.Embed(title="Mute Cancelled", description="Mute cancelled.", color=discord.Color.red()))
         # Parse duration and reason
         duration = None
         reason = None
@@ -1365,7 +1360,7 @@ class Moderation(commands.Cog):
                 await member.send(fmt)
             except discord.Forbidden:
                 if ctx.author != ctx.guild.me:
-                        await msg.edit(embed=discord.Embed(title="Warn Notice", description="The user has PMs disabled or blocked the bot.", color=discord.Color.orange()))
+                    await ctx.send("The user has PMs disabled or blocked the bot.")
             finally:
                 guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
                 current_date = f"<t:{int((ctx.message.created_at + timedelta(hours=guild_config.time_offset)).timestamp())}:D>"
@@ -1381,27 +1376,24 @@ class Moderation(commands.Cog):
                     "reason": reason,
                 }
                 await self.bot.db.update_guild_config(ctx.guild.id, {"$push": {"warns": push}})
-                    if ctx.author != ctx.guild.me:
-                        await msg.edit(embed=discord.Embed(title="Warn Success", description=f"Warned {member.mention} (#{case_number}) for: {reason}", color=discord.Color.green()))
+                if ctx.author != ctx.guild.me:
+                    await ctx.send(f"Warned {member.mention} (#{case_number}) for: {reason}")
                 await self.send_log(ctx, member, reason, case_number)
 
                 # apply punishment
                 if punish:
                     if cmd == "bann":
-                await msg.edit(embed=discord.Embed(title="Warn Removed", description=f"Warn #{case_number} removed.", color=discord.Color.green()))
+                        cmd = "ban"
                     if cmd == "mut":
                         cmd = "mute"
                     ctx.command = self.bot.get_command(cmd)
                     ctx.author = ctx.guild.me
-                await msg.edit(embed=discord.Embed(title="Warn Removal Cancelled", description="Warn removal cancelled.", color=discord.Color.red()))
+                    kwargs = {"reason": f"Hit warn limit {num_warns}"}
                     if punishment.get("duration"):
-            await msg.edit(embed=discord.Embed(title="Warn Removal Cancelled", description="Warn removal timed out. Command cancelled.", color=discord.Color.red()))
-                        time.dt = ctx.message.created_at + timedelta(seconds=punishment.duration)
-                        time.arg = f"Hit warn limit {num_warns}"
-                        kwargs = {"time": time}
-                    else:
-                        kwargs = {"reason": f"Hit warn limit {num_warns}"}
-
+                        time_obj = UserFriendlyTime(default=False)
+                        time_obj.dt = ctx.message.created_at + timedelta(seconds=punishment.duration)
+                        time_obj.arg = f"Hit warn limit {num_warns}"
+                        kwargs = {"time": time_obj}
                     await ctx.invoke(ctx.command, member, **kwargs)
 
     @warn.command(6, name="remove", aliases=["delete", "del"])
