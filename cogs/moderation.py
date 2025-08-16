@@ -54,8 +54,9 @@ class Moderation(commands.Cog):
         warns = list(filter(lambda w: w["member_id"] == str(member.id), warns))
         # Optionally, you could add more moderation actions here (kicks, mutes, bans) if stored in DB
         name = getattr(member, "name", str(member.id))
-        if name != str(member.id):
-            name += f"#{member.discriminator}"
+        # Only show discriminator for bot accounts (Discord bots still have discriminators)
+        if name != str(member.id) and getattr(member, "bot", False):
+            name += f"#{getattr(member, 'discriminator', '')}"
 
         if len(warns) == 0:
             await ctx.send(f"{name} has no warns.")
@@ -871,18 +872,23 @@ class Moderation(commands.Cog):
                 if guild_member
                 else (
                     f"{getattr(member, 'name', None)}#{getattr(member, 'discriminator', '')}"
-                    if hasattr(member, "name")
-                    else f"User ID: {getattr(member, 'id', member)}"
+                    if hasattr(member, "name") and getattr(member, "bot", False)
+                    else (
+                        f"{getattr(member, 'name', None)}"
+                        if hasattr(member, "name")
+                        else f"User ID: {getattr(member, 'id', member)}"
+                    )
                 )
             )
+            user_id = getattr(member, "id", member)
             if ctx.author != ctx.guild.me:
                 if duration:
                     await ctx.send(
-                        f"✅ {display_name} has been banned for {format_timedelta(duration)}. Reason: {reason}"
+                        f"✅ {display_name} ({user_id}) has been banned for {format_timedelta(duration)}. Reason: {reason}"
                     )
                 else:
                     await ctx.send(
-                        f"✅ {display_name} has been banned permanently. Reason: {reason}"
+                        f"✅ {display_name} ({user_id}) has been banned permanently. Reason: {reason}"
                     )
 
             # Log the ban
