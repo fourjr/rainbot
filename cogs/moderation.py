@@ -1,5 +1,6 @@
 
 
+import asyncio
 import re
 from datetime import datetime, timedelta
 from typing import Optional, Union
@@ -8,9 +9,10 @@ import discord
 from discord.ext import commands
 from discord.ext.commands import BucketType, cooldown
 from bot import rainbot
-from ext.database import DBDict
-from ext.utility import format_timedelta
+from ext.database import DBDict, DEFAULT
+from ext.utility import format_timedelta, tryint
 from ext.command import command, group
+import time
 
 from ext.time import UserFriendlyTime
 from ext.utility import get_perm_level, CannedStr
@@ -76,7 +78,182 @@ class Moderation(commands.Cog):
     @group(6, invoke_without_command=True, usage="\u003cuser_id\u003e")
     async def modlogs(self, ctx: commands.Context, user: MemberOrID = None) -> None:
         """View all modlogs for a user by ID or mention."""
-        # ...existing code...
+        if user is None:
+            await ctx.invoke(self.bot.get_command("help"), command_or_cog="modlogs")
+            return
+
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        
+        # Gather all moderation actions for the specific user
+        modlogs = getattr(guild_config, "modlog", [])
+        warns = getattr(guild_config, "warns", [])
+        mutes = getattr(guild_config, "mutes", [])
+        tempbans = getattr(guild_config, "tempbans", [])
+        kicks = getattr(guild_config, "kicks", []) if hasattr(guild_config, "kicks") else []
+        softbans = getattr(guild_config, "softbans", []) if hasattr(guild_config, "softbans") else []
+        notes = getattr(guild_config, "notes", [])
+
+        user_id = str(user.id)
+        entries = []
+        
+        # Filter modlogs for this user
+        for m in modlogs:
+            if isinstance(m, dict) and m.get("member_id") == user_id:
+                moderator = ctx.guild.get_member(int(m.get("moderator_id", 0)))
+                mod_name = moderator.mention if moderator else f"<@{m.get('moderator_id', 0)}>"
+                reason = m.get("reason", "No reason provided")
+                case_number = m.get("case_number", 0)
+                date = m.get("date", "Unknown")
+                entries.append({
+                    "date": date,
+                    "case_number": case_number,
+                    "type": "modlog",
+                    "text": f"{date} Case #{case_number}: {mod_name} - {reason} [modlog]"
+                })
+        
+        # Filter warns for this user
+        for w in warns:
+            if isinstance(w, dict) and w.get("member_id") == user_id:
+                moderator = ctx.guild.get_member(int(w.get("moderator_id", 0)))
+                mod_name = moderator.mention if moderator else f"<@{w.get('moderator_id', 0)}>"
+                reason = w.get("reason", "No reason provided")
+                case_number = w.get("case_number", 0)
+                date = w.get("date", "Unknown")
+                entries.append({
+                    "date": date,
+                    "case_number": case_number,
+                    "type": "warn",
+                    "text": f"{date} Warn #{case_number}: {mod_name} - {reason} [warn]"
+                })
+        
+        # Filter mutes for this user
+        for mute in mutes:
+            if isinstance(mute, dict) and mute.get("member") == user_id:
+                until = mute.get("time")
+                until_str = f"until <t:{int(until)}:F>" if until else "indefinite"
+                case_number = mute.get("case_number", 0)
+                date = mute.get("date", "Unknown")
+                entries.append({
+                    "date": date,
+                    "case_number": case_number,
+                    "type": "mute",
+                    "text": f"{date} Mute: {until_str} [mute]"
+                })
+        
+        # Filter tempbans for this user
+        for tb in tempbans:
+            if isinstance(tb, dict) and tb.get("member") == user_id:
+                until = tb.get("time")
+                until_str = f"until <t:{int(until)}:F>" if until else "indefinite"
+                case_number = tb.get("case_number", 0)
+                date = tb.get("date", "Unknown")
+                entries.append({
+                    "date": date,
+                    "case_number": case_number,
+                    "type": "tempban",
+                    "text": f"{date} Tempban: {until_str} [tempban]"
+                })
+        
+        # Filter kicks for this user
+        for k in kicks:
+            if isinstance(k, dict) and k.get("member_id") == user_id:
+                moderator = ctx.guild.get_member(int(k.get("moderator_id", 0)))
+                mod_name = moderator.mention if moderator else f"<@{k.get('moderator_id', 0)}>"
+                reason = k.get("reason", "No reason")
+                case_number = k.get("case_number", 0)
+                date = k.get("date", "Unknown")
+                entries.append({
+                    "date": date,
+                    "case_number": case_number,
+                    "type": "kick",
+                    "text": f"{date} Kick: {mod_name} - {reason} [kick]"
+                })
+        
+        # Filter softbans for this user
+        for sb in softbans:
+            if isinstance(sb, dict) and sb.get("member_id") == user_id:
+                moderator = ctx.guild.get_member(int(sb.get("moderator_id", 0)))
+                mod_name = moderator.mention if moderator else f"<@{sb.get('moderator_id', 0)}>"
+                reason = sb.get("reason", "No reason")
+                case_number = sb.get("case_number", 0)
+                date = sb.get("date", "Unknown")
+                entries.append({
+                    "date": date,
+                    "case_number": case_number,
+                    "type": "softban",
+                    "text": f"{date} Softban: {mod_name} - {reason} [softban]"
+                })
+        
+        # Filter notes for this user
+        for note in notes:
+            if isinstance(note, dict) and note.get("member_id") == user_id:
+                moderator = ctx.guild.get_member(int(note.get("moderator_id", 0)))
+                mod_name = moderator.mention if moderator else f"<@{note.get('moderator_id', 0)}>"
+                note_text = note.get("note", "No note")
+                case_number = note.get("case_number", 0)
+                date = note.get("date", "Unknown")
+                entries.append({
+                    "date": date,
+                    "case_number": case_number,
+                    "type": "note",
+                    "text": f"{date} Note #{case_number}: {mod_name} - {note_text} [note]"
+                })
+
+        if not entries:
+            name = getattr(user, "name", str(user.id))
+            if hasattr(user, "discriminator") and name != str(user.id):
+                name += f"#{user.discriminator}"
+            await ctx.send(f"No moderation logs found for {name}.")
+            return
+
+        # Sort by case number (newest first)
+        entries_sorted = sorted(entries, key=lambda x: x.get("case_number", 0), reverse=True)
+        
+        # Paginate
+        page_size = 10
+        pages = [entries_sorted[i:i + page_size] for i in range(0, len(entries_sorted), page_size)]
+        total_pages = len(pages)
+        
+        name = getattr(user, "name", str(user.id))
+        if hasattr(user, "discriminator") and name != str(user.id):
+            name += f"#{user.discriminator}"
+        
+        def format_page(page, page_num):
+            fmt = f"**Moderation logs for {name} (Page {page_num+1}/{total_pages}):**\n"
+            for entry in page:
+                fmt += entry["text"] + "\n"
+            return fmt
+        
+        page_num = 0
+        msg = await ctx.send(format_page(pages[page_num], page_num))
+        
+        if total_pages > 1:
+            await msg.add_reaction("⬅️")
+            await msg.add_reaction("➡️")
+            
+            def check(reaction, user_react):
+                return (
+                    user_react == ctx.author
+                    and reaction.message.id == msg.id
+                    and str(reaction.emoji) in ["⬅️", "➡️"]
+                )
+            
+            while True:
+                try:
+                    reaction, user_react = await ctx.bot.wait_for("reaction_add", timeout=60.0, check=check)
+                except asyncio.TimeoutError:
+                    break
+                    
+                if str(reaction.emoji) == "➡️" and page_num < total_pages - 1:
+                    page_num += 1
+                    await msg.edit(content=format_page(pages[page_num], page_num))
+                    await msg.remove_reaction(reaction, user_react)
+                elif str(reaction.emoji) == "⬅️" and page_num > 0:
+                    page_num -= 1
+                    await msg.edit(content=format_page(pages[page_num], page_num))
+                    await msg.remove_reaction(reaction, user_react)
+                else:
+                    await msg.remove_reaction(reaction, user_react)
 
     @modlogs.command(6, name="all")
     async def modlogs_all(self, ctx: commands.Context) -> None:
@@ -1598,7 +1775,7 @@ class Moderation(commands.Cog):
             # If temporary ban, schedule unban and record in DB
             if duration:
                 seconds = duration.total_seconds()
-                seconds += unixs()
+                seconds += time.time()
                 await self.bot.db.update_guild_config(
                     ctx.guild.id,
                     {
