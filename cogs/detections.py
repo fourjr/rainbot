@@ -258,8 +258,8 @@ class Detections(commands.Cog):
 
     @detection("ai_moderation")
     async def ai_moderation(self, m: MessageWrapper, guild_config) -> None:
-        """Use OpenAI's Moderation API for text and image moderation"""
-        if not guild_config.detections.ai_moderation.enabled:
+        """Use OpenAI's Moderation API for text moderation"""
+        if not guild_config.detections.ai_moderation.enabled or not m.content:
             return
 
         openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -270,31 +270,41 @@ class Detections(commands.Cog):
         sensitivity = guild_config.detections.ai_moderation.sensitivity / 100
 
         # --- Text Moderation ---
-        if m.content:
-            try:
-                response = await self.bot.loop.run_in_executor(
-                    self.bot.executor, lambda: openai.Moderation.create(input=m.content)
-                )
-                result = response["results"][0]
-                if result["flagged"]:
-                    flagged_categories = [
-                        k
-                        for k, v in result["category_scores"].items()
-                        if v > sensitivity
-                        and guild_config.detections.ai_moderation.categories.get(k)
-                    ]
-                    if flagged_categories:
-                        reason = f"AI moderation triggered for: {', '.join(flagged_categories)}"
-                        await m.detection.punish(
-                            self.bot,
-                            m,
-                            guild_config,
-                            reason=reason,
-                            ai_scores=result["category_scores"],
-                        )
-                        return  # Stop after the first punishment
-            except Exception as e:
-                self.logger.error(f"Error calling OpenAI Moderation API for text: {e}")
+        try:
+            response = await self.bot.loop.run_in_executor(
+                self.bot.executor, lambda: openai.Moderation.create(input=m.content)
+            )
+            result = response["results"][0]
+            if result["flagged"]:
+                flagged_categories = [
+                    k
+                    for k, v in result["category_scores"].items()
+                    if v > sensitivity and guild_config.detections.ai_moderation.categories.get(k)
+                ]
+                if flagged_categories:
+                    reason = f"AI moderation triggered for: {', '.join(flagged_categories)}"
+                    await m.detection.punish(
+                        self.bot,
+                        m,
+                        guild_config,
+                        reason=reason,
+                        ai_scores=result["category_scores"],
+                    )
+        except Exception as e:
+            self.logger.error(f"Error calling OpenAI Moderation API for text: {e}")
+
+    @detection("image_moderation", require_attachment=True)
+    async def image_moderation(self, m: MessageWrapper, guild_config) -> None:
+        """Use OpenAI's Moderation API for image moderation"""
+        if not guild_config.detections.ai_moderation.enabled:
+            return
+
+        openai.api_key = os.getenv("OPENAI_API_KEY")
+        if not openai.api_key:
+            self.logger.warning("OPENAI_API_KEY is not set, AI moderation is disabled.")
+            return
+
+        sensitivity = guild_config.detections.ai_moderation.sensitivity / 100
 
         # --- Image Moderation ---
         for attachment in m.attachments:
@@ -316,12 +326,14 @@ class Detections(commands.Cog):
                         ]
                         if flagged_categories:
                             reason = f"AI moderation triggered for image: {', '.join(flagged_categories)}"
+                            # Use the punishment settings for 'image_moderation'
                             await m.detection.punish(
                                 self.bot,
                                 m,
                                 guild_config,
                                 reason=reason,
                                 ai_scores=result["category_scores"],
+                                detection_name="image_moderation",
                             )
                             return  # Stop after the first punishment
                 except Exception as e:

@@ -1197,7 +1197,7 @@ class Setup(commands.Cog):
         - For `kick`, `ban`, and `delete`, use `yes` or `no`.
 
         **Valid Detections:**
-        `filters`, `regex_filters`, `image_filters`, `block_invite`, `english_only`, `mention_limit`, `spam_detection`, `repetitive_message`, `repetitive_characters`, `max_lines`, `max_words`, `max_characters`, `sexually_explicit`, `caps_message`, `ai_moderation`
+        `filters`, `regex_filters`, `image_filters`, `block_invite`, `english_only`, `mention_limit`, `spam_detection`, `repetitive_message`, `repetitive_characters`, `max_lines`, `max_words`, `max_characters`, `sexually_explicit`, `caps_message`, `ai_moderation`, `image_moderation`
 
         **Valid Actions:**
         `warn`, `mute`, `kick`, `ban`, `delete`
@@ -1274,7 +1274,7 @@ class Setup(commands.Cog):
 
         embed = discord.Embed(
             title="AI Moderation Settings",
-            description="Control the AI-powered automoderation features.",
+            description="Control the AI-powered automoderation features for text and images.",
             color=discord.Color.blue(),
         )
         embed.add_field(
@@ -1300,7 +1300,8 @@ class Setup(commands.Cog):
             name="Configuring Actions",
             value=(
                 "Actions (delete, warn, mute, etc.) are configured with the `setdetectionpunishments` command.\n"
-                "**Example:** `!!setdetectionpunishments ai_moderation mute 10m`"
+                "**Example:** `!!setdetectionpunishments ai_moderation mute 10m`\n"
+                "**Example:** `!!setdetectionpunishments image_moderation mute 1h`"
             ),
             inline=False,
         )

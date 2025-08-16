@@ -53,8 +53,21 @@ DEFAULT: Dict[str, Any] = {
         "max_characters": None,
         "caps_message_percent": None,
         "caps_message_min_words": None,
-        "ai_moderation": {
+        "ai_text_moderation": {
             "enabled": False,
+            "categories": {
+                "hate": True,
+                "hate/threatening": True,
+                "self-harm": True,
+                "sexual": True,
+                "sexual/minors": True,
+                "violence": True,
+                "violence/graphic": True,
+            },
+            "sensitivity": 90,
+        },
+        "ai_image_moderation": {
+            "enabled": True,
             "categories": {
                 "hate": True,
                 "hate/threatening": True,
@@ -78,7 +91,7 @@ DEFAULT: Dict[str, Any] = {
             "ban": False,
             "delete": True,
         },
-        "english_only": {"warn": 0, "mute": None, "kick": False, "ban": False, "delete": True},
+        "english_.only": {"warn": 0, "mute": None, "kick": False, "ban": False, "delete": True},
         "mention_limit": {
             "warn": 1,
             "mute": "10 minutes",
@@ -112,6 +125,13 @@ DEFAULT: Dict[str, Any] = {
         "max_characters": {"warn": 0, "mute": None, "kick": False, "ban": False, "delete": True},
         "caps_message": {"warn": 0, "mute": None, "kick": False, "ban": False, "delete": True},
         "ai_moderation": {
+            "warn": 1,
+            "mute": "10 minutes",
+            "kick": False,
+            "ban": False,
+            "delete": True,
+        },
+        "image_moderation": {
             "warn": 1,
             "mute": "10 minutes",
             "kick": False,
