@@ -1519,15 +1519,15 @@ class Moderation(commands.Cog):
             # If disabled (0 or False), do not prune any messages
             if not prune_days:
                 try:
-                await ctx.guild.ban(
-                    member, reason=f"{ctx.author}: {reason}" if reason else f"Ban by {ctx.author}"
-                )
-            except discord.Forbidden:
-                await ctx.send("I don't have permission to ban this user.")
-                return
-            except discord.HTTPException as e:
-                await ctx.send(f"Failed to ban user: {e}")
-                return
+                    await ctx.guild.ban(
+                        member, reason=f"{ctx.author}: {reason}" if reason else f"Ban by {ctx.author}"
+                    )
+                except discord.Forbidden:
+                    await ctx.send("I don't have permission to ban this user.")
+                    return
+                except discord.HTTPException as e:
+                    await ctx.send(f"Failed to ban user: {e}")
+                    return
             else:
                 await ctx.guild.ban(
                     member,
