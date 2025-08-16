@@ -2,6 +2,10 @@
 
 A powerful, feature-rich Discord moderation bot with advanced automod, comprehensive logging, and user-friendly configuration.
 
+A public available hosted instance of Rainbot can be invited using:
+- https://discord.com/oauth2/authorize?client_id=1031172246829543434&scope=bot&permissions=2013785334 
+
+
 [![Discord](https://img.shields.io/discord/733702521893289985?color=7289DA&label=Support%20Server&logo=discord&logoColor=white)](https://discord.gg/zmdYe3ZVHG)
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![discord.py](https://img.shields.io/badge/discord.py-2.5.3-blue.svg)](https://github.com/Rapptz/discord.py)
