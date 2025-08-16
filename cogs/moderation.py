@@ -276,15 +276,37 @@ class Moderation(commands.Cog):
         fmt = f"**Modlogs for {user_name} ({user_id}):**\n" + "\n".join(entries)
         await ctx.send(fmt)
 
-    @modlogs.command(6, name="remove", aliases=["delete", "del"])
+    @modlogs.command(6, name="remove", aliases=["delete", "del"], usage="<case_number>")
     async def remove(self, ctx: commands.Context, case_number: int) -> None:
         """Remove a modlog entry by case number, with confirmation dialog."""
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-        modlogs = guild_config.modlog
+        modlogs = getattr(guild_config, "modlog", [])
         modlog = next((m for m in modlogs if m.get("case_number") == case_number), None)
         if not modlog:
             await ctx.send(f"Modlog #{case_number} does not exist.")
-            # Only one correct implementation per command, with confirmation dialog that edits the embed in place. Indentation fixed.
+            return
+        moderator = ctx.guild.get_member(int(modlog["moderator_id"]))
+        confirm_embed = discord.Embed(
+            title="Confirm Modlog Removal",
+            description=f"Are you sure you want to remove Modlog #{case_number} for ID:{modlog['member_id']}?\nReason: {modlog['reason']}\nModerator: {moderator.name if moderator else f'ID:{modlog['moderator_id']}' }",
+            color=discord.Color.red(),
+        )
+        msg = await ctx.send(embed=confirm_embed)
+        await msg.add_reaction("✅")
+        await msg.add_reaction("❌")
+        def check(reaction, user):
+            return user == ctx.author and str(reaction.emoji) in ["✅", "❌"] and reaction.message.id == msg.id
+        try:
+            reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
+        except asyncio.TimeoutError:
+            await msg.edit(embed=discord.Embed(title="Modlog Removal Cancelled", description="Modlog removal timed out. Command cancelled.", color=discord.Color.red()))
+            return
+        if str(reaction.emoji) == "✅":
+            await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"modlog": modlog}})
+            await msg.edit(embed=discord.Embed(title="Modlog Removed", description=f"Modlog #{case_number} removed.", color=discord.Color.green()))
+            await self.send_log(ctx, case_number, modlog["reason"], modlog["member_id"], modlog["moderator_id"])
+        else:
+            await msg.edit(embed=discord.Embed(title="Modlog Removal Cancelled", description="Modlog removal cancelled.", color=discord.Color.red()))
 
     # ...existing code...
 
