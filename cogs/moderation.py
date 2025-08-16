@@ -7,6 +7,7 @@ from typing import Optional, Union
 import discord
 from discord.ext import commands
 from discord.ext.commands import BucketType, cooldown
+from bot import rainbot
 
 from ext.command import command, group
 from ext.time import UserFriendlyTime
