@@ -26,13 +26,78 @@ class MemberOrID(commands.IDConverter):
 
 
 class Moderation(commands.Cog):
+    @modlogs.command(6, name="all")
+    async def modlogs_all(self, ctx: commands.Context) -> None:
+        """View all modlogs in the server, paginated 10 per page."""
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        modlogs = getattr(guild_config, "modlog", [])
+        if not modlogs:
+            await ctx.send("No modlogs found in this server.")
+            return
+        # Sort newest to oldest
+        modlogs_sorted = sorted(
+            [m for m in modlogs if isinstance(m, dict)],
+            key=lambda m: m.get("case_number", 0),
+            reverse=True
+        )
+        # Paginate
+        page_size = 10
+        pages = [modlogs_sorted[i:i+page_size] for i in range(0, len(modlogs_sorted), page_size)]
+        total_pages = len(pages)
+        def format_page(page, page_num):
+            fmt = f"**All Modlogs (Page {page_num+1}/{total_pages}):**\n"
+            for m in page:
+                member = ctx.guild.get_member(int(m["member_id"]))
+                member_name = member.mention if member else f"<@{m['member_id']}>"
+                moderator = ctx.guild.get_member(int(m["moderator_id"]))
+                mod_name = moderator.mention if moderator else f"<@{m['moderator_id']}>"
+                fmt += f"{m['date']} Case #{m['case_number']}: {member_name} - {mod_name} - {m['reason']}\n"
+            return fmt
+        # Send first page
+        page_num = 0
+        msg = await ctx.send(format_page(pages[page_num], page_num))
+        if total_pages > 1:
+            await msg.add_reaction("⬅️")
+            await msg.add_reaction("➡️")
+            def check(reaction, user):
+                return user == ctx.author and reaction.message.id == msg.id and str(reaction.emoji) in ["⬅️", "➡️"]
+            while True:
+                try:
+                    reaction, user = await ctx.bot.wait_for("reaction_add", timeout=60.0, check=check)
+                except asyncio.TimeoutError:
+                    break
+                if str(reaction.emoji) == "➡️" and page_num < total_pages - 1:
+                    page_num += 1
+                    await msg.edit(content=format_page(pages[page_num], page_num))
+                    await msg.remove_reaction(reaction, user)
+                elif str(reaction.emoji) == "⬅️" and page_num > 0:
+                    page_num -= 1
+                    await msg.edit(content=format_page(pages[page_num], page_num))
+                    await msg.remove_reaction(reaction, user)
+                else:
+                    await msg.remove_reaction(reaction, user)
     # ...existing code...
     # Only keep one correct implementation of kick, ban, mute, warn, remove_warn, modlogs remove, with confirmation dialog and embed editing. Fix indentation and remove stray code.
     @group(6, invoke_without_command=True, usage="<user_id>")
     async def modlogs(self, ctx: commands.Context, user: MemberOrID = None) -> None:
         """View all modlogs for a user by ID or mention."""
         if user is None:
-            await ctx.invoke(self.bot.get_command("help"), command_or_cog="modlogs")
+            # Get current server prefix
+            prefix = getattr(ctx, "prefix", "!!")
+            embed = discord.Embed(
+                title=f"📖 {prefix}modlogs <user_id>",
+                description="View all modlogs for a user by ID or mention.",
+                color=discord.Color.blue()
+            )
+            embed.add_field(name="🔒 Permission Level", value="6", inline=False)
+            embed.add_field(
+                name="📂 Subcommands",
+                value="• `remove` - Remove a modlog entry by case number, with confirmation dialog.",
+                inline=False
+            )
+            embed.add_field(name="Usage", value=f"`{prefix}modlogs remove <case_number>`", inline=False)
+            embed.add_field(name="Example", value=f"`{prefix}modlogs remove 123`", inline=False)
+            await ctx.send(embed=embed)
             return
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         # Accept both MemberOrID and raw string/ID
