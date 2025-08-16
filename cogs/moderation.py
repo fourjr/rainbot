@@ -10,113 +10,111 @@ from discord.ext import commands
 
 from bot import rainbot
 from ext.command import command, group
-from ext.database import DEFAULT, DBDict
-from ext.time import UserFriendlyTime
-from ext.utility import format_timedelta, get_perm_level, tryint, SafeFormat, CannedStr
-
-MEMBER_ID_REGEX = re.compile(r"<@!?([0-9]+)>$")
-
-
-class MemberOrID(commands.IDConverter):
+    @command(7, usage="<member> [duration] [reason]")
+    async def ban(
+        self,
+        ctx: commands.Context,
+        member: MemberOrID,
+        time_or_reason: str = None,
+        prune_days: int = None,
+    ) -> None:
     async def convert(
         self, ctx: commands.Context, argument: str
     ) -> Union[discord.Member, discord.User]:
         result: Union[discord.Member, discord.User]
         try:
             result = await commands.MemberConverter().convert(ctx, argument)
-        except commands.BadArgument:
-            match = self._get_id_match(argument) or MEMBER_ID_REGEX.match(argument)
-            if match:
-                try:
-                    result = await ctx.bot.fetch_user(int(match.group(1)))
-                except discord.NotFound as e:
-                    raise commands.BadArgument(f"Member {argument} not found") from e
-            else:
-                raise commands.BadArgument(f"Member {argument} not found")
-
-        return result
-
-
-class Moderation(commands.Cog):
-    @commands.Cog.listener()
-    async def on_member_join(self, member: discord.Member):
-        guild = member.guild
-        bot = getattr(self, 'bot', None)
-        if not bot:
+        # Check user permission level
+        if (
+            get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
+            >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]
+        ):
+            await ctx.send("User has insufficient permissions")
             return
-        guild_config = await bot.db.get_guild_config(guild.id)
-        mutes = getattr(guild_config, "mutes", [])
-        # Find mute entry for this member
-        mute_entry = next((m for m in mutes if int(m.get("member", 0)) == member.id), None)
-        if mute_entry:
-            # Find mute role
-            mute_role_id = getattr(guild_config, "mute_role", None)
-            mute_role = guild.get_role(mute_role_id) if mute_role_id else None
-            if mute_role and mute_role not in member.roles:
+
+        # Parse duration and reason
+        duration = None
+        reason = None
+        if time_or_reason:
+            try:
+                uft = await UserFriendlyTime(default=False).convert(ctx, time_or_reason)
+                if uft.dt:
+                    duration = uft.dt - ctx.message.created_at
+                if uft.arg:
+                    reason = uft.arg
+            except commands.BadArgument:
+                reason = time_or_reason
+
+        # Confirmation dialog
+        confirm_embed = discord.Embed(
+            title="Confirm Ban",
+            description=f"Are you sure you want to ban {getattr(member, 'mention', member)} ({getattr(member, 'id', member)})?\nReason: {reason if reason else 'No reason provided'}",
+            color=discord.Color.red(),
+        )
+        msg = await ctx.send(embed=confirm_embed)
+        await msg.add_reaction("✅")
+        await msg.add_reaction("❌")
+
+        def check(reaction, user):
+            return (
+                user == ctx.author
+                and str(reaction.emoji) in ["✅", "❌"]
+                and reaction.message.id == msg.id
+            )
+
+        try:
+            reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
+        except asyncio.TimeoutError:
+            await ctx.send("Ban confirmation timed out. Command cancelled.")
+            return
+
+        if str(reaction.emoji) == "✅":
+            try:
+                # Check bot permissions
+                if not ctx.guild.me.guild_permissions.ban_members:
+                    await ctx.send("I don't have permission to ban members!")
+                    return
+
+                # Check if user is already banned
                 try:
-                    await member.add_roles(mute_role, reason="Reapplying mute after rejoin")
+                    ban_entry = await ctx.guild.fetch_ban(member)
+                except discord.NotFound:
+                    ban_entry = None
+
+                if ban_entry:
+                    user_id = getattr(member, "id", member)
+                    display_name = getattr(member, "mention", str(member))
+                    await ctx.send(f"User {display_name} ({user_id}) is already banned.")
+                    return
+
+                # Check role hierarchy
+                if hasattr(member, "top_role") and member.top_role >= ctx.guild.me.top_role:
+                    await ctx.send("I cannot ban this user due to role hierarchy!")
+                    return
+
+                # Prevent banning self or owner
+                if hasattr(member, "id") and member.id == ctx.guild.me.id:
+                    await ctx.send("I cannot ban myself!")
+                    return
+                if hasattr(member, "id") and member.id == ctx.guild.owner_id:
+                    await ctx.send("I cannot ban the server owner!")
+                    return
+
+                await self.alert_user(ctx, member, reason)
+                await ctx.guild.ban(member, reason=reason, delete_message_days=prune_days or 0)
+                await ctx.send(f"{getattr(member, 'mention', member)} ({getattr(member, 'id', member)}) has been banned. Reason: {reason}")
+                await self.send_log(ctx, member, reason, duration)
+            except discord.Forbidden:
+                await ctx.send("I don't have permission to ban that member! They might have a higher role than me.")
+            except discord.NotFound:
+                await ctx.send(f"Could not find user {member}")
+            except Exception as e:
+                try:
+                    await ctx.send(f"Failed to ban member: {e}")
                 except Exception:
                     pass
-
-    @group(6, invoke_without_command=True)
-    async def modlogs(self, ctx: commands.Context, member: MemberOrID = None) -> None:
-        """View or manage moderation logs (warns, kicks, mutes, bans, etc.) for a user.
-
-        Commands:
-          modlogs <user>          View moderation logs for a specific user
-          modlogs remove <case>   Remove a moderation log entry by case number"""
-        if member is None:
-            await ctx.invoke(self.bot.get_command("help"), command_or_cog="modlogs")
-            return
-        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-        warns = guild_config.warns
-        warns = list(filter(lambda w: w["member_id"] == str(member.id), warns))
-        # Optionally, you could add more moderation actions here (kicks, mutes, bans) if stored in DB
-        name = getattr(member, "name", str(member.id))
-        # Only show discriminator for bot accounts (Discord bots still have discriminators)
-        if name != str(member.id) and getattr(member, "bot", False):
-            name += f"#{getattr(member, 'discriminator', '')}"
-
-        if len(warns) == 0:
-            await ctx.send(f"{name} has no warns.")
         else:
-            fmt = f"**{name} has {len(warns)} warns.**"
-            for warn in warns:
-                moderator = ctx.guild.get_member(int(warn["moderator_id"]))
-                # Try to extract a unix timestamp from warn['date'] if possible, else just show as is
-                # If warn['date'] is in <t:unix:D> format, extract the unix part
-                date_str = warn["date"]
-                unix_match = None
-                if isinstance(date_str, str) and date_str.startswith("<t:"):
-                    import re
-
-                    m = re.match(r"<t:(\\d+):[A-Z]>", date_str)
-                    if m:
-                        unix_match = int(m.group(1))
-                if unix_match:
-                    timestamp_fmt = f"<t:{unix_match}:F>"
-                else:
-                    timestamp_fmt = date_str
-                fmt += f"\n{timestamp_fmt} Warn #{warn['case_number']}: {moderator} warned {name} for {warn['reason']}"
-            await ctx.send(fmt)
-
-    @modlogs.command(6, name="remove", aliases=["delete", "del"])
-    async def modlogs_remove(self, ctx: commands.Context, case_number: int) -> None:
-        """Remove a moderation log entry.
-
-        Args:
-            case_number: The case number to remove
-
-        Example:
-            modlogs remove 123"""
-        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-        warns = guild_config.warns
-        warn = next((w for w in warns if w["case_number"] == case_number), None)
-        if not warn:
-            await ctx.send(f"Modlog #{case_number} does not exist.")
-            return
-        moderator = ctx.guild.get_member(int(warn["moderator_id"]))
-        confirm_embed = discord.Embed(
+            await ctx.send("Ban cancelled.")
             title="Confirm Modlog Removal",
             description=f"Are you sure you want to remove Warn #{case_number} for <@{warn['member_id']}>?\nReason: {warn['reason']}\nModerator: {moderator}",
             color=discord.Color.red(),
@@ -742,12 +740,12 @@ class Moderation(commands.Cog):
             return
 
         # Check if member is in the server
-            if not isinstance(member, discord.Member):
-                member_obj = ctx.guild.get_member(getattr(member, "id", member))
-                if not member_obj:
-                    await ctx.send(f"User {getattr(member, 'mention', member)} is not present in this server and cannot be kicked.")
-                    return
-                member = member_obj
+        if not isinstance(member, discord.Member):
+            member_obj = ctx.guild.get_member(getattr(member, "id", member))
+            if not member_obj:
+                await ctx.send(f"User {getattr(member, 'mention', member)} is not present in this server and cannot be kicked.")
+                return
+            member = member_obj
 
         # Check bot permissions
         if not ctx.guild.me.guild_permissions.kick_members:
@@ -767,21 +765,46 @@ class Moderation(commands.Cog):
             await ctx.send("I cannot kick the server owner!")
             return
 
+        # Confirmation dialog
+        confirm_embed = discord.Embed(
+            title="Confirm Kick",
+            description=f"Are you sure you want to kick {member.mention} ({member.id})?\nReason: {reason if reason else 'No reason provided'}",
+            color=discord.Color.orange(),
+        )
+        msg = await ctx.send(embed=confirm_embed)
+        await msg.add_reaction("✅")
+        await msg.add_reaction("❌")
+
+        def check(reaction, user):
+            return (
+                user == ctx.author
+                and str(reaction.emoji) in ["✅", "❌"]
+                and reaction.message.id == msg.id
+            )
+
         try:
-            await self.alert_user(ctx, member, reason)
-            await member.kick(reason=reason)
-            if ctx.author != ctx.guild.me:
-                await ctx.send(f"{member.mention} ({member.id}) has been kicked. Reason: {reason}")
-            await self.send_log(ctx, member, reason)
-        except discord.Forbidden:
-            await ctx.send("I don't have permission to kick that member! They might have a higher role than me.")
-        except discord.NotFound:
-            await ctx.send(f"Could not find user {member}")
-        except Exception as e:
+            reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
+        except asyncio.TimeoutError:
+            await ctx.send("Kick confirmation timed out. Command cancelled.")
+            return
+
+        if str(reaction.emoji) == "✅":
             try:
-                await ctx.send(f"Failed to kick member: {e}")
-            except Exception:
-                pass
+                await self.alert_user(ctx, member, reason)
+                await member.kick(reason=reason)
+                await ctx.send(f"{member.mention} ({member.id}) has been kicked. Reason: {reason}")
+                await self.send_log(ctx, member, reason)
+            except discord.Forbidden:
+                await ctx.send("I don't have permission to kick that member! They might have a higher role than me.")
+            except discord.NotFound:
+                await ctx.send(f"Could not find user {member}")
+            except Exception as e:
+                try:
+                    await ctx.send(f"Failed to kick member: {e}")
+                except Exception:
+                    pass
+        else:
+            await ctx.send("Kick cancelled.")
 
     @command(7)
     async def softban(
@@ -811,14 +834,6 @@ class Moderation(commands.Cog):
         member: MemberOrID,
         *,
         time_or_reason: str = None,
-        prune_days: int = None,
-    ) -> None:
-        """Ban a member from the server, optionally with a duration.
-
-        Examples:
-        - `!!ban @User Spamming` (permanent ban)
-        - `!!ban @User 7d Spamming` (7 day ban)
-        - `!!ban 123456789 24h Raid` (24 hour ban by ID)"""
         # Check user permission level
         if (
             get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
@@ -842,43 +857,76 @@ class Moderation(commands.Cog):
                 # Not a time string -> treat as plain reason (can be multiple words)
                 reason = time_or_reason
 
+        # Confirmation dialog
+        confirm_embed = discord.Embed(
+            title="Confirm Ban",
+            description=f"Are you sure you want to ban {getattr(member, 'mention', member)} ({getattr(member, 'id', member)})?\nReason: {reason if reason else 'No reason provided'}",
+            color=discord.Color.red(),
+        )
+        msg = await ctx.send(embed=confirm_embed)
+        await msg.add_reaction("✅")
+        await msg.add_reaction("❌")
+
+        def check(reaction, user):
+            return (
+                user == ctx.author
+                and str(reaction.emoji) in ["✅", "❌"]
+                and reaction.message.id == msg.id
+            )
+
         try:
-            # Check bot permissions
-            if not ctx.guild.me.guild_permissions.ban_members:
-                await ctx.send("I don't have permission to ban members!")
-                return
+            reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
+        except asyncio.TimeoutError:
+            await ctx.send("Ban confirmation timed out. Command cancelled.")
+            return
 
-            # Check if user is already banned
+        if str(reaction.emoji) == "✅":
             try:
-                # fetch_ban accepts a user or user id
-                ban_entry = await ctx.guild.fetch_ban(member)
-            except discord.NotFound:
-                ban_entry = None
+                # Check bot permissions
+                if not ctx.guild.me.guild_permissions.ban_members:
+                    await ctx.send("I don't have permission to ban members!")
+                    return
 
-            if ban_entry:
-                user_id = getattr(member, "id", member)
-                display_name = getattr(member, "mention", str(member))
-                display_with_id = f"{display_name} ({user_id})"
-                await ctx.send(f"{display_with_id} is already banned (Reason: {ban_entry.reason})")
-                return
-
-            # If member is in guild, perform role hierarchy check and alert them directly
-            guild_member = None
-            if isinstance(member, discord.Member):
-                guild_member = member
-            else:
-                # Try to resolve to a guild member if possible
+                # Check if user is already banned
                 try:
-                    guild_member = ctx.guild.get_member(member.id)
-                except Exception:
-                    guild_member = None
+                    ban_entry = await ctx.guild.fetch_ban(member)
+                except discord.NotFound:
+                    ban_entry = None
 
-            if guild_member:
-                if guild_member.top_role >= ctx.guild.me.top_role:
+                if ban_entry:
+                    user_id = getattr(member, "id", member)
+                    display_name = getattr(member, "mention", str(member))
+                    await ctx.send(f"User {display_name} ({user_id}) is already banned.")
+                    return
+
+                # Check role hierarchy
+                if hasattr(member, "top_role") and member.top_role >= ctx.guild.me.top_role:
                     await ctx.send("I cannot ban this user due to role hierarchy!")
                     return
-                # Alert the user (DM) before banning
-                await self.alert_user(
+
+                # Prevent banning self or owner
+                if hasattr(member, "id") and member.id == ctx.guild.me.id:
+                    await ctx.send("I cannot ban myself!")
+                    return
+                if hasattr(member, "id") and member.id == ctx.guild.owner_id:
+                    await ctx.send("I cannot ban the server owner!")
+                    return
+
+                await self.alert_user(ctx, member, reason)
+                await ctx.guild.ban(member, reason=reason, delete_message_days=prune_days or 0)
+                await ctx.send(f"{getattr(member, 'mention', member)} ({getattr(member, 'id', member)}) has been banned. Reason: {reason}")
+                await self.send_log(ctx, member, reason, duration)
+            except discord.Forbidden:
+                await ctx.send("I don't have permission to ban that member! They might have a higher role than me.")
+            except discord.NotFound:
+                await ctx.send(f"Could not find user {member}")
+            except Exception as e:
+                try:
+                    await ctx.send(f"Failed to ban member: {e}")
+                except Exception:
+                    pass
+        else:
+            await ctx.send("Ban cancelled.")
                     ctx, guild_member, reason, duration=format_timedelta(duration)
                 )
             else:
