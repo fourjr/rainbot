@@ -28,10 +28,26 @@ class MemberOrID(commands.IDConverter):
 class Moderation(commands.Cog):
     # ...existing code...
     # Only keep one correct implementation of kick, ban, mute, warn, remove_warn, modlogs remove, with confirmation dialog and embed editing. Fix indentation and remove stray code.
-    @group(6, invoke_without_command=True)
-    async def modlogs(self, ctx: commands.Context) -> None:
-        """View and manage modlogs."""
-        await ctx.invoke(self.bot.get_command("help"), command_or_cog="modlogs")
+    @group(6, invoke_without_command=True, usage="<user_id>")
+    async def modlogs(self, ctx: commands.Context, user: MemberOrID = None) -> None:
+        """View all modlogs for a user by ID or mention."""
+        if user is None:
+            await ctx.invoke(self.bot.get_command("help"), command_or_cog="modlogs")
+            return
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        modlogs = guild_config.modlog
+        user_id = str(getattr(user, "id", user))
+        user_name = getattr(user, "mention", str(user))
+        logs = [m for m in modlogs if str(m.get("member_id")) == user_id]
+        if not logs:
+            await ctx.send(f"No modlogs found for {user_name} ({user_id}).")
+            return
+        fmt = f"**Modlogs for {user_name} ({user_id}):**\n"
+        for m in logs:
+            moderator = ctx.guild.get_member(int(m["moderator_id"]))
+            mod_name = moderator.mention if moderator else f"<@{m['moderator_id']}>"
+            fmt += f"\n`{m['date']}` Case #{m['case_number']}: {mod_name} - {m['reason']}"
+        await ctx.send(fmt)
 
     @modlogs.command(6, name="remove", aliases=["delete", "del"])
     async def remove(self, ctx: commands.Context, case_number: int) -> None:
