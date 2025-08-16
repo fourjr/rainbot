@@ -61,7 +61,7 @@ class rainbot(commands.Bot):
         self.dev_mode = os.name == "nt"
         self.session = None
         self.start_time = datetime.utcnow()
-        self.executor = concurrent.futures.ProcessPoolExecutor()
+        self.executor = concurrent.futures.ThreadPoolExecutor()
 
         # Set up enhanced logging
         self.setup_logging()

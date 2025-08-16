@@ -19,7 +19,6 @@ import openai
 
 from bot import rainbot
 from ext.utility import UNICODE_EMOJI, Detection, detection, MessageWrapper
-from ext.openai_helper import run_openai_moderation
 
 
 # Removed TensorFlow dependency
@@ -272,9 +271,9 @@ class Detections(commands.Cog):
     async def get_openai_classifications(self, m, guild_config, url) -> None:
         """Use OpenAI's Moderation API for NSFW detection"""
         try:
-            api_key = os.getenv("OPENAI_API_KEY")
+            openai.api_key = os.getenv("OPENAI_API_KEY")
             response = await self.bot.loop.run_in_executor(
-                self.bot.executor, run_openai_moderation, url, api_key
+                self.bot.executor, lambda: openai.Moderation.create(input=url)
             )
             if response["results"][0]["flagged"]:
                 await self.openai_callback(m, guild_config, response["results"][0]["categories"])
@@ -288,9 +287,9 @@ class Detections(commands.Cog):
             return
 
         try:
-            api_key = os.getenv("OPENAI_API_KEY")
+            openai.api_key = os.getenv("OPENAI_API_KEY")
             response = await self.bot.loop.run_in_executor(
-                self.bot.executor, run_openai_moderation, m.content, api_key
+                self.bot.executor, lambda: openai.Moderation.create(input=m.content)
             )
             if response["results"][0]["flagged"]:
                 flagged_categories = [
