@@ -756,37 +756,42 @@ class Moderation(commands.Cog):
             >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]
         ):
             await ctx.send("User has insufficient permissions")
-        else:
-            duration = None
-            reason = None
-            if not time:
-                duration = None
-            else:
-                if time.dt:
-                    duration = time.dt - ctx.message.created_at
-                if time.arg:
-                    reason = time.arg
+            return
 
-        await self.alert_user(ctx, member, reason)
-        await self.send_log(ctx, member, reason, duration)
+        duration = None
+        reason = None
+        if time:
+            if time.dt:
+                duration = time.dt - ctx.message.created_at
+            if time.arg:
+                reason = time.arg
 
-        await ctx.guild.ban(member, reason=reason)
-        if ctx.author != ctx.guild.me:
-            if duration:
-                await ctx.send(
-                    f"{member.mention} has been temporarily banned for {format_timedelta(duration)}. Reason: {reason}"
+        try:
+            await self.alert_user(ctx, member, reason)
+            await ctx.guild.ban(member, reason=reason)
+            await self.send_log(ctx, member, reason, duration)
+            
+            if ctx.author != ctx.guild.me:
+                if duration:
+                    await ctx.send(
+                        f"{member.mention} has been temporarily banned for {format_timedelta(duration)}. Reason: {reason}"
+                    )
+                else:
+                    await ctx.send(f"{member.mention} has been banned. Reason: {reason}")
+
+            # log complete, save to DB
+            if duration is not None:
+                seconds = duration.total_seconds()
+                seconds += unixs()
+                await self.bot.db.update_guild_config(
+                    ctx.guild.id, {"$push": {"tempbans": {"member": str(member.id), "time": seconds}}}
                 )
-            else:
-                await ctx.send(f"{member.mention} has been banned. Reason: {reason}")
-
-        # log complete, save to DB
-        if duration is not None:
-            seconds = duration.total_seconds()
-            seconds += unixs()
-            await self.bot.db.update_guild_config(
-                ctx.guild.id, {"$push": {"tempbans": {"member": str(member.id), "time": seconds}}}
-            )
-            self.bot.loop.create_task(self.bot.unban(ctx.guild.id, member.id, seconds))
+                self.bot.loop.create_task(self.bot.unban(ctx.guild.id, member.id, seconds))
+        
+        except discord.Forbidden:
+            await ctx.send("I don't have permission to ban members!")
+        except discord.HTTPException as e:
+            await ctx.send(f"Failed to ban member: {str(e)}")
 
     @command(7, usage="<member> [duration] [reason]")
     async def unban(
