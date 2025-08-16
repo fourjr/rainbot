@@ -873,9 +873,11 @@ class Moderation(commands.Cog):
                 else (
                     f"{getattr(member, 'name', None)}#{getattr(member, 'discriminator', '')}"
                     if hasattr(member, "name") and getattr(member, "bot", False)
-                    else f"{getattr(member, 'name', None)}"
-                    if hasattr(member, "name")
-                    else f"User ID: {getattr(member, 'id', member)}"
+                    else (
+                        f"{getattr(member, 'name', None)}"
+                        if hasattr(member, "name")
+                        else f"User ID: {getattr(member, 'id', member)}"
+                    )
                 )
             )
             user_id = getattr(member, "id", member)
