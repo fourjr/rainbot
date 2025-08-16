@@ -299,11 +299,11 @@ class rainbot(commands.Bot):
         except (discord.Forbidden, discord.NotFound):
             pass
 
+        # Don't silently ignore Underleveled so we can show a helpful message
         ignored = (
             commands.CommandNotFound,
             commands.CheckFailure,
             commands.BadArgument,
-            Underleveled,
         )
 
         if isinstance(e, ignored) and not self.dev_mode:
