@@ -744,8 +744,11 @@ class Moderation(commands.Cog):
             elif ctx.command.name == "kick":
                 fmt = f"{current_time} {ctx.author} kicked {args[0]} ({args[0].id}), reason: {args[1]}"
                 channel = ctx.bot.get_channel(modlogs.member_kick)
-                if channel:
+                if channel and hasattr(channel, 'send'):
                     await channel.send(fmt)
+                else:
+                    # DEBUG: Could not log to channel. Check your modlogs config or bot permissions.
+                    pass
             elif ctx.command.name == "softban":
                 fmt = f"{current_time} {ctx.author} softbanned {args[0]} ({args[0].id}), reason: {args[1]}"
                 channel = ctx.bot.get_channel(modlogs.member_softban)
