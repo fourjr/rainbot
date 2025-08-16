@@ -1,87 +1,5 @@
 
-    @modlogs.command(6, name="remove", aliases=["delete", "del"], usage="<case_number>")
-    async def remove(self, ctx: commands.Context, case_number: int = None) -> None:
-        """Remove a modlog entry by case number, with confirmation dialog."""
-        if case_number is None:
-            prefix = getattr(ctx, "prefix", "!!")
-            await ctx.send(
-                f"❌ Please provide a case number to remove.\n"
-                f"Usage: `{prefix}modlogs remove <case_number>`\n"
-                f"Example: `{prefix}modlogs remove 123`"
-            )
-            return
-        
-        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-        modlogs = getattr(guild_config, "modlog", [])
-        modlog = next((m for m in modlogs if m.get("case_number") == case_number), None)
-        if not modlog:
-            await ctx.send(f"❌ Modlog #{case_number} does not exist.")
-            return
 
-        # Prepare details for confirmation
-        member = ctx.guild.get_member(int(modlog.get("member_id", 0))) or f"<@{modlog.get('member_id', 0)}>"
-        moderator = ctx.guild.get_member(int(modlog.get("moderator_id", 0)))
-        moderator_mention = moderator.mention if moderator else f"<@{modlog.get('moderator_id', 0)}>"
-        reason = modlog.get("reason", "No reason provided")
-        date = modlog.get("date", "Unknown")
-        
-        embed = discord.Embed(
-            title="Confirm Modlog Removal",
-            description=(
-                f"Are you sure you want to remove Modlog #{case_number}?\n\n"
-                f"**Target:** {member}\n"
-                f"**Reason:** {reason}\n"
-                f"**Original Moderator:** {moderator_mention}\n"
-                f"**Date:** {date}"
-            ),
-            color=discord.Color.red(),
-        )
-        msg = await ctx.send(embed=embed)
-        await msg.add_reaction("✅")
-        await msg.add_reaction("❌")
-
-        def check(reaction, user):
-            return (
-                user == ctx.author
-                and str(reaction.emoji) in ["✅", "❌"]
-                and reaction.message.id == msg.id
-            )
-
-        try:
-            reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
-            if str(reaction.emoji) == "✅":
-                result = await self.bot.db.update_guild_config(
-                    ctx.guild.id, {"$pull": {"modlog": {"case_number": case_number}}}
-                )
-                await msg.edit(
-                    embed=discord.Embed(
-                        title="Modlog Removed",
-                        description=f"Modlog #{case_number} has been successfully removed.",
-                        color=discord.Color.green(),
-                    )
-                )
-                # If you want to log removals, log here:
-                # try:
-                #     await self.send_log(ctx, case_number, reason, modlog["member_id"], modlog["moderator_id"])
-                # except Exception:
-                #     pass
-            else:
-                await msg.edit(
-                    embed=discord.Embed(
-                        title="Modlog Removal Cancelled",
-                        description="Modlog removal cancelled by user.",
-                        color=discord.Color.red(),
-                    )
-                )
-        except asyncio.TimeoutError:
-            await msg.edit(
-                embed=discord.Embed(
-                    title="Modlog Removal Cancelled",
-                    description="Modlog removal timed out. Command cancelled.",
-                    color=discord.Color.red(),
-                )
-            )
-import html
 import re
 from datetime import datetime, timedelta
 from typing import Optional, Union
@@ -175,6 +93,89 @@ class Moderation(commands.Cog):
         entries = []
         # Modlogs
         for m in modlogs:
+
+    @modlogs.command(6, name="remove", aliases=["delete", "del"], usage="<case_number>")
+    async def modlogs_remove(self, ctx: commands.Context, case_number: int = None) -> None:
+        """Remove a modlog entry by case number, with confirmation dialog."""
+        if case_number is None:
+            prefix = getattr(ctx, "prefix", "!!")
+            await ctx.send(
+                f"❌ Please provide a case number to remove.\n"
+                f"Usage: `{prefix}modlogs remove <case_number>`\n"
+                f"Example: `{prefix}modlogs remove 123`"
+            )
+            return
+
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        modlogs = getattr(guild_config, "modlog", [])
+        modlog = next((m for m in modlogs if m.get("case_number") == case_number), None)
+        if not modlog:
+            await ctx.send(f"❌ Modlog #{case_number} does not exist.")
+            return
+
+        # Prepare details for confirmation
+        member = ctx.guild.get_member(int(modlog.get("member_id", 0))) or f"<@{modlog.get('member_id', 0)}>"
+        moderator = ctx.guild.get_member(int(modlog.get("moderator_id", 0)))
+        moderator_mention = moderator.mention if moderator else f"<@{modlog.get('moderator_id', 0)}>"
+        reason = modlog.get("reason", "No reason provided")
+        date = modlog.get("date", "Unknown")
+
+        embed = discord.Embed(
+            title="Confirm Modlog Removal",
+            description=(
+                f"Are you sure you want to remove Modlog #{case_number}?\n\n"
+                f"**Target:** {member}\n"
+                f"**Reason:** {reason}\n"
+                f"**Original Moderator:** {moderator_mention}\n"
+                f"**Date:** {date}"
+            ),
+            color=discord.Color.red(),
+        )
+        msg = await ctx.send(embed=embed)
+        await msg.add_reaction("✅")
+        await msg.add_reaction("❌")
+
+        def check(reaction, user):
+            return (
+                user == ctx.author
+                and str(reaction.emoji) in ["✅", "❌"]
+                and reaction.message.id == msg.id
+            )
+
+        try:
+            reaction, user = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
+            if str(reaction.emoji) == "✅":
+                await self.bot.db.update_guild_config(
+                    ctx.guild.id, {"$pull": {"modlog": {"case_number": case_number}}}
+                )
+                await msg.edit(
+                    embed=discord.Embed(
+                        title="Modlog Removed",
+                        description=f"Modlog #{case_number} has been successfully removed.",
+                        color=discord.Color.green(),
+                    )
+                )
+                # Uncomment below to log removal event (if desired):
+                # try:
+                #     await self.send_log(ctx, case_number, reason, modlog["member_id"], modlog["moderator_id"])
+                # except Exception:
+                #     pass
+            else:
+                await msg.edit(
+                    embed=discord.Embed(
+                        title="Modlog Removal Cancelled",
+                        description="Modlog removal cancelled by user.",
+                        color=discord.Color.red(),
+                    )
+                )
+        except asyncio.TimeoutError:
+            await msg.edit(
+                embed=discord.Embed(
+                    title="Modlog Removal Cancelled",
+                    description="Modlog removal timed out. Command cancelled.",
+                    color=discord.Color.red(),
+                )
+            )
             if isinstance(m, dict):
                 member = ctx.guild.get_member(int(m["member_id"]))
                 member_name = member.mention if member else f"<@{m['member_id']}>"
