@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Union
 
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
+from cachetools import TTLCache
 
 DEFAULT: Dict[str, Any] = {
     "guild_id": None,
@@ -23,6 +24,7 @@ DEFAULT: Dict[str, Any] = {
         "role_delete": None,
     },
     "modlog": {
+        "ai_moderation": None,
         "member_warn": None,
         "member_mute": None,
         "member_unmute": None,
@@ -49,9 +51,34 @@ DEFAULT: Dict[str, Any] = {
         "max_lines": None,
         "max_words": None,
         "max_characters": None,
-        "sexually_explicit": [],
         "caps_message_percent": None,
         "caps_message_min_words": None,
+        "ai_moderation": {
+            "enabled": False,
+            "categories": {
+                "hate": True,
+                "hate/threatening": True,
+                "self-harm": True,
+                "sexual": True,
+                "sexual/minors": True,
+                "violence": True,
+                "violence/graphic": True,
+            },
+            "sensitivity": 90,
+        },
+        "image_moderation": {
+            "enabled": False,
+            "categories": {
+                "hate": True,
+                "hate/threatening": True,
+                "self-harm": True,
+                "sexual": True,
+                "sexual/minors": True,
+                "violence": True,
+                "violence/graphic": True,
+            },
+            "sensitivity": 90,
+        },
     },
     "detection_punishments": {
         "filters": {"warn": 1, "mute": None, "kick": False, "ban": False, "delete": True},
@@ -96,14 +123,21 @@ DEFAULT: Dict[str, Any] = {
         "max_lines": {"warn": 0, "mute": None, "kick": False, "ban": False, "delete": True},
         "max_words": {"warn": 0, "mute": None, "kick": False, "ban": False, "delete": True},
         "max_characters": {"warn": 0, "mute": None, "kick": False, "ban": False, "delete": True},
-        "sexually_explicit": {
+        "caps_message": {"warn": 0, "mute": None, "kick": False, "ban": False, "delete": True},
+        "ai_moderation": {
             "warn": 1,
             "mute": "10 minutes",
             "kick": False,
             "ban": False,
             "delete": True,
         },
-        "caps_message": {"warn": 0, "mute": None, "kick": False, "ban": False, "delete": True},
+        "image_moderation": {
+            "warn": 1,
+            "mute": "10 minutes",
+            "kick": False,
+            "ban": False,
+            "delete": True,
+        },
     },
     "alert": {
         "kick": None,
@@ -111,6 +145,7 @@ DEFAULT: Dict[str, Any] = {
         "softban": None,
         "mute": None,
         "unmute": None,
+        "alert_location": "dm",
     },
     "giveaway": {
         "channel_id": None,
@@ -143,8 +178,9 @@ DEFAULT: Dict[str, Any] = {
         "max_lines": [],
         "max_words": [],
         "max_characters": [],
-        "sexually_explicit": [],
         "caps_message": [],
+        "ai_moderation": [],
+        "image_moderation": [],
         "message_delete": [],
         "message_edit": [],
         "channel_delete": [],
@@ -167,15 +203,6 @@ RECOMMENDED_DETECTIONS: Dict[str, Any] = {
         "repetitive_characters": 8,
         "max_lines": 15,
         "max_words": 450,
-        "sexually_explicit": [
-            "EXPOSED_ANUS",
-            "EXPOSED_BELLY",
-            "EXPOSED_BUTTOCKS",
-            "EXPOSED_BREAST_F",
-            "EXPOSED_GENITALIA_F",
-            "COVERED_GENITALIA_F",
-            "EXPOSED_GENITALIA_M",
-        ],
         "caps_message_percent": 0.80,
         "caps_message_min_words": 10,
     },
@@ -222,13 +249,6 @@ RECOMMENDED_DETECTIONS: Dict[str, Any] = {
         "max_lines": {"warn": 0, "mute": None, "kick": False, "ban": False, "delete": True},
         "max_words": {"warn": 0, "mute": None, "kick": False, "ban": False, "delete": True},
         "max_characters": {"warn": 0, "mute": None, "kick": False, "ban": False, "delete": True},
-        "sexually_explicit": {
-            "warn": 1,
-            "mute": "10 minutes",
-            "kick": False,
-            "ban": False,
-            "delete": True,
-        },
         "caps_message": {"warn": 0, "mute": None, "kick": False, "ban": False, "delete": True},
     },
 }
@@ -240,6 +260,8 @@ class DBDict(dict):
         super().__init__(*args, **kwargs)
 
     def __getitem__(self, key: str) -> Any:
+        if key == "ai_text_moderation":
+            key = "ai_moderation"
         try:
             item = super().__getitem__(key)
         except KeyError:
@@ -310,56 +332,51 @@ class DatabaseManager:
         self.mongo = AsyncIOMotorClient(mongo_uri)
         self.coll = self.mongo.rainbot.guilds
         self.users = self.mongo.rainbot.users
-        self.guilds_data: Dict[int, DBDict] = {}
+        self.guild_cache = TTLCache(maxsize=1000, ttl=300)
         self.users_data: Dict[int, DBDict] = {}
 
         self.loop = loop or asyncio.get_event_loop()
 
     def start_change_listener(self) -> None:
         """Start the change listener task"""
-        self.loop.create_task(self.change_listener())
-
-    async def change_listener(self) -> None:
-        """Listen to change streams when supported; otherwise, silently disable live updates."""
-        try:
-            async with self.coll.watch(full_document="updateLookup") as change_stream:
-                async for change in change_stream:
-                    self.guilds_data[int(change["fullDocument"]["guild_id"])] = DBDict(
-                        change["fullDocument"]
-                    )
-        except Exception:
-            # Change streams require a replica set; ignore if unsupported
-            return
+        pass  # Disabling change listener in favor of cache
 
     async def get_guild_config(self, guild_id: int) -> DBDict:
-        if guild_id not in self.guilds_data:
-            data = await self.coll.find_one({"guild_id": str(guild_id)})
-            if data:
-                self.guilds_data[guild_id] = DBDict(data)
-            else:
-                await self.create_new_config(guild_id)
+        if guild_id in self.guild_cache:
+            return self.guild_cache[guild_id]
 
-        return self.guilds_data[guild_id]
+        data = await self.coll.find_one({"guild_id": str(guild_id)})
+        if not data:
+            config = await self.create_new_config(guild_id)
+        else:
+            config = DBDict(data)
+
+        self.guild_cache[guild_id] = config
+        return config
 
     # Guilds
     async def update_guild_config(self, guild_id: int, update: dict, **kwargs: Any) -> DBDict:
-        self.guilds_data[guild_id] = DBDict(
-            await self.coll.find_one_and_update(
-                {"guild_id": str(guild_id)},
-                update,
-                upsert=True,
-                return_document=ReturnDocument.AFTER,
-                **kwargs,
-            )
+        if guild_id in self.guild_cache:
+            del self.guild_cache[guild_id]  # Invalidate cache
+
+        updated_document = await self.coll.find_one_and_update(
+            {"guild_id": str(guild_id)},
+            update,
+            upsert=True,
+            return_document=ReturnDocument.AFTER,
+            **kwargs,
         )
-        return self.guilds_data[guild_id]
+        config = DBDict(updated_document)
+        self.guild_cache[guild_id] = config
+        return config
 
     async def create_new_config(self, guild_id: int) -> DBDict:
         data = copy.copy(DEFAULT)
         data["guild_id"] = str(guild_id)
         await self.coll.insert_one(data)
-        self.guilds_data[guild_id] = DBDict(data)
-        return self.guilds_data[guild_id]
+        config = DBDict(data)
+        self.guild_cache[guild_id] = config
+        return config
 
     # Users
     async def get_user(self, user_id: int) -> DBDict:

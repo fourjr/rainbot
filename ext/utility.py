@@ -4,7 +4,7 @@ import re
 import emoji
 import string
 from datetime import timedelta
-from typing import Any, Callable, Optional, Tuple, Union, TYPE_CHECKING
+from typing import Any, Callable, Optional, Tuple, Union, TYPE_CHECKING, Dict
 import asyncio
 
 import discord
@@ -288,13 +288,15 @@ class Detection:
         self.force_enable = force_enable
         self.__cog_detection__ = True
 
-    async def check_constraints(self, bot: rainbot, message: discord.Message) -> bool:
+    async def check_constraints(
+        self, bot: rainbot, message: discord.Message, guild_config=None
+    ) -> bool:
         if self.require_guild and not message.guild:
             return False
         if self.force_enable and bot.dev_mode:
             return True
         if message.guild:
-            guild_config = await bot.db.get_guild_config(message.guild.id)
+            guild_config = guild_config or await bot.db.get_guild_config(message.guild.id)
             if self.check_enabled and not guild_config.detections[self.name]:
                 return False
             if str(message.channel.id) in guild_config.ignored_channels[self.name]:
@@ -316,20 +318,106 @@ class Detection:
             return False
         return True
 
-    async def trigger(self, cog: commands.Cog, message: discord.Message) -> Any:
-        if await self.check_constraints(cog.bot, message):
+    async def trigger(self, cog: commands.Cog, message: discord.Message, guild_config=None) -> Any:
+        if await self.check_constraints(cog.bot, message, guild_config):
             message = MessageWrapper(message)
             message.detection = self
-            cog.bot.loop.create_task(self.callback(cog, message))
+            await self.callback(cog, message, guild_config)
 
     async def punish(
-        self, bot: rainbot, message: discord.Message, *, reason=None, purge_limit=None
+        self,
+        bot: rainbot,
+        message: discord.Message,
+        guild_config,
+        *,
+        reason=None,
+        purge_limit=None,
+        ai_scores: Optional[Dict[str, float]] = None,
+        detection_name: Optional[str] = None,
     ):
         ctx = DummyContext(await bot.get_context(message))
         ctx.author = message.guild.me
-        guild_config = await bot.db.get_guild_config(message.guild.id)
-        punishments = guild_config.detection_punishments[self.name]
-        reason = reason or f"Detection triggered: {self.name}"
+        name = detection_name or self.name
+        punishments = guild_config.detection_punishments[name]
+        reason = reason or f"Detection triggered: {name}"
+
+        # Notify user
+        alert_location = guild_config.alert.alert_location
+        notification_message = (
+            f"Your message in {message.guild.name} was flagged for '{reason}' and has been removed."
+        )
+
+        if alert_location == "dm":
+            try:
+                await message.author.send(notification_message)
+            except discord.Forbidden:
+                pass  # User has DMs disabled
+        elif alert_location == "channel":
+            try:
+                await message.channel.send(f"{message.author.mention}, {notification_message}")
+            except discord.Forbidden:
+                pass  # Can't send messages in this channel
+
+        # Log to modlog channel
+        log_channel_id = guild_config.modlog.get("ai_moderation")
+        if log_channel_id:
+            log_channel = bot.get_channel(int(log_channel_id))
+            if log_channel:
+                actions_taken = []
+                if punishments.delete:
+                    actions_taken.append("Message Deleted")
+                if punishments.warn:
+                    actions_taken.append(f"Warned ({punishments.warn}x)")
+                if punishments.kick:
+                    actions_taken.append("Kicked")
+                if punishments.ban:
+                    actions_taken.append("Banned")
+                if punishments.mute:
+                    actions_taken.append(f"Muted ({punishments.mute})")
+
+                embed = discord.Embed(
+                    title="AI Moderation Action",
+                    description=(
+                        f"**User:** {message.author.mention} (`{message.author.id}`)\n"
+                        f"**Channel:** {message.channel.mention}\n"
+                        f"**Reason:** {reason}"
+                    ),
+                    color=discord.Color.red(),
+                )
+
+                if message.content:
+                    embed.add_field(
+                        name="Content",
+                        value=f"```{discord.utils.escape_markdown(message.content)}```",
+                        inline=False,
+                    )
+
+                if message.attachments:
+                    urls = "\n".join([a.url for a in message.attachments])
+                    embed.add_field(name="Attachments", value=urls, inline=False)
+
+                if ai_scores:
+                    triggered_categories_str = reason.replace(
+                        "AI moderation triggered for: ", ""
+                    ).replace("Potentially inappropriate image detected for: ", "")
+                    triggered_categories = [c.strip() for c in triggered_categories_str.split(",")]
+
+                    scores_text = ""
+                    for category, score in sorted(
+                        ai_scores.items(), key=lambda item: item[1], reverse=True
+                    ):
+                        if score > 0.01:  # Only show scores over 1%
+                            if category in triggered_categories:
+                                scores_text += f"**{category}: {score:.2%}**\n"
+                            else:
+                                scores_text += f"{category}: {score:.2%}\n"
+                    if scores_text:
+                        embed.add_field(name="AI Scores", value=scores_text, inline=False)
+
+                if actions_taken:
+                    embed.add_field(name="Action(s)", value=", ".join(actions_taken), inline=False)
+
+                await log_channel.send(embed=embed)
 
         for _ in range(punishments.warn):
             ctx.command = bot.get_command("warn add")
@@ -361,9 +449,13 @@ class Detection:
 
         if punishments.mute:
             try:
-                time = await UserFriendlyTime(default="nil").convert(ctx, punishments.mute)
-                delta = time.dt - message.created_at
-                await bot.mute(ctx.author, message.author, delta, reason=reason)
+                time_obj = await UserFriendlyTime().convert(ctx, punishments.mute + " " + reason)
+                ctx.command = bot.get_command("mute")
+                await ctx.invoke(
+                    bot.get_command("mute"),
+                    member=message.author,
+                    time=time_obj,
+                )
             except (commands.BadArgument, discord.NotFound):
                 pass
 

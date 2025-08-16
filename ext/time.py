@@ -43,7 +43,7 @@ class ShortTime:
             raise commands.BadArgument("invalid time provided")
 
         data = {k: int(v) for k, v in match.groupdict(default="0").items()}
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
         self.dt = now + relativedelta(**data)
 
 
@@ -51,7 +51,7 @@ class HumanTime:
     calendar = pdt.Calendar(version=pdt.VERSION_CONTEXT_STYLE)
 
     def __init__(self, argument: str) -> None:
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
         dt, status = self.calendar.parseDT(argument, sourceTime=now)
         if not status.hasDateOrTime:
             raise commands.BadArgument('invalid time provided, try e.g. "tomorrow" or "3 days"')
@@ -214,7 +214,7 @@ class UserFriendlyTime(commands.Converter):
 
 
 def human_timedelta(dt, *, source: datetime.datetime = None, accuracy: int = None):
-    now = source or datetime.datetime.utcnow()
+    now = source or datetime.datetime.now(datetime.timezone.utc)
     if dt > now:
         delta = relativedelta(dt, now)
         suffix = ""

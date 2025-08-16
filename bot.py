@@ -4,6 +4,7 @@ from logging.handlers import RotatingFileHandler
 import os
 import sys
 import traceback
+import concurrent.futures
 from datetime import datetime, timedelta
 from time import time
 from typing import Any, Dict, List, Optional, Union
@@ -60,6 +61,7 @@ class rainbot(commands.Bot):
         self.dev_mode = os.name == "nt"
         self.session = None
         self.start_time = datetime.utcnow()
+        self.executor = concurrent.futures.ThreadPoolExecutor()
 
         # Set up enhanced logging
         self.setup_logging()
@@ -827,6 +829,7 @@ if __name__ == "__main__":
         finally:
             if bot.session:
                 await bot.session.close()
+            bot.executor.shutdown(wait=True)
             console.print("[bold green]✅ Shutdown complete![/bold green]")
 
     try:
