@@ -101,6 +101,7 @@ class Moderation(commands.Cog):
             if isinstance(m, dict) and m.get("member_id") == user_id:
                 moderator = ctx.guild.get_member(int(m.get("moderator_id", 0)))
                 mod_name = moderator.mention if moderator else f"<@{m.get('moderator_id', 0)}>"
+                target_name = user.mention if hasattr(user, 'mention') else f"<@{user_id}>"
                 reason = m.get("reason", "No reason provided")
                 case_number = m.get("case_number", 0)
                 date = m.get("date", "Unknown")
@@ -108,7 +109,7 @@ class Moderation(commands.Cog):
                     "date": date,
                     "case_number": case_number,
                     "type": "modlog",
-                    "text": f"{date} Case #{case_number}: {mod_name} - {reason} [modlog]"
+                    "text": f"{date} Case #{case_number}: {target_name} by {mod_name} - {reason} [modlog]"
                 })
         
         # Filter warns for this user
@@ -116,6 +117,7 @@ class Moderation(commands.Cog):
             if isinstance(w, dict) and w.get("member_id") == user_id:
                 moderator = ctx.guild.get_member(int(w.get("moderator_id", 0)))
                 mod_name = moderator.mention if moderator else f"<@{w.get('moderator_id', 0)}>"
+                target_name = user.mention if hasattr(user, 'mention') else f"<@{user_id}>"
                 reason = w.get("reason", "No reason provided")
                 case_number = w.get("case_number", 0)
                 date = w.get("date", "Unknown")
@@ -123,12 +125,13 @@ class Moderation(commands.Cog):
                     "date": date,
                     "case_number": case_number,
                     "type": "warn",
-                    "text": f"{date} Warn #{case_number}: {mod_name} - {reason} [warn]"
+                    "text": f"{date} Warn #{case_number}: {target_name} by {mod_name} - {reason} [warn]"
                 })
         
         # Filter mutes for this user
         for mute in mutes:
             if isinstance(mute, dict) and mute.get("member") == user_id:
+                target_name = user.mention if hasattr(user, 'mention') else f"<@{user_id}>"
                 until = mute.get("time")
                 until_str = f"until <t:{int(until)}:F>" if until else "indefinite"
                 case_number = mute.get("case_number", 0)
@@ -137,12 +140,13 @@ class Moderation(commands.Cog):
                     "date": date,
                     "case_number": case_number,
                     "type": "mute",
-                    "text": f"{date} Mute: {until_str} [mute]"
+                    "text": f"{date} Mute: {target_name} {until_str} [mute]"
                 })
         
         # Filter tempbans for this user
         for tb in tempbans:
             if isinstance(tb, dict) and tb.get("member") == user_id:
+                target_name = user.mention if hasattr(user, 'mention') else f"<@{user_id}>"
                 until = tb.get("time")
                 until_str = f"until <t:{int(until)}:F>" if until else "indefinite"
                 case_number = tb.get("case_number", 0)
@@ -151,7 +155,7 @@ class Moderation(commands.Cog):
                     "date": date,
                     "case_number": case_number,
                     "type": "tempban",
-                    "text": f"{date} Tempban: {until_str} [tempban]"
+                    "text": f"{date} Tempban: {target_name} {until_str} [tempban]"
                 })
         
         # Filter kicks for this user
@@ -159,6 +163,7 @@ class Moderation(commands.Cog):
             if isinstance(k, dict) and k.get("member_id") == user_id:
                 moderator = ctx.guild.get_member(int(k.get("moderator_id", 0)))
                 mod_name = moderator.mention if moderator else f"<@{k.get('moderator_id', 0)}>"
+                target_name = user.mention if hasattr(user, 'mention') else f"<@{user_id}>"
                 reason = k.get("reason", "No reason")
                 case_number = k.get("case_number", 0)
                 date = k.get("date", "Unknown")
@@ -166,7 +171,7 @@ class Moderation(commands.Cog):
                     "date": date,
                     "case_number": case_number,
                     "type": "kick",
-                    "text": f"{date} Kick: {mod_name} - {reason} [kick]"
+                    "text": f"{date} Kick: {target_name} by {mod_name} - {reason} [kick]"
                 })
         
         # Filter softbans for this user
@@ -174,6 +179,7 @@ class Moderation(commands.Cog):
             if isinstance(sb, dict) and sb.get("member_id") == user_id:
                 moderator = ctx.guild.get_member(int(sb.get("moderator_id", 0)))
                 mod_name = moderator.mention if moderator else f"<@{sb.get('moderator_id', 0)}>"
+                target_name = user.mention if hasattr(user, 'mention') else f"<@{user_id}>"
                 reason = sb.get("reason", "No reason")
                 case_number = sb.get("case_number", 0)
                 date = sb.get("date", "Unknown")
@@ -181,7 +187,7 @@ class Moderation(commands.Cog):
                     "date": date,
                     "case_number": case_number,
                     "type": "softban",
-                    "text": f"{date} Softban: {mod_name} - {reason} [softban]"
+                    "text": f"{date} Softban: {target_name} by {mod_name} - {reason} [softban]"
                 })
         
         # Filter notes for this user
@@ -189,6 +195,7 @@ class Moderation(commands.Cog):
             if isinstance(note, dict) and note.get("member_id") == user_id:
                 moderator = ctx.guild.get_member(int(note.get("moderator_id", 0)))
                 mod_name = moderator.mention if moderator else f"<@{note.get('moderator_id', 0)}>"
+                target_name = user.mention if hasattr(user, 'mention') else f"<@{user_id}>"
                 note_text = note.get("note", "No note")
                 case_number = note.get("case_number", 0)
                 date = note.get("date", "Unknown")
@@ -196,7 +203,7 @@ class Moderation(commands.Cog):
                     "date": date,
                     "case_number": case_number,
                     "type": "note",
-                    "text": f"{date} Note #{case_number}: {mod_name} - {note_text} [note]"
+                    "text": f"{date} Note #{case_number}: {target_name} by {mod_name} - {note_text} [note]"
                 })
 
         if not entries:
@@ -271,7 +278,6 @@ class Moderation(commands.Cog):
 
         entries = []
         # Modlogs
-        entries = []
         for m in modlogs:
             if not isinstance(m, dict):
                 continue
@@ -282,40 +288,43 @@ class Moderation(commands.Cog):
             reason = m.get("reason", "No reason provided")
             case_number = m.get("case_number", 0)
             date = m.get("date", "Unknown")
-            entries.append(f"Case #{case_number}: {member_name} | {mod_name} | {reason} | {date}")
+            entries.append(f"Case #{case_number}: {member_name} by {mod_name} - {reason} | {date}")
         
         if not entries:
             await ctx.send("No moderation logs found.")
             return
+        
         # Paginate 10 per page
         pages = [entries[i:i + 10] for i in range(0, len(entries), 10)]
         page_num = 0
-        msg = await ctx.send(f"**Modlogs Page {page_num + 1}/{len(pages)}:**\n" + "\n".join(pages[page_num]))
-        if len(pages) == 1:
-            return
-        await msg.add_reaction("⬅️")
-        await msg.add_reaction("➡️")
-        def check(reaction, user):
-            return (
-                user == ctx.author
-                and reaction.message.id == msg.id
-                and str(reaction.emoji) in ["⬅️", "➡️"]
-            )
-        while True:
-            try:
-                reaction, user = await ctx.bot.wait_for("reaction_add", timeout=60.0, check=check)
-                if str(reaction.emoji) == "➡️" and page_num < len(pages) - 1:
-                    page_num += 1
-                    await msg.edit(content=f"**Modlogs Page {page_num + 1}/{len(pages)}:**\n" + "\n".join(pages[page_num]))
-                    await msg.remove_reaction(reaction.emoji, user)
-                elif str(reaction.emoji) == "⬅️" and page_num > 0:
-                    page_num -= 1
-                    await msg.edit(content=f"**Modlogs Page {page_num + 1}/{len(pages)}:**\n" + "\n".join(pages[page_num]))
-                    await msg.remove_reaction(reaction.emoji, user)
-                else:
-                    await msg.remove_reaction(reaction.emoji, user)
-            except Exception:
-                break
+        msg = await ctx.send(f"**All Modlogs (Page {page_num + 1}/{len(pages)}):**\n" + "\n".join(pages[page_num]))
+        
+        if len(pages) > 1:
+            await msg.add_reaction("⬅️")
+            await msg.add_reaction("➡️")
+            
+            def check(reaction, user):
+                return (
+                    user == ctx.author
+                    and reaction.message.id == msg.id
+                    and str(reaction.emoji) in ["⬅️", "➡️"]
+                )
+            
+            while True:
+                try:
+                    reaction, user = await ctx.bot.wait_for("reaction_add", timeout=60.0, check=check)
+                    if str(reaction.emoji) == "➡️" and page_num < len(pages) - 1:
+                        page_num += 1
+                        await msg.edit(content=f"**All Modlogs (Page {page_num + 1}/{len(pages)}):**\n" + "\n".join(pages[page_num]))
+                        await msg.remove_reaction(reaction.emoji, user)
+                    elif str(reaction.emoji) == "⬅️" and page_num > 0:
+                        page_num -= 1
+                        await msg.edit(content=f"**All Modlogs (Page {page_num + 1}/{len(pages)}):**\n" + "\n".join(pages[page_num]))
+                        await msg.remove_reaction(reaction.emoji, user)
+                    else:
+                        await msg.remove_reaction(reaction.emoji, user)
+                except Exception:
+                    break
 
     @modlogs.command(6, name="remove", aliases=["delete", "del"], usage="<case_number>")
     async def modlogs_remove(self, ctx: commands.Context, case_number: int = None) -> None:
@@ -399,39 +408,19 @@ class Moderation(commands.Cog):
                     color=discord.Color.red(),
                 )
             )
-            if isinstance(m, dict):
-                member = ctx.guild.get_member(int(m["member_id"]))
-                member_name = member.mention if member else f"<@{m['member_id']}>"
-                try:
-                    moderator_id = int(m["moderator_id"])
-                    moderator = ctx.guild.get_member(moderator_id)
-                except (ValueError, TypeError):
-                    # Handle invalid integer conversion
-                    pass
-                mod_name = moderator.mention if moderator else f"<@{m['moderator_id']}>"
-                entries.append(
-                    {
-                        "date": m["date"],
-                        "case_number": m.get("case_number", 0),
-                        "type": "modlog",
-                        "text": f"{m['date']} Case #{m['case_number']}: {member_name} - {mod_name} - {m['reason']} [modlog]",
-                    }
-                )
+        
         # Warns
         for w in warns:
             if isinstance(w, dict):
-                member = ctx.guild.get_member(int(w["member_id"]))
-                member_name = member.mention if member else f"<@{w['member_id']}>"
-                moderator = ctx.guild.get_member(int(w["moderator_id"]))
-                mod_name = moderator.mention if moderator else f"<@{w['moderator_id']}>"
-                entries.append(
-                    {
-                        "date": w["date"],
-                        "case_number": w.get("case_number", 0),
-                        "type": "warn",
-                        "text": f"{w['date']} Warn #{w['case_number']}: {member_name} - {mod_name} - {w['reason']} [warn]",
-                    }
-                )
+                member = ctx.guild.get_member(int(w.get("member_id", 0)))
+                member_name = member.mention if member else f"<@{w.get('member_id', 0)}>"
+                moderator = ctx.guild.get_member(int(w.get("moderator_id", 0)))
+                mod_name = moderator.mention if moderator else f"<@{w.get('moderator_id', 0)}>"
+                reason = w.get("reason", "No reason")
+                case_number = w.get("case_number", 0)
+                date = w.get("date", "Unknown")
+                entries.append(f"Warn #{case_number}: {member_name} by {mod_name} - {reason} | {date}")
+        
         # Mutes
         for mute in mutes:
             if isinstance(mute, dict):
@@ -440,14 +429,9 @@ class Moderation(commands.Cog):
                 member_name = member.mention if member else f"<@{member_id}>"
                 until = mute.get("time")
                 until_str = f"until <t:{int(until)}:F>" if until else "indefinite"
-                entries.append(
-                    {
-                        "date": mute.get("date", ""),
-                        "case_number": mute.get("case_number", 0),
-                        "type": "mute",
-                        "text": f"Mute: {member_name} {until_str} [mute]",
-                    }
-                )
+                date = mute.get("date", "Unknown")
+                entries.append(f"Mute: {member_name} {until_str} | {date}")
+        
         # Tempbans
         for tb in tempbans:
             if isinstance(tb, dict):
@@ -456,14 +440,9 @@ class Moderation(commands.Cog):
                 member_name = member.mention if member else f"<@{member_id}>"
                 until = tb.get("time")
                 until_str = f"until <t:{int(until)}:F>" if until else "indefinite"
-                entries.append(
-                    {
-                        "date": tb.get("date", ""),
-                        "case_number": tb.get("case_number", 0),
-                        "type": "tempban",
-                        "text": f"Tempban: {member_name} {until_str} [tempban]",
-                    }
-                )
+                date = tb.get("date", "Unknown")
+                entries.append(f"Tempban: {member_name} {until_str} | {date}")
+        
         # Kicks
         for k in kicks:
             if isinstance(k, dict):
@@ -473,14 +452,10 @@ class Moderation(commands.Cog):
                 moderator = ctx.guild.get_member(int(k.get("moderator_id", 0)))
                 mod_name = moderator.mention if moderator else f"<@{k.get('moderator_id', 0)}>"
                 reason = k.get("reason", "No reason")
-                entries.append(
-                    {
-                        "date": k.get("date", ""),
-                        "case_number": k.get("case_number", 0),
-                        "type": "kick",
-                        "text": f"{k.get('date', '')} Kick: {member_name} - {mod_name} - {reason} [kick]",
-                    }
-                )
+                case_number = k.get("case_number", 0)
+                date = k.get("date", "Unknown")
+                entries.append(f"Kick #{case_number}: {member_name} by {mod_name} - {reason} | {date}")
+        
         # Softbans
         for sb in softbans:
             if isinstance(sb, dict):
@@ -490,67 +465,9 @@ class Moderation(commands.Cog):
                 moderator = ctx.guild.get_member(int(sb.get("moderator_id", 0)))
                 mod_name = moderator.mention if moderator else f"<@{sb.get('moderator_id', 0)}>"
                 reason = sb.get("reason", "No reason")
-                entries.append(
-                    {
-                        "date": sb.get("date", ""),
-                        "case_number": sb.get("case_number", 0),
-                        "type": "softban",
-                        "text": f"{sb.get('date', '')} Softban: {member_name} - {mod_name} - {reason} [softban]",
-                    }
-                )
-
-        # Sort newest to oldest by case_number if present, else by date
-        def sort_key(e):
-            return e.get("case_number", 0) or 0
-
-        entries_sorted = sorted(entries, key=sort_key, reverse=True)
-
-        # Paginate
-        page_size = 10
-        pages = [
-            entries_sorted[i : i + page_size] for i in range(0, len(entries_sorted), page_size)
-        ]
-        total_pages = len(pages)
-
-        def format_page(page, page_num):
-            fmt = f"**All Moderation Actions (Page {page_num+1}/{total_pages}):**\n"
-            for entry in page:
-                fmt += entry["text"] + "\n"
-            return fmt
-
-        page_num = 0
-        if not pages:
-            await ctx.send("No moderation actions found in this server.")
-            return
-        msg = await ctx.send(format_page(pages[page_num], page_num))
-        if total_pages > 1:
-            await msg.add_reaction("⬅️")
-            await msg.add_reaction("➡️")
-
-            def check(reaction, user):
-                return (
-                    user == ctx.author
-                    and reaction.message.id == msg.id
-                    and str(reaction.emoji) in ["⬅️", "➡️"]
-                )
-
-            while True:
-                try:
-                    reaction, user = await ctx.bot.wait_for(
-                        "reaction_add", timeout=60.0, check=check
-                    )
-                except asyncio.TimeoutError:
-                    break
-                if str(reaction.emoji) == "➡️" and page_num < total_pages - 1:
-                    page_num += 1
-                    await msg.edit(content=format_page(pages[page_num], page_num))
-                    await msg.remove_reaction(reaction, user)
-                elif str(reaction.emoji) == "⬅️" and page_num > 0:
-                    page_num -= 1
-                    await msg.edit(content=format_page(pages[page_num], page_num))
-                    await msg.remove_reaction(reaction, user)
-                else:
-                    await msg.remove_reaction(reaction, user)
+                case_number = sb.get("case_number", 0)
+                date = sb.get("date", "Unknown")
+                entries.append(f"Softban #{case_number}: {member_name} by {mod_name} - {reason} | {date}")
 
     # Consolidated modlogs implementation with proper structure
 
