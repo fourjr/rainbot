@@ -799,6 +799,10 @@ class Moderation(commands.Cog):
             return
 
         # Confirmation dialog
+        if not isinstance(member, discord.Member):
+            # Already handled above, but double check
+            await ctx.send(f"User {getattr(member, 'mention', member)} is not present in this server and cannot be kicked.")
+            return
         confirm_embed = discord.Embed(
             title="Confirm Kick",
             description=f"Are you sure you want to kick {member.mention} ({member.id})?\nReason: {reason if reason else 'No reason provided'}",
