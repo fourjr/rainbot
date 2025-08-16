@@ -1697,5 +1697,5 @@ class Moderation(commands.Cog):
 
     # ...existing code...
 # Extension loader required by discord.py
-def setup(bot):
-    bot.add_cog(Moderation(bot))
+async def setup(bot):
+    await bot.add_cog(Moderation(bot))
