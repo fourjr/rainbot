@@ -333,12 +333,21 @@ class Detection:
         reason = reason or f"Detection triggered: {self.name}"
 
         # Notify user
-        try:
-            await message.author.send(
-                f"Your message in {message.guild.name} was flagged for '{reason}' and has been removed."
-            )
-        except discord.Forbidden:
-            pass  # User has DMs disabled
+        alert_location = guild_config.alert.alert_location
+        notification_message = (
+            f"Your message in {message.guild.name} was flagged for '{reason}' and has been removed."
+        )
+
+        if alert_location == "dm":
+            try:
+                await message.author.send(notification_message)
+            except discord.Forbidden:
+                pass  # User has DMs disabled
+        elif alert_location == "channel":
+            try:
+                await message.channel.send(f"{message.author.mention}, {notification_message}")
+            except discord.Forbidden:
+                pass  # Can't send messages in this channel
 
         # Log to modlog channel
         log_channel_id = guild_config.modlog.get("message_delete")

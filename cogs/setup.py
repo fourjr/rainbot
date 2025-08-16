@@ -968,10 +968,27 @@ class Setup(commands.Cog):
         valid_punishments = ("kick", "ban", "mute", "softban", "unmute")
 
         if punishment in valid_punishments:
-            await self.bot.db.update_guild_config(
-                ctx.guild.id, {"$set": {f"alert.{punishment}": value}}
-            )
-            await ctx.send(f"Alert for `{punishment}` set to: {value if value else 'removed'}.")
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {"$set": {f"alert.{punishment}": value}}
+        )
+        await ctx.send(f"Alert for `{punishment}` set to: {value if value else 'removed'}.")
+
+    @command(10, aliases=["set-alert-location", "set_alert_location"])
+    async def setalertlocation(self, ctx: commands.Context, location: str) -> None:
+        """Set where auto-moderation alerts are sent.
+
+        Valid locations:
+        - `dm`: Send alerts to the user's direct messages.
+        - `channel`: Send alerts in the channel where the infraction occurred.
+        """
+        location = location.lower()
+        if location not in ("dm", "channel"):
+            raise commands.BadArgument("Invalid location. Must be `dm` or `channel`.")
+
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {"$set": {f"alert.alert_location": location}}
+        )
+        await ctx.send(f"Alert location set to `{location}`.")
         else:
             raise commands.BadArgument(
                 f'Invalid punishment. Pick from {", ".join(valid_punishments)}.'

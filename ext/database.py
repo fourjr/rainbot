@@ -125,6 +125,7 @@ DEFAULT: Dict[str, Any] = {
         "softban": None,
         "mute": None,
         "unmute": None,
+        "alert_location": "dm",
     },
     "giveaway": {
         "channel_id": None,
