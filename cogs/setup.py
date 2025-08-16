@@ -1221,19 +1221,22 @@ class Setup(commands.Cog):
             )
 
         if key in ("warn"):
-            try:
-                value = int(value)
-            except ValueError:
-                raise commands.BadArgument(f"{key} accepts a number")
+            if value.lower() in ("true", "yes", "y", "1", "on", "false", "no", "n", "0", "off"):
+                value = value.lower() in ("true", "yes", "y", "1", "on")
+            else:
+                try:
+                    value = int(value)
+                except ValueError:
+                    raise commands.BadArgument(f"{key} accepts a number or a boolean")
 
         elif key in ("kick", "ban", "delete"):
             value = value.lower() in ("true", "yes", "y", "1", "on")
 
         elif key in ("mute"):
-            if value == "none":
+            if value.lower() in ("false", "no", "n", "0", "off", "none"):
                 value = None
-            else:
-                await UserFriendlyTime(default="nil").convert(ctx, value)  # validation
+            elif value.lower() not in ("true", "yes", "y", "1", "on"):
+                await UserFriendlyTime(default="nil").convert(ctx, value)
 
         await self.bot.db.update_guild_config(
             ctx.guild.id, {"$set": {f"detection_punishments.{detection_type}.{key}": value}}
