@@ -92,8 +92,51 @@ class Moderation(commands.Cog):
 
         entries = []
         # Modlogs
+        entries = []
         for m in modlogs:
-            pass
+            if not isinstance(m, dict):
+                continue
+            member = ctx.guild.get_member(int(m.get("member_id", 0)))
+            member_name = member.mention if member else f"<@{m.get('member_id', 0)}>"
+            moderator = ctx.guild.get_member(int(m.get("moderator_id", 0)))
+            mod_name = moderator.mention if moderator else f"<@{m.get('moderator_id', 0)}>"
+            reason = m.get("reason", "No reason provided")
+            case_number = m.get("case_number", 0)
+            date = m.get("date", "Unknown")
+            entries.append(f"Case #{case_number}: {member_name} | {mod_name} | {reason} | {date}")
+        
+        if not entries:
+            await ctx.send("No moderation logs found.")
+            return
+        # Paginate 10 per page
+        pages = [entries[i:i + 10] for i in range(0, len(entries), 10)]
+        page_num = 0
+        msg = await ctx.send(f"**Modlogs Page {page_num + 1}/{len(pages)}:**\n" + "\n".join(pages[page_num]))
+        if len(pages) == 1:
+            return
+        await msg.add_reaction("⬅️")
+        await msg.add_reaction("➡️")
+        def check(reaction, user):
+            return (
+                user == ctx.author
+                and reaction.message.id == msg.id
+                and str(reaction.emoji) in ["⬅️", "➡️"]
+            )
+        while True:
+            try:
+                reaction, user = await ctx.bot.wait_for("reaction_add", timeout=60.0, check=check)
+                if str(reaction.emoji) == "➡️" and page_num < len(pages) - 1:
+                    page_num += 1
+                    await msg.edit(content=f"**Modlogs Page {page_num + 1}/{len(pages)}:**\n" + "\n".join(pages[page_num]))
+                    await msg.remove_reaction(reaction.emoji, user)
+                elif str(reaction.emoji) == "⬅️" and page_num > 0:
+                    page_num -= 1
+                    await msg.edit(content=f"**Modlogs Page {page_num + 1}/{len(pages)}:**\n" + "\n".join(pages[page_num]))
+                    await msg.remove_reaction(reaction.emoji, user)
+                else:
+                    await msg.remove_reaction(reaction.emoji, user)
+            except Exception:
+                break
 
     @modlogs.command(6, name="remove", aliases=["delete", "del"], usage="<case_number>")
     async def modlogs_remove(self, ctx: commands.Context, case_number: int = None) -> None:
