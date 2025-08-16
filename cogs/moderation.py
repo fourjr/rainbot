@@ -1,14 +1,16 @@
-import discord
 import asyncio
-from datetime import timedelta
-from time import time as unixs
-from typing import Union
-from ext.utility import SafeFormat, tryint, CannedStr, format_timedelta, get_perm_level
-from ext.database import DEFAULT, DBDict
+import html
+import re
+from datetime import datetime, timedelta
+from typing import Optional, Union
+
+import discord
 from discord.ext import commands
-from bot import rainbot
+from discord.ext.commands import BucketType, cooldown
+
 from ext.command import command, group
 from ext.time import UserFriendlyTime
+from ext.utility import get_perm_level
 
 
 class MemberOrID(commands.IDConverter):
@@ -20,8 +22,26 @@ class MemberOrID(commands.IDConverter):
         except commands.BadArgument:
             try:
                 return await ctx.bot.fetch_user(int(argument))
-            except Exception:
+            except (ValueError, TypeError):
                 raise commands.BadArgument(f"Member {argument} not found")
+
+
+
+def validate_case_number(case_num):
+    """Validate case number input"""
+    try:
+        num = int(case_num)
+        return num if 0 < num < 999999 else None
+    except (ValueError, TypeError):
+        return None
+
+def validate_user_id(user_id):
+    """Validate user ID input"""
+    try:
+        uid = validate_user_id(user_id)
+        return uid if 0 < uid < 2**63 else None
+    except (ValueError, TypeError):
+        return None
 
 
 class Moderation(commands.Cog):
@@ -46,7 +66,7 @@ class Moderation(commands.Cog):
                 await channel.send(embed=embed)
             else:
                 await channel.send(content)
-        except Exception:
+        except (ValueError, TypeError):
             # Swallow send errors to avoid crashing command handlers
             pass
 
@@ -75,7 +95,12 @@ class Moderation(commands.Cog):
             if isinstance(m, dict):
                 member = ctx.guild.get_member(int(m["member_id"]))
                 member_name = member.mention if member else f"<@{m['member_id']}>"
-                moderator = ctx.guild.get_member(int(m["moderator_id"]))
+                try:
+                    moderator_id = int(m["moderator_id"])
+                    moderator = ctx.guild.get_member(moderator_id)
+                except (ValueError, TypeError):
+                    # Handle invalid integer conversion
+                    continue
                 mod_name = moderator.mention if moderator else f"<@{m['moderator_id']}>"
                 entries.append(
                     {
@@ -220,85 +245,7 @@ class Moderation(commands.Cog):
                 else:
                     await msg.remove_reaction(reaction, user)
 
-    # ...existing code...
-    # Only keep one correct implementation of kick, ban, mute, warn, remove_warn, modlogs remove, with confirmation dialog and embed editing. Fix indentation and remove stray code.
-    @group(6, invoke_without_command=True, usage="<user_id>")
-    async def modlogs(self, ctx: commands.Context, user: MemberOrID = None) -> None:
-        """View all modlogs for a user by ID or mention."""
-        if user is None:
-            # Get current server prefix
-            prefix = getattr(ctx, "prefix", "!!")
-            embed = discord.Embed(
-                title=f"📖 {prefix}modlogs <user_id>",
-                description="View all modlogs for a user by ID or mention.",
-                color=discord.Color.blue(),
-            )
-            embed.add_field(name="🔒 Permission Level", value="6", inline=False)
-            embed.add_field(
-                name="📂 Subcommands",
-                value="• `remove` - Remove a modlog entry by case number, with confirmation dialog.",
-                inline=False,
-            )
-            embed.add_field(
-                name="Usage", value=f"`{prefix}modlogs remove <case_number>`", inline=False
-            )
-            embed.add_field(name="Example", value=f"`{prefix}modlogs remove 123`", inline=False)
-            await ctx.send(embed=embed)
-            return
-        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-        # Accept both MemberOrID and raw string/ID
-        if isinstance(user, (discord.Member, discord.User)):
-            user_id = str(user.id)
-            user_name = user.mention
-        else:
-            try:
-                user_id = str(int(user))
-            except Exception:
-                user_id = str(user)
-            user_name = f"<@{user_id}>"
-
-        # Gather all moderation actions for the user
-        modlogs = getattr(guild_config, "modlog", [])
-        warns = getattr(guild_config, "warns", [])
-        mutes = getattr(guild_config, "mutes", [])
-        tempbans = getattr(guild_config, "tempbans", [])
-        # Add more if needed (e.g., kicks, softbans) if stored separately
-
-        entries = []
-        # Modlogs
-        for m in modlogs:
-            if isinstance(m, dict) and str(m.get("member_id", "")) == user_id:
-                moderator = ctx.guild.get_member(int(m["moderator_id"]))
-                mod_name = moderator.mention if moderator else f"<@{m['moderator_id']}>"
-                entries.append(
-                    f"{m['date']} Case #{m['case_number']}: {mod_name} - {m['reason']} [modlog]"
-                )
-        # Warns
-        for w in warns:
-            if isinstance(w, dict) and str(w.get("member_id", "")) == user_id:
-                moderator = ctx.guild.get_member(int(w["moderator_id"]))
-                mod_name = moderator.mention if moderator else f"<@{w['moderator_id']}>"
-                entries.append(
-                    f"{w['date']} Warn #{w['case_number']}: {mod_name} - {w['reason']} [warn]"
-                )
-        # Mutes
-        for mute in mutes:
-            if isinstance(mute, dict) and str(mute.get("member", "")) == user_id:
-                until = mute.get("time")
-                until_str = f"until <t:{int(until)}:F>" if until else "indefinite"
-                entries.append(f"Mute: {user_name} {until_str} [mute]")
-        # Tempbans
-        for tb in tempbans:
-            if isinstance(tb, dict) and str(tb.get("member", "")) == user_id:
-                until = tb.get("time")
-                until_str = f"until <t:{int(until)}:F>" if until else "indefinite"
-                entries.append(f"Tempban: {user_name} {until_str} [tempban]")
-
-        if not entries:
-            await ctx.send(f"No modlogs found for {user_name} ({user_id}).")
-            return
-        fmt = f"**Modlogs for {user_name} ({user_id}):**\n" + "\n".join(entries)
-        await ctx.send(fmt)
+    # Consolidated modlogs implementation with proper structure
 
     @modlogs.command(6, name="remove", aliases=["delete", "del"], usage="<case_number>")
     async def remove(self, ctx: commands.Context, case_number: int = None) -> None:
@@ -319,14 +266,21 @@ class Moderation(commands.Cog):
         except Exception:
             await ctx.send(f"Failed to find modlog #{case_number}.")
             return
+        
+        # Get member and moderator info for confirmation
+        member = ctx.guild.get_member(int(modlog["member_id"])) or f"<@{modlog['member_id']}>"
         moderator = ctx.guild.get_member(int(modlog["moderator_id"]))
-        moderator_name = moderator.name if moderator else f"ID:{modlog['moderator_id']}"
+        moderator_name = moderator.mention if moderator else f"<@{modlog['moderator_id']}>"
+        
+        # Confirmation dialog
         confirm_embed = discord.Embed(
             title="Confirm Modlog Removal",
             description=(
-                f"Are you sure you want to remove Modlog #{case_number} for ID:{modlog['member_id']}?\n"
-                f"Reason: {modlog['reason']}\n"
-                f"Moderator: {moderator_name}"
+                f"Are you sure you want to remove Modlog #{case_number}?\n\n"
+                f"**Target:** {member}\n"
+                f"**Reason:** {modlog['reason']}\n"
+                f"**Original Moderator:** {moderator_name}\n"
+                f"**Date:** {modlog.get('date', 'Unknown')}"
             ),
             color=discord.Color.red(),
         )
@@ -352,12 +306,13 @@ class Moderation(commands.Cog):
                 )
             )
             return
+            
         if str(reaction.emoji) == "✅":
             await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"modlog": modlog}})
             await msg.edit(
                 embed=discord.Embed(
                     title="Modlog Removed",
-                    description=f"Modlog #{case_number} removed.",
+                    description=f"Modlog #{case_number} has been successfully removed.",
                     color=discord.Color.green(),
                 )
             )
@@ -368,7 +323,7 @@ class Moderation(commands.Cog):
             await msg.edit(
                 embed=discord.Embed(
                     title="Modlog Removal Cancelled",
-                    description="Modlog removal cancelled.",
+                    description="Modlog removal cancelled by user.",
                     color=discord.Color.red(),
                 )
             )
@@ -688,66 +643,6 @@ class Moderation(commands.Cog):
                     )
 
             @warn.command(6, name="remove", aliases=["delete", "del"])
-            async def remove_warn(self, ctx: commands.Context, case_number: int) -> None:
-                """Remove a warn with confirmation dialog."""
-                guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-                warns = guild_config.warns
-                warn = next((w for w in warns if w.get("case_number") == case_number), None)
-                if not warn:
-                    await ctx.send(f"Warn #{case_number} does not exist.")
-                    return
-                moderator = ctx.guild.get_member(int(warn["moderator_id"]))
-                confirm_embed = discord.Embed(
-                    title="Confirm Warn Removal",
-                    description=f"Are you sure you want to remove Warn #{case_number} for <@{warn['member_id']}>?\nReason: {warn['reason']}\nModerator: {moderator}",
-                    color=discord.Color.red(),
-                )
-                msg = await ctx.send(embed=confirm_embed)
-                await msg.add_reaction("✅")
-                await msg.add_reaction("❌")
-
-                def check(reaction, user):
-                    return (
-                        user == ctx.author
-                        and str(reaction.emoji) in ["✅", "❌"]
-                        and reaction.message.id == msg.id
-                    )
-
-                try:
-                    reaction, user = await ctx.bot.wait_for(
-                        "reaction_add", timeout=30.0, check=check
-                    )
-                except asyncio.TimeoutError:
-                    await msg.edit(
-                        embed=discord.Embed(
-                            title="Warn Removal Cancelled",
-                            description="Warn removal timed out. Command cancelled.",
-                            color=discord.Color.red(),
-                        )
-                    )
-                    return
-                if str(reaction.emoji) == "✅":
-                    await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"warns": warn}})
-                    await msg.edit(
-                        embed=discord.Embed(
-                            title="Warn Removed",
-                            description=f"Warn #{case_number} removed.",
-                            color=discord.Color.green(),
-                        )
-                    )
-                    await self.send_log(
-                        ctx, case_number, warn["reason"], warn["member_id"], warn["moderator_id"]
-                    )
-                else:
-                    await msg.edit(
-                        embed=discord.Embed(
-                            title="Warn Removal Cancelled",
-                            description="Warn removal cancelled.",
-                            color=discord.Color.red(),
-                        )
-                    )
-
-            @modlogs.command(6, name="remove", aliases=["delete", "del"])
             async def remove_modlog(self, ctx: commands.Context, case_number: int) -> None:
                 """Remove a modlog entry by case number, with confirmation dialog."""
                 guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
@@ -919,7 +814,7 @@ class Moderation(commands.Cog):
             return f"{delta} ago (<t:{int(created.timestamp())}:T>)"
 
         created = await timestamp(member.created_at)
-        joined = await timestamp(member.joined_at)
+        joined = await timestamp(member.joined_at) if member.joined_at else "Unknown"
         member_info = f"**Joined** {joined}\n"
 
         for n, i in enumerate(reversed(member.roles)):
@@ -961,7 +856,7 @@ class Moderation(commands.Cog):
 
             guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
             current_date = f"<t:{int((ctx.message.created_at + timedelta(hours=guild_config.time_offset)).timestamp())}:D>"
-            if len(notes) == 0:
+            if not notes:
                 case_number = 1
             else:
                 case_number = notes[-1]["case_number"] + 1
@@ -982,7 +877,7 @@ class Moderation(commands.Cog):
         guild_data = await self.bot.db.get_guild_config(ctx.guild.id)
         notes = guild_data.notes
         note = list(filter(lambda w: w["case_number"] == case_number, notes))
-        if len(note) == 0:
+        if not note:
             await ctx.send(f"Note #{case_number} does not exist.")
         else:
             await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"notes": note[0]}})
@@ -998,7 +893,7 @@ class Moderation(commands.Cog):
         if name != str(member.id):
             name += f"#{member.discriminator}"
 
-        if len(notes) == 0:
+        if not notes:
             await ctx.send(f"{name} has no notes.")
         else:
             fmt = f"**{name} has {len(notes)} notes.**"
@@ -1080,7 +975,7 @@ class Moderation(commands.Cog):
             finally:
                 guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
                 current_date = f"<t:{int((ctx.message.created_at + timedelta(hours=guild_config.time_offset)).timestamp())}:D>"
-                if len(guild_warns) == 0:
+                if not guild_warns:
                     case_number = 1
                 else:
                     case_number = guild_warns[-1]["case_number"] + 1
@@ -1128,10 +1023,13 @@ class Moderation(commands.Cog):
         """Remove a warn"""
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         warns = guild_config.warns
-        warn = list(filter(lambda w: w["case_number"] == case_number, warns))[0]
+        warn = next((w for w in warns if w.get("case_number") == case_number), None)
+        if not warn:
+            await ctx.send("Warning not found.")
+            return
         warn_reason = warn["reason"]
 
-        if len(warn) == 0:
+        if not warn:
             await ctx.send(f"Warn #{case_number} does not exist.")
         else:
             await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"warns": warn}})
@@ -1148,7 +1046,7 @@ class Moderation(commands.Cog):
         if name != str(member.id):
             name += f"#{member.discriminator}"
 
-        if len(warns) == 0:
+        if not warns:
             await ctx.send(f"{name} has no warns.")
         else:
             fmt = f"**{name} has {len(warns)} warns.**"
@@ -1316,7 +1214,12 @@ class Moderation(commands.Cog):
 
         if overwrite.send_messages is None or overwrite.send_messages:
             overwrite.send_messages = False
-            await channel.set_permissions(ctx.guild.default_role, overwrite=overwrite)
+            try:
+                await channel.set_permissions(role, send_messages=False, add_reactions=False)
+            except discord.Forbidden:
+                pass  # Skip if no permission
+            except discord.HTTPException:
+                pass  # Skip on API error
             await ctx.send(f"Lockdown {self.bot.accept}")
             enable = True
         else:
@@ -1508,8 +1411,15 @@ class Moderation(commands.Cog):
             await ctx.send("User has insufficient permissions")
         else:
             await self.alert_user(ctx, member, reason)
-            await member.ban(reason=reason)
-            await asyncio.sleep(2)
+            try:
+                await member.ban(reason=reason)
+            except discord.Forbidden:
+                await ctx.send("I don't have permission to ban this user.")
+                return
+            except discord.HTTPException as e:
+                await ctx.send(f"Failed to ban user: {e}")
+                return
+            await asyncio.sleep(0.5)
             await member.unban(reason=reason)
             await ctx.send(f"{member.mention} has been softbanned (ban/unban). Reason: {reason}")
             await self.send_log(ctx, member, reason)
@@ -1608,9 +1518,16 @@ class Moderation(commands.Cog):
                 prune_days = getattr(guild_config, "ban_prune_days", 3)
             # If disabled (0 or False), do not prune any messages
             if not prune_days:
+                try:
                 await ctx.guild.ban(
                     member, reason=f"{ctx.author}: {reason}" if reason else f"Ban by {ctx.author}"
                 )
+            except discord.Forbidden:
+                await ctx.send("I don't have permission to ban this user.")
+                return
+            except discord.HTTPException as e:
+                await ctx.send(f"Failed to ban user: {e}")
+                return
             else:
                 await ctx.guild.ban(
                     member,
@@ -1794,7 +1711,7 @@ class Moderation(commands.Cog):
             return f"{delta} ago (<t:{int(created.timestamp())}:T>)"
 
         created = await timestamp(member.created_at)
-        joined = await timestamp(member.joined_at)
+        joined = await timestamp(member.joined_at) if member.joined_at else "Unknown"
         member_info = f"**Joined** {joined}\n"
 
         for n, i in enumerate(reversed(member.roles)):
@@ -1836,7 +1753,7 @@ class Moderation(commands.Cog):
 
             guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
             current_date = f"<t:{int((ctx.message.created_at + timedelta(hours=guild_config.time_offset)).timestamp())}:D>"
-            if len(notes) == 0:
+            if not notes:
                 case_number = 1
             else:
                 case_number = notes[-1]["case_number"] + 1
@@ -1857,7 +1774,7 @@ class Moderation(commands.Cog):
         guild_data = await self.bot.db.get_guild_config(ctx.guild.id)
         notes = guild_data.notes
         note = list(filter(lambda w: w["case_number"] == case_number, notes))
-        if len(note) == 0:
+        if not note:
             await ctx.send(f"Note #{case_number} does not exist.")
         else:
             await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"notes": note[0]}})
@@ -1873,7 +1790,7 @@ class Moderation(commands.Cog):
         if name != str(member.id):
             name += f"#{member.discriminator}"
 
-        if len(notes) == 0:
+        if not notes:
             await ctx.send(f"{name} has no notes.")
         else:
             fmt = f"**{name} has {len(notes)} notes.**"
@@ -1955,7 +1872,7 @@ class Moderation(commands.Cog):
             finally:
                 guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
                 current_date = f"<t:{int((ctx.message.created_at + timedelta(hours=guild_config.time_offset)).timestamp())}:D>"
-                if len(guild_warns) == 0:
+                if not guild_warns:
                     case_number = 1
                 else:
                     case_number = guild_warns[-1]["case_number"] + 1
@@ -1994,10 +1911,13 @@ class Moderation(commands.Cog):
         """Remove a warn"""
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         warns = guild_config.warns
-        warn = list(filter(lambda w: w["case_number"] == case_number, warns))[0]
+        warn = next((w for w in warns if w.get("case_number") == case_number), None)
+        if not warn:
+            await ctx.send("Warning not found.")
+            return
         warn_reason = warn["reason"]
 
-        if len(warn) == 0:
+        if not warn:
             await ctx.send(f"Warn #{case_number} does not exist.")
         else:
             await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"warns": warn}})
@@ -2014,7 +1934,7 @@ class Moderation(commands.Cog):
         if name != str(member.id):
             name += f"#{member.discriminator}"
 
-        if len(warns) == 0:
+        if not warns:
             await ctx.send(f"{name} has no warns.")
         else:
             fmt = f"**{name} has {len(warns)} warns.**"
@@ -2315,11 +2235,31 @@ class Moderation(commands.Cog):
                 )
             except discord.NotFound:
                 await ctx.send(f"Could not find user {member}")
-            except Exception as e:
+            except (discord.HTTPException, discord.ConnectionClosed) as e:
+                import logging
+                logging.exception(f"Failed to kick member {member.id}: {e}")
                 try:
                     await ctx.send(f"Failed to kick member: {e}")
-                except Exception:
-                    pass
+                except (discord.Forbidden, discord.HTTPException):
+                    # Log the error if we can't send the message
+                    logging.error(f"Could not send error message to channel {ctx.channel.id}: {e}")
+                except (discord.HTTPException, discord.ConnectionClosed) as send_error:
+                    # Handle specific exceptions when trying to send error message
+                    logging.error(f"Network error sending message: {send_error}")
+            except (ValueError, TypeError) as e:
+                import logging
+                logging.exception(f"Invalid data when kicking member {member.id}: {e}")
+                try:
+                    await ctx.send(f"Invalid data error: {e}")
+                except (discord.Forbidden, discord.HTTPException):
+                    logging.error(f"Could not send error message to channel {ctx.channel.id}: {e}")
+            except OSError as e:
+                import logging
+                logging.exception(f"System error when kicking member {member.id}: {e}")
+                try:
+                    await ctx.send(f"System error: {e}")
+                except (discord.Forbidden, discord.HTTPException):
+                    logging.error(f"Could not send error message to channel {ctx.channel.id}: {e}")
         else:
             await ctx.send("Kick cancelled.")
 
@@ -2339,7 +2279,7 @@ class Moderation(commands.Cog):
         else:
             await self.alert_user(ctx, member, reason)
             await member.ban(reason=reason)
-            await asyncio.sleep(2)
+            await asyncio.sleep(0.5)
             await member.unban(reason=reason)
             await ctx.send(f"{member.mention} has been softbanned (ban/unban). Reason: {reason}")
             await self.send_log(ctx, member, reason)
@@ -2350,7 +2290,7 @@ class Moderation(commands.Cog):
             # If member is just an ID, try to get the user object
             try:
                 member = await ctx.bot.fetch_user(int(getattr(member, 'id', member)))
-            except:
+            except (discord.HTTPException, discord.NotFound, ValueError, TypeError):
                 # If we can't fetch the user, just return silently
                 return
         
@@ -2368,8 +2308,8 @@ class Moderation(commands.Cog):
         except (discord.Forbidden, discord.HTTPException):
             # User has DMs disabled or blocked the bot
             pass
-        except Exception:
-            # Any other error, fail silently
+        except (discord.HTTPException, discord.ConnectionClosed, OSError):
+            # Network or system errors, fail silently
             pass
 
 
