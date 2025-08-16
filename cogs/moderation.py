@@ -738,7 +738,9 @@ class Moderation(commands.Cog):
             await self.send_log(ctx, member, reason)
 
     @command(7, usage="<member> [duration] [reason]")
-    async def ban(self, ctx: commands.Context, member: MemberOrID, *, time_or_reason: str = None) -> None:
+    async def ban(
+        self, ctx: commands.Context, member: MemberOrID, *, time_or_reason: str = None
+    ) -> None:
         """Ban a member from the server, optionally with a duration.
 
         Examples:
@@ -782,8 +784,8 @@ class Moderation(commands.Cog):
                 ban_entry = None
 
             if ban_entry:
-                user_id = getattr(member, 'id', member)
-                display_name = getattr(member, 'mention', str(member))
+                user_id = getattr(member, "id", member)
+                display_name = getattr(member, "mention", str(member))
                 display_with_id = f"{display_name} ({user_id})"
                 await ctx.send(f"{display_with_id} is already banned (Reason: {ban_entry.reason})")
                 return
@@ -804,42 +806,76 @@ class Moderation(commands.Cog):
                     await ctx.send("I cannot ban this user due to role hierarchy!")
                     return
                 # Alert the user (DM) before banning
-                await self.alert_user(ctx, guild_member, reason, duration=format_timedelta(duration))
+                await self.alert_user(
+                    ctx, guild_member, reason, duration=format_timedelta(duration)
+                )
             else:
                 # User not in guild; attempt to DM the user object if possible
                 try:
-                    user_obj = member if isinstance(member, (discord.User, discord.Member)) else await ctx.bot.fetch_user(int(str(member)))
-                    await self.alert_user(ctx, user_obj, reason, duration=format_timedelta(duration))
+                    user_obj = (
+                        member
+                        if isinstance(member, (discord.User, discord.Member))
+                        else await ctx.bot.fetch_user(int(str(member)))
+                    )
+                    await self.alert_user(
+                        ctx, user_obj, reason, duration=format_timedelta(duration)
+                    )
                 except Exception:
                     # DM failed or not resolvable; continue to ban by id/object
                     pass
 
             # Execute the ban (works with Member, User, or ID / Object)
-            await ctx.guild.ban(member, reason=f"{ctx.author}: {reason}" if reason else f"Ban by {ctx.author}")
+            await ctx.guild.ban(
+                member, reason=f"{ctx.author}: {reason}" if reason else f"Ban by {ctx.author}"
+            )
 
             # If temporary ban, schedule unban and record in DB
             if duration:
                 seconds = duration.total_seconds()
                 seconds += unixs()
                 await self.bot.db.update_guild_config(
-                    ctx.guild.id, {"$push": {"tempbans": {"member": str(getattr(member, 'id', member)), "time": seconds}}}
+                    ctx.guild.id,
+                    {
+                        "$push": {
+                            "tempbans": {
+                                "member": str(getattr(member, "id", member)),
+                                "time": seconds,
+                            }
+                        }
+                    },
                 )
                 # schedule unban task on the bot
-                self.bot.loop.create_task(self.bot.unban(ctx.guild.id, getattr(member, 'id', member), seconds))
+                self.bot.loop.create_task(
+                    self.bot.unban(ctx.guild.id, getattr(member, "id", member), seconds)
+                )
 
             # Send confirmation
-            display_name = str(guild_member) if guild_member else (f"{getattr(member, 'name', None)}#{getattr(member, 'discriminator', '')}" if hasattr(member, "name") else f"User ID: {getattr(member, 'id', member)}")
+            display_name = (
+                str(guild_member)
+                if guild_member
+                else (
+                    f"{getattr(member, 'name', None)}#{getattr(member, 'discriminator', '')}"
+                    if hasattr(member, "name")
+                    else f"User ID: {getattr(member, 'id', member)}"
+                )
+            )
             if ctx.author != ctx.guild.me:
                 if duration:
-                    await ctx.send(f"✅ {display_name} has been banned for {format_timedelta(duration)}. Reason: {reason}")
+                    await ctx.send(
+                        f"✅ {display_name} has been banned for {format_timedelta(duration)}. Reason: {reason}"
+                    )
                 else:
-                    await ctx.send(f"✅ {display_name} has been banned permanently. Reason: {reason}")
+                    await ctx.send(
+                        f"✅ {display_name} has been banned permanently. Reason: {reason}"
+                    )
 
             # Log the ban
             await self.send_log(ctx, member, reason, duration)
 
         except discord.Forbidden:
-            await ctx.send("I don't have permission to ban that member! They might have a higher role than me.")
+            await ctx.send(
+                "I don't have permission to ban that member! They might have a higher role than me."
+            )
         except discord.NotFound:
             await ctx.send(f"Could not find user {member}")
         except Exception as e:

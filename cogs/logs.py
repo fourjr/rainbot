@@ -1,4 +1,3 @@
-
 import asyncio
 from datetime import datetime, timedelta, timezone  # Add timezone import
 from typing import Any, List, Union
@@ -35,23 +34,35 @@ class Logging(commands.Cog):
                     except discord.errors.DiscordServerError as e:
                         attempt += 1
                         if attempt >= max_attempts:
-                            print(f"[Logging] Failed to fetch history for {i} after {max_attempts} attempts: {e}")
+                            print(
+                                f"[Logging] Failed to fetch history for {i} after {max_attempts} attempts: {e}"
+                            )
                             break
                         await asyncio.sleep(backoff)
                         backoff *= 2
                     except discord.errors.HTTPException as e:
                         # Handle rate limits (429) and other HTTP errors
-                        if hasattr(e, 'status') and e.status == 429:
-                            retry_after = getattr(e, 'retry_after', backoff)
-                            ratelimit_channel_id = getattr(self.bot, 'RATELIMIT_LOG_CHANNEL_ID', None)
-                            ratelimit_channel = self.bot.get_channel(ratelimit_channel_id) if ratelimit_channel_id else None
+                        if hasattr(e, "status") and e.status == 429:
+                            retry_after = getattr(e, "retry_after", backoff)
+                            ratelimit_channel_id = getattr(
+                                self.bot, "RATELIMIT_LOG_CHANNEL_ID", None
+                            )
+                            ratelimit_channel = (
+                                self.bot.get_channel(ratelimit_channel_id)
+                                if ratelimit_channel_id
+                                else None
+                            )
                             if ratelimit_channel:
-                                await ratelimit_channel.send(f"[RATELIMIT] Channel: {i} ({getattr(i, 'id', None)}), retrying in {retry_after} seconds.")
+                                await ratelimit_channel.send(
+                                    f"[RATELIMIT] Channel: {i} ({getattr(i, 'id', None)}), retrying in {retry_after} seconds."
+                                )
                             await asyncio.sleep(retry_after)
                         else:
                             attempt += 1
                             if attempt >= max_attempts:
-                                print(f"[Logging] HTTPException for {i} after {max_attempts} attempts: {e}")
+                                print(
+                                    f"[Logging] HTTPException for {i} after {max_attempts} attempts: {e}"
+                                )
                                 break
                             await asyncio.sleep(backoff)
                             backoff *= 2
@@ -70,22 +81,34 @@ class Logging(commands.Cog):
                         except discord.errors.DiscordServerError as e:
                             attempt += 1
                             if attempt >= max_attempts:
-                                print(f"[Logging] Failed to fetch fallback history for {i} after {max_attempts} attempts: {e}")
+                                print(
+                                    f"[Logging] Failed to fetch fallback history for {i} after {max_attempts} attempts: {e}"
+                                )
                                 break
                             await asyncio.sleep(backoff)
                             backoff *= 2
                         except discord.errors.HTTPException as e:
-                            if hasattr(e, 'status') and e.status == 429:
-                                retry_after = getattr(e, 'retry_after', backoff)
-                                ratelimit_channel_id = getattr(self.bot, 'RATELIMIT_LOG_CHANNEL_ID', None)
-                                ratelimit_channel = self.bot.get_channel(ratelimit_channel_id) if ratelimit_channel_id else None
+                            if hasattr(e, "status") and e.status == 429:
+                                retry_after = getattr(e, "retry_after", backoff)
+                                ratelimit_channel_id = getattr(
+                                    self.bot, "RATELIMIT_LOG_CHANNEL_ID", None
+                                )
+                                ratelimit_channel = (
+                                    self.bot.get_channel(ratelimit_channel_id)
+                                    if ratelimit_channel_id
+                                    else None
+                                )
                                 if ratelimit_channel:
-                                    await ratelimit_channel.send(f"[RATELIMIT] Channel: {i} ({getattr(i, 'id', None)}), retrying in {retry_after} seconds.")
+                                    await ratelimit_channel.send(
+                                        f"[RATELIMIT] Channel: {i} ({getattr(i, 'id', None)}), retrying in {retry_after} seconds."
+                                    )
                                 await asyncio.sleep(retry_after)
                             else:
                                 attempt += 1
                                 if attempt >= max_attempts:
-                                    print(f"[Logging] HTTPException for fallback {i} after {max_attempts} attempts: {e}")
+                                    print(
+                                        f"[Logging] HTTPException for fallback {i} after {max_attempts} attempts: {e}"
+                                    )
                                     break
                                 await asyncio.sleep(backoff)
                                 backoff *= 2
