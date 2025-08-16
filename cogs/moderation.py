@@ -36,9 +36,14 @@ class Moderation(commands.Cog):
             return
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         modlogs = guild_config.modlog
-        user_id = str(getattr(user, "id", user))
-        user_name = getattr(user, "mention", str(user))
-        logs = [m for m in modlogs if str(m.get("member_id")) == user_id]
+        # Support both MemberOrID and raw string/ID
+        if isinstance(user, (discord.Member, discord.User)):
+            user_id = str(user.id)
+            user_name = user.mention
+        else:
+            user_id = str(user)
+            user_name = f"<@{user_id}>"
+        logs = [m for m in modlogs if str(m["member_id"]) == user_id]
         if not logs:
             await ctx.send(f"No modlogs found for {user_name} ({user_id}).")
             return
