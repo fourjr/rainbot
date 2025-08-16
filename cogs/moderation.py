@@ -38,6 +38,25 @@ class MemberOrID(commands.IDConverter):
 
 
 class Moderation(commands.Cog):
+    @commands.Cog.listener()
+    async def on_member_join(self, member: discord.Member):
+        guild = member.guild
+        bot = getattr(self, 'bot', None)
+        if not bot:
+            return
+        guild_config = await bot.db.get_guild_config(guild.id)
+        mutes = getattr(guild_config, "mutes", [])
+        # Find mute entry for this member
+        mute_entry = next((m for m in mutes if int(m.get("member", 0)) == member.id), None)
+        if mute_entry:
+            # Find mute role
+            mute_role_id = getattr(guild_config, "mute_role", None)
+            mute_role = guild.get_role(mute_role_id) if mute_role_id else None
+            if mute_role and mute_role not in member.roles:
+                try:
+                    await member.add_roles(mute_role, reason="Reapplying mute after rejoin")
+                except Exception:
+                    pass
 
     @group(6, invoke_without_command=True)
     async def modlogs(self, ctx: commands.Context, member: MemberOrID = None) -> None:
@@ -514,28 +533,37 @@ class Moderation(commands.Cog):
             >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]
         ):
             await ctx.send("User has insufficient permissions")
-        else:
-            duration = None
-            reason = None
-            if not time:
-                duration = None
-            else:
-                if time.dt:
-                    duration = time.dt - ctx.message.created_at
-                if time.arg:
-                    reason = time.arg
-            await self.alert_user(ctx, member, reason, duration=format_timedelta(duration))
-            await self.bot.mute(ctx.author, member, duration, reason=reason)
+            return
 
-            if ctx.author != ctx.guild.me:
-                if duration:
-                    await ctx.send(
-                        f"{member.mention} has been muted for {format_timedelta(duration)}. Reason: {reason}"
-                    )
-                else:
-                    await ctx.send(
-                        f"{member.mention} has been muted indefinitely. Reason: {reason}"
-                    )
+        # Check if member is in the server
+        if not isinstance(member, discord.Member):
+            member_obj = ctx.guild.get_member(getattr(member, "id", member))
+            if not member_obj:
+                await ctx.send(f"User {getattr(member, 'mention', member)} is not present in this server and cannot be muted.")
+                return
+            member = member_obj
+
+        duration = None
+        reason = None
+        if not time:
+            duration = None
+        else:
+            if time.dt:
+                duration = time.dt - ctx.message.created_at
+            if time.arg:
+                reason = time.arg
+        await self.alert_user(ctx, member, reason, duration=format_timedelta(duration))
+        await self.bot.mute(ctx.author, member, duration, reason=reason)
+
+        if ctx.author != ctx.guild.me:
+            if duration:
+                await ctx.send(
+                    f"{member.mention} has been muted for {format_timedelta(duration)}. Reason: {reason}"
+                )
+            else:
+                await ctx.send(
+                    f"{member.mention} has been muted indefinitely. Reason: {reason}"
+                )
 
     @command(6, name="muted")
     async def muted(self, ctx: commands.Context) -> None:
@@ -714,12 +742,12 @@ class Moderation(commands.Cog):
             return
 
         # Check if member is in the server
-        if not isinstance(member, discord.Member):
-            member_obj = ctx.guild.get_member(getattr(member, "id", member))
-            if not member_obj:
-                await ctx.send("User is not in this server.")
-                return
-            member = member_obj
+            if not isinstance(member, discord.Member):
+                member_obj = ctx.guild.get_member(getattr(member, "id", member))
+                if not member_obj:
+                    await ctx.send(f"User {getattr(member, 'mention', member)} is not present in this server and cannot be kicked.")
+                    return
+                member = member_obj
 
         # Check bot permissions
         if not ctx.guild.me.guild_permissions.kick_members:
