@@ -43,8 +43,8 @@ class Logging(commands.Cog):
                         # Handle rate limits (429) and other HTTP errors
                         if hasattr(e, 'status') and e.status == 429:
                             retry_after = getattr(e, 'retry_after', backoff)
-                            # Log ratelimit issue in channel 1406224413212545034
-                            ratelimit_channel = self.bot.get_channel(1406224413212545034)
+                            ratelimit_channel_id = getattr(self.bot, 'RATELIMIT_LOG_CHANNEL_ID', None)
+                            ratelimit_channel = self.bot.get_channel(ratelimit_channel_id) if ratelimit_channel_id else None
                             if ratelimit_channel:
                                 await ratelimit_channel.send(f"[RATELIMIT] Channel: {i} ({getattr(i, 'id', None)}), retrying in {retry_after} seconds.")
                             await asyncio.sleep(retry_after)
@@ -77,7 +77,8 @@ class Logging(commands.Cog):
                         except discord.errors.HTTPException as e:
                             if hasattr(e, 'status') and e.status == 429:
                                 retry_after = getattr(e, 'retry_after', backoff)
-                                ratelimit_channel = self.bot.get_channel(1406224413212545034)
+                                ratelimit_channel_id = getattr(self.bot, 'RATELIMIT_LOG_CHANNEL_ID', None)
+                                ratelimit_channel = self.bot.get_channel(ratelimit_channel_id) if ratelimit_channel_id else None
                                 if ratelimit_channel:
                                     await ratelimit_channel.send(f"[RATELIMIT] Channel: {i} ({getattr(i, 'id', None)}), retrying in {retry_after} seconds.")
                                 await asyncio.sleep(retry_after)

@@ -47,31 +47,34 @@ class rainbot(commands.Bot):
         self.error = "❌"
         self.warning = "⚠️"
 
-        # Reporting channels (from env/config)
-        self.ERROR_CHANNEL_ID = self._parse_int_env("error_channel_id")
-        self.GUILD_JOIN_CHANNEL_ID = self._parse_int_env("guild_join_channel_id")
-        self.GUILD_REMOVE_CHANNEL_ID = self._parse_int_env("guild_remove_channel_id")
-        self.OWNER_LOG_CHANNEL_ID = self._parse_int_env("owner_log_channel_id")
+    # Reporting channels (from env/config)
+    self.ERROR_CHANNEL_ID = self._parse_int_env("error_channel_id")
+    self.GUILD_JOIN_CHANNEL_ID = self._parse_int_env("guild_join_channel_id")
+    self.GUILD_REMOVE_CHANNEL_ID = self._parse_int_env("guild_remove_channel_id")
+    self.OWNER_LOG_CHANNEL_ID = self._parse_int_env("owner_log_channel_id")
+    self.RATELIMIT_LOG_CHANNEL_ID = self._parse_int_env("ratelimit_log_channel_id")
 
-        # Optional dev-only guild gate (for local testing)
-        self.dev_guild_id = self._parse_int_env("dev_guild_id")
+    # Optional dev-only guild gate (for local testing)
+    self.dev_guild_id = self._parse_int_env("dev_guild_id")
 
-        self.dev_mode = os.name == "nt"
-        self.session: Optional[aiohttp.ClientSession] = None
-        self.start_time = datetime.utcnow()
+    self.dev_mode = os.name == "nt"
+    self.session = None
+    self.start_time = datetime.utcnow()
 
-        # Set up enhanced logging
-        self.setup_logging()
+    # Set up enhanced logging
+    self.setup_logging()
 
-        # Database and configuration
-        self.db = None  # Will be initialized in setup_hook
-        self.owners = self._parse_owner_ids(os.getenv("owners", ""))
+    # Database and configuration
+    self.db = None  # Will be initialized in setup_hook
+    self.owners = self._parse_owner_ids(os.getenv("owners", ""))
 
-        # Bot statistics
-        self.command_usage = {}
-        self.error_count = 0
-        self.successful_commands = 0
-        self._startup_announced = False
+    # Bot statistics
+    self.command_usage = {}
+    self.error_count = 0
+    self.successful_commands = 0
+    self._startup_announced = False
+
+
 
     def setup_logging(self) -> None:
         """Set up enhanced logging with Rich formatting"""
