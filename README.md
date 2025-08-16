@@ -299,7 +299,7 @@ rainbot/
 
 ## 🔗 Links
 
-- **[Invite Bot](https://discord.com/oauth2/authorize?client_id=372748944448552961&scope=bot&permissions=2013785334)** - Add to your server
+- **[Invite Bot](https://discord.com/oauth2/authorize?client_id=1031172246829543434&scope=bot&permissions=2013785334)** - Add to your server
 - **[Support Server](https://discord.gg/zmdYe3ZVHG)** - Get help and support
 - **[Documentation](https://github.com/fourjr/rainbot/wiki)** - Detailed guides
 - **[GitHub](https://github.com/fourjr/rainbot)** - Source code
