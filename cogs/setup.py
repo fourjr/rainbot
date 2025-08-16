@@ -896,7 +896,8 @@ class Setup(commands.Cog):
                     ctx.guild.id,
                     {
                         "$set": {
-                            f"detections.{detection_type}": commands.core._convert_to_bool(value)
+                            f"detections.{detection_type}": value.lower()
+                            in ("true", "yes", "y", "1", "on")
                         }
                     },
                 )
@@ -1016,7 +1017,7 @@ class Setup(commands.Cog):
                 raise commands.BadArgument(f"{key} accepts a number")
 
         elif key in ("kick", "ban", "delete"):
-            value = commands.core._convert_to_bool(value)
+            value = value.lower() in ("true", "yes", "y", "1", "on")
 
         elif key in ("mute"):
             if value == "none":
