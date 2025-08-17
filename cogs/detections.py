@@ -61,6 +61,9 @@ class Detections(commands.Cog):
 
     @Cog.listener()
     async def on_message(self, m: MessageWrapper) -> None:
+        if m.author.id == self.bot.user.id:
+            return
+
         if self.bot.dev_mode:
             dev_guild_id = getattr(self.bot, "dev_guild_id", None)
             if dev_guild_id and m.guild and m.guild.id != dev_guild_id:
@@ -282,7 +285,7 @@ class Detections(commands.Cog):
                     async with session.post(f"{api_url}/moderate/text", json=payload) as resp:
                         if resp.status == 200:
                             result = await resp.json()
-                            self.logger.info(f"Text moderation response: {result}")
+                            self.logger.debug(f"Text moderation response: {result}")
                         else:
                             self.logger.error(
                                 f"Text moderation request failed with status {resp.status}: {await resp.text()}"
@@ -317,7 +320,7 @@ class Detections(commands.Cog):
                     async with session.post(f"{api_url}/moderate/image", data=form) as resp:
                         if resp.status == 200:
                             result = await resp.json()
-                            self.logger.info(f"Image moderation response: {result}")
+                            self.logger.debug(f"Image moderation response: {result}")
                         else:
                             self.logger.error(
                                 f"Image moderation request failed with status {resp.status}: {await resp.text()}"
