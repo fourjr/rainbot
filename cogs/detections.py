@@ -334,14 +334,15 @@ class Detections(commands.Cog):
             await process_text_moderation(m.content)
 
         # --- Image Moderation ---
-        for attachment in m.attachments:
-            if any(
-                attachment.filename.lower().endswith(ext)
-                for ext in [".png", ".jpg", ".jpeg", ".webp"]
-            ):
-                await process_image_moderation(attachment)
-                if flagged:
-                    break  # Stop checking other attachments if one is flagged
+        if not flagged:  # Don't process images if text was already flagged
+            for attachment in m.attachments:
+                if any(
+                    attachment.filename.lower().endswith(ext)
+                    for ext in [".png", ".jpg", ".jpeg", ".webp"]
+                ):
+                    await process_image_moderation(attachment)
+                    if flagged:
+                        break  # Stop checking other attachments if one is flagged
 
 
 async def setup(bot: rainbot) -> None:
