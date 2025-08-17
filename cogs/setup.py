@@ -3,6 +3,7 @@ import json
 import io
 import os
 import re
+import datetime
 from typing import Optional, Union, List, Dict, Any
 
 import discord
@@ -1866,7 +1867,7 @@ class Setup(commands.Cog):
         else:
             duration = None
             if time is not None and time.dt:
-                duration = (time.dt - discord.utils.utcnow()).total_seconds()
+                duration = (time.dt - datetime.datetime.now(datetime.timezone.utc)).total_seconds()
 
             guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
             if limit in [i["warn_number"] for i in guild_config["warn_punishments"]]:
