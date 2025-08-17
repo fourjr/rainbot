@@ -357,7 +357,7 @@ class Detections(commands.Cog):
                     if flagged:
                         break  # Stop checking other attachments if one is flagged
 
-    @commands.command(8)
+    @commands.command()
     async def setdetectionpunishments(
         self,
         ctx: commands.Context,
