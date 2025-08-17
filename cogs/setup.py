@@ -1867,7 +1867,13 @@ class Setup(commands.Cog):
         else:
             duration = None
             if time is not None and time.dt:
-                duration = (time.dt - datetime.datetime.now(datetime.timezone.utc)).total_seconds()
+                now = datetime.datetime.now(datetime.timezone.utc)
+                # Ensure both datetimes have timezone info
+                if time.dt.tzinfo is None:
+                    time_dt = time.dt.replace(tzinfo=datetime.timezone.utc)
+                else:
+                    time_dt = time.dt
+                duration = (time_dt - now).total_seconds()
 
             guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
             if limit in [i["warn_number"] for i in guild_config["warn_punishments"]]:

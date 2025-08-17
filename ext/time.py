@@ -45,6 +45,9 @@ class ShortTime:
         data = {k: int(v) for k, v in match.groupdict(default="0").items()}
         now = datetime.datetime.now(datetime.timezone.utc)
         self.dt = now + relativedelta(**data)
+        # Ensure the result is timezone-aware
+        if self.dt.tzinfo is None:
+            self.dt = self.dt.replace(tzinfo=datetime.timezone.utc)
 
 
 class HumanTime:
@@ -62,6 +65,10 @@ class HumanTime:
                 hour=now.hour, minute=now.minute, second=now.second, microsecond=now.microsecond
             )
 
+        # Ensure the result is timezone-aware
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=datetime.timezone.utc)
+            
         self.dt = dt
         self._past = dt < now
 
@@ -106,7 +113,18 @@ class UserFriendlyTime(commands.Converter):
         self.assume_reason = assume_reason
 
     async def check_constraints(self, ctx: commands.Context, now, remaining) -> UserFriendlyTime:
-        if self.dt < now:
+        # Ensure both datetimes have timezone info for comparison
+        if self.dt.tzinfo is None:
+            dt_aware = self.dt.replace(tzinfo=datetime.timezone.utc)
+        else:
+            dt_aware = self.dt
+        
+        if now.tzinfo is None:
+            now_aware = now.replace(tzinfo=datetime.timezone.utc)
+        else:
+            now_aware = now
+            
+        if dt_aware < now_aware:
             raise commands.BadArgument("This time is in the past.")
 
         if not remaining:
@@ -125,12 +143,18 @@ class UserFriendlyTime(commands.Converter):
             calendar = HumanTime.calendar
             regex = ShortTime.compiled
             now = ctx.message.created_at
+            # Ensure now is timezone-aware
+            if now.tzinfo is None:
+                now = now.replace(tzinfo=datetime.timezone.utc)
 
             match = regex.match(argument)
             if match is not None and match.group(0):
                 data = {k: int(v) for k, v in match.groupdict(default=0).items()}
                 remaining = argument[match.end() :].strip()
                 self.dt = now + relativedelta(**data)
+                # Ensure the result is timezone-aware
+                if self.dt.tzinfo is None:
+                    self.dt = self.dt.replace(tzinfo=datetime.timezone.utc)
                 return await self.check_constraints(ctx, now, remaining)
 
             # apparently nlp does not like "from now"
@@ -191,6 +215,10 @@ class UserFriendlyTime(commands.Converter):
             if status.accuracy == pdt.pdtContext.ACU_HALFDAY:
                 dt = dt.replace(day=now.day + 1)
 
+            # Ensure the result is timezone-aware
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=datetime.timezone.utc)
+                
             self.dt = dt
 
             if begin in (0, 1):
@@ -215,6 +243,12 @@ class UserFriendlyTime(commands.Converter):
 
 def human_timedelta(dt, *, source: datetime.datetime = None, accuracy: int = None):
     now = source or datetime.datetime.now(datetime.timezone.utc)
+    # Ensure both datetimes are timezone-aware
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=datetime.timezone.utc)
+        
     if dt > now:
         delta = relativedelta(dt, now)
         suffix = ""
