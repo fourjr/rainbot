@@ -134,8 +134,10 @@ __all__ = ("get_perm_level", "format_timedelta")
 def get_perm_level(
     member: discord.Member, guild_config: "DBDict"
 ) -> Tuple[int, Union[str, discord.Role, None]]:
-    highest_role: Union[str, discord.Role, None] = None
-
+    if not isinstance(member, discord.Member):
+        return (0, None)
+    highest_role: Union[str, discord.Role, None] = "Member"
+    perm_level = 0
     if not getattr(member, "guild_permissions", None):
         perm_level = 0
     elif member.id == member.guild.me.id:
@@ -341,6 +343,17 @@ class Detection:
         punishments = guild_config.detection_punishments[name]
         reason = reason or f"Detection triggered: {name}"
 
+        # Delete message first
+        if punishments.delete:
+            if purge_limit:
+                ctx.command = bot.get_command("purge")
+                await ctx.invoke(bot.get_command("purge"), member=message.author, limit=purge_limit)
+            else:
+                try:
+                    await message.delete()
+                except discord.NotFound:
+                    pass
+
         # Notify user
         alert_location = guild_config.alert.alert_location
         notification_message = (
@@ -353,10 +366,18 @@ class Detection:
             except discord.Forbidden:
                 pass  # User has DMs disabled
         elif alert_location == "channel":
-            try:
-                await message.channel.send(f"{message.author.mention}, {notification_message}")
-            except discord.Forbidden:
-                pass  # Can't send messages in this channel
+            detections_cog = bot.get_cog("Detections")
+            if detections_cog:
+                bucket = detections_cog._cd.get_bucket(message)
+                if bucket:
+                    retry_after = bucket.update_rate_limit()
+                    if not retry_after:
+                        try:
+                            await message.channel.send(
+                                f"{message.author.mention}, {notification_message}", delete_after=30
+                            )
+                        except discord.Forbidden:
+                            pass  # Can't send messages in this channel
 
         # Log to modlog channel
         log_channel_id = guild_config.modlog.get("ai_moderation")
@@ -397,20 +418,11 @@ class Detection:
                     embed.add_field(name="Attachments", value=urls, inline=False)
 
                 if ai_scores:
-                    triggered_categories_str = reason.replace(
-                        "AI moderation triggered for: ", ""
-                    ).replace("Potentially inappropriate image detected for: ", "")
-                    triggered_categories = [c.strip() for c in triggered_categories_str.split(",")]
-
                     scores_text = ""
                     for category, score in sorted(
                         ai_scores.items(), key=lambda item: item[1], reverse=True
                     ):
-                        if score > 0.01:  # Only show scores over 1%
-                            if category in triggered_categories:
-                                scores_text += f"**{category}: {score:.2%}**\n"
-                            else:
-                                scores_text += f"{category}: {score:.2%}\n"
+                        scores_text += f"{category}: {score:.2%}\n"
                     if scores_text:
                         embed.add_field(name="AI Scores", value=scores_text, inline=False)
 
@@ -420,8 +432,8 @@ class Detection:
                 await log_channel.send(embed=embed)
 
         for _ in range(punishments.warn):
-            ctx.command = bot.get_command("warn add")
-            await ctx.invoke(bot.get_command("warn add"), member=message.author, reason=reason)
+            ctx.command = bot.get_command("warn")
+            await ctx.invoke(bot.get_command("warn"), member=message.author, reason=reason)
 
         if punishments.kick:
             try:
@@ -437,19 +449,14 @@ class Detection:
             except discord.NotFound:
                 pass
 
-        if punishments.delete:
-            if purge_limit:
-                ctx.command = bot.get_command("purge")
-                await ctx.invoke(bot.get_command("purge"), member=message.author, limit=purge_limit)
-            else:
-                try:
-                    await message.delete()
-                except discord.NotFound:
-                    pass
-
         if punishments.mute:
             try:
                 time_obj = await UserFriendlyTime().convert(ctx, punishments.mute + " " + reason)
+                # Ensure time_obj is timezone-aware (UTC)
+                import datetime
+
+                if hasattr(time_obj, "tzinfo") and time_obj.tzinfo is None:
+                    time_obj = time_obj.replace(tzinfo=datetime.timezone.utc)
                 ctx.command = bot.get_command("mute")
                 await ctx.invoke(
                     bot.get_command("mute"),

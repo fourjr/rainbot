@@ -216,16 +216,7 @@ class rainbot(commands.Bot):
                 except discord.Forbidden:
                     pass
 
-                # If user invoked a bare command without required args, show help instead
-                try:
-                    await self.invoke(ctx)
-                except commands.MissingRequiredArgument:
-                    try:
-                        await ctx.invoke(
-                            self.get_command("help"), command_or_cog=ctx.command.qualified_name
-                        )
-                    except Exception:
-                        pass
+                await self.invoke(ctx)
 
                 # Remove loading reaction and add success reaction
                 try:
@@ -280,10 +271,6 @@ class rainbot(commands.Bot):
             try:
                 if err:
                     await err.send(f"✅ Startup connectivity check at <t:{now}:T>")
-                if join:
-                    await join.send(f"✅ Startup connectivity check at <t:{now}:T>")
-                if leave:
-                    await leave.send(f"✅ Startup connectivity check at <t:{now}:T>")
             except Exception as e:
                 self.logger.debug(f"Failed to send startup test messages: {e}")
             self._startup_announced = True
@@ -313,14 +300,16 @@ class rainbot(commands.Bot):
             return
 
         # Create user-friendly error messages
+        if isinstance(e, commands.MissingRequiredArgument):
+            await ctx.invoke(self.get_command("help"), command_or_cog=ctx.command.qualified_name)
+            return
+
         if isinstance(e, commands.UserInputError):
             # Try to provide more helpful info for missing/invalid arguments
             usage = f"{ctx.prefix}{ctx.command.signature}"
             # If it's a missing required argument, highlight what's missing
             missing = None
-            if isinstance(e, commands.MissingRequiredArgument):
-                missing = f"Missing required argument: `{e.param.name}`."
-            elif isinstance(e, commands.BadArgument):
+            if isinstance(e, commands.BadArgument):
                 missing = (
                     f"Invalid value for argument: `{e.param.name if hasattr(e, 'param') else ''}`."
                 )
@@ -673,8 +662,11 @@ class rainbot(commands.Bot):
             await asyncio.sleep(duration - time())
 
         try:
-            member = self.get_guild(guild_id).get_member(member_id)
-            member.guild.id
+            guild = self.get_guild(guild_id)
+            if guild:
+                member = guild.get_member(member_id)
+            else:
+                member = None
         except AttributeError:
             member = None
 
@@ -690,18 +682,23 @@ class rainbot(commands.Bot):
             current_time = datetime.utcnow() + timedelta(hours=guild_config.time_offset)
             current_time_fmt = f"<t:{int(current_time.timestamp())}:T>"
 
-            if member:
-                if mute_role in member.roles:
-                    await member.remove_roles(mute_role)
-                    if log_channel:
-                        await log_channel.send(
-                            f"{current_time_fmt} {member} ({member.id}) has been unmuted. Reason: {reason}"
-                        )
-            else:
+            if mute_role in member.roles:
+                await member.remove_roles(mute_role)
                 if log_channel:
                     await log_channel.send(
-                        f"{current_time_fmt} Tried to unmute {member} ({member.id}), member not in server"
+                        f"{current_time_fmt} {member} ({member.id}) has been unmuted. Reason: {reason}"
                     )
+        else:
+            guild_config = await self.db.get_guild_config(guild_id)
+            log_channel: Optional[discord.TextChannel] = self.get_channel(
+                tryint(guild_config.modlog.member_unmute)
+            )
+            current_time = datetime.utcnow() + timedelta(hours=guild_config.time_offset)
+            current_time_fmt = f"<t:{int(current_time.timestamp())}:T>"
+            if log_channel:
+                await log_channel.send(
+                    f"{current_time_fmt} Tried to unmute <@{member_id}> ({member_id}), member not in server"
+                )
 
         # set db
         pull: Dict[str, Any] = {"$pull": {"mutes": {"member": str(member_id)}}}

@@ -18,7 +18,7 @@ from discord.ext.commands import Cog
 from imagehash import average_hash
 from PIL import Image, UnidentifiedImageError
 import logging
-import openai
+
 
 from bot import rainbot
 from ext.utility import UNICODE_EMOJI, Detection, detection, MessageWrapper
@@ -30,6 +30,7 @@ from ext.utility import UNICODE_EMOJI, Detection, detection, MessageWrapper
 class Detections(commands.Cog):
     def __init__(self, bot: rainbot) -> None:
         self.bot = bot
+        self._cd = commands.CooldownMapping.from_cooldown(1, 10, commands.BucketType.user)
         self.logger = logging.getLogger("rainbot.detections")
         self.spam_detection: DefaultDict[str, List[float]] = defaultdict(list)
         self.repetitive_message: DefaultDict[str, Dict[str, List[float]]] = defaultdict(
@@ -61,6 +62,9 @@ class Detections(commands.Cog):
 
     @Cog.listener()
     async def on_message(self, m: MessageWrapper) -> None:
+        if m.author.id == self.bot.user.id:
+            return
+
         if self.bot.dev_mode:
             dev_guild_id = getattr(self.bot, "dev_guild_id", None)
             if dev_guild_id and m.guild and m.guild.id != dev_guild_id:
@@ -258,100 +262,174 @@ class Detections(commands.Cog):
                 most_common_count = len(timestamps)
         return most_common_count
 
-    @detection("ai_text_moderation")
-    async def ai_text_moderation(self, m: MessageWrapper, guild_config) -> None:
-        """Use OpenAI's Moderation API for text moderation"""
-        if not guild_config.detections.ai_moderation.enabled or not m.content:
-            return
-
-        openai.api_key = os.getenv("OPENAI_API_KEY")
-        if not openai.api_key:
-            self.logger.warning("OPENAI_API_KEY is not set, AI moderation is disabled.")
-            return
-
-        sensitivity = guild_config.detections.ai_moderation.sensitivity / 100
-
-        # --- Text Moderation ---
-        try:
-            response = await self.bot.loop.run_in_executor(
-                self.bot.executor, lambda: openai.Moderation.create(input=m.content)
-            )
-            result = response["results"][0]
-            if result["flagged"]:
-                flagged_categories = [
-                    k
-                    for k, v in result["category_scores"].items()
-                    if v > sensitivity and guild_config.detections.ai_moderation.categories.get(k)
-                ]
-                if flagged_categories:
-                    reason = f"AI moderation triggered for: {', '.join(flagged_categories)}"
-                    await m.detection.punish(
-                        self.bot,
-                        m,
-                        guild_config,
-                        reason=reason,
-                        ai_scores=result["category_scores"],
-                    )
-        except Exception as e:
-            self.logger.error(f"Error calling OpenAI Moderation API for text: {e}")
-
-    @detection("image_moderation", require_attachment=True)
-    async def image_moderation(self, m: MessageWrapper, guild_config) -> None:
-        """Use a third-party API for image moderation"""
+    @detection("ai_moderation")
+    async def ai_moderation(self, m: MessageWrapper, guild_config) -> None:
+        """Use the new API for text and image moderation based on apidocs.MD"""
         if not guild_config.detections.ai_moderation.enabled:
             return
 
-        api_key = os.getenv("DEEPAI_API_KEY")
-        if not api_key:
-            self.logger.warning("DEEPAI_API_KEY is not set, AI moderation is disabled.")
+        api_url = os.getenv("MODERATION_API_URL")
+        if not api_url:
+            self.logger.warning("MODERATION_API_URL is not set, AI moderation is disabled.")
             return
 
-        for attachment in m.attachments:
-            if any(
-                attachment.filename.lower().endswith(ext)
-                for ext in [".png", ".jpg", ".jpeg", ".webp"]
-            ):
-                try:
-                    image_bytes = await attachment.read()
+        flagged = False
 
-                    # Use a temporary file to send the image data
-                    with NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
-                        temp_file.write(image_bytes)
-                        temp_filename = temp_file.name
+        async def process_text_moderation(text_content):
+            nonlocal flagged
+            if flagged:
+                return
 
-                    headers = {"api-key": api_key}
+            try:
+                payload = {"content": text_content}
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(f"{api_url}/moderate/text", json=payload) as resp:
+                        if resp.status == 200:
+                            result = await resp.json()
+                            self.logger.debug(f"Text moderation response: {result}")
+                        else:
+                            self.logger.error(
+                                f"Text moderation request failed with status {resp.status}: {await resp.text()}"
+                            )
+                            return
 
-                    async with aiohttp.ClientSession() as session:
-                        with open(temp_filename, "rb") as f:
-                            data = {"image": f}
-                            async with session.post(
-                                "https://api.deepai.org/api/nsfw-detector",
-                                data=data,
-                                headers=headers,
-                            ) as resp:
-                                if resp.status == 200:
-                                    result = await resp.json()
-                                else:
-                                    self.logger.error(
-                                        f"DeepAI API request failed with status {resp.status}: {await resp.text()}"
-                                    )
-                                    os.remove(temp_filename)
-                                    continue
-
-                    os.remove(temp_filename)
-
-                    if result.get("output") and result["output"].get("nsfw_score") > 0.75:
-                        reason = "Potentially inappropriate image detected"
+                if result and result.get("decision") == "flag":
+                    reason = f"AI text moderation triggered for: {', '.join(result.get('categories', []))}"
+                    if m.guild:  # Check if message still exists
                         await m.detection.punish(
                             self.bot,
                             m,
                             guild_config,
                             reason=reason,
-                            detection_name="image_moderation",
+                            detection_name="ai_moderation",
+                            ai_scores=result.get("category_scores"),
                         )
-                        return
-                except Exception as e:
-                    self.logger.error(f"Error calling moderation API for image: {e}")
+                        flagged = True
+
+            except Exception as e:
+                self.logger.error(f"Error calling text moderation API: {e}")
+
+        async def process_image_moderation(attachment):
+            nonlocal flagged
+            if flagged:
+                return
+
+            try:
+                form = aiohttp.FormData()
+                form.add_field("file", await attachment.read(), filename=attachment.filename)
+
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(f"{api_url}/moderate/image", data=form) as resp:
+                        if resp.status == 200:
+                            result = await resp.json()
+                            self.logger.debug(f"Image moderation response: {result}")
+                        else:
+                            self.logger.error(
+                                f"Image moderation request failed with status {resp.status}: {await resp.text()}"
+                            )
+                            return
+
+                if result and result.get("decision") in ("block", "flag"):
+                    reason = f"AI image moderation triggered for: {', '.join(result.get('categories', []))}"
+                    if m.guild:  # Check if message still exists
+                        await m.detection.punish(
+                            self.bot,
+                            m,
+                            guild_config,
+                            reason=reason,
+                            detection_name="ai_moderation",
+                            ai_scores=result.get("category_scores"),
+                        )
+                        flagged = True
+
+            except Exception as e:
+                self.logger.error(f"Error calling image moderation API: {e}")
+
+        # --- Text Moderation ---
+        if m.content:
+            await process_text_moderation(m.content)
+
+        # --- Image Moderation ---
+        if not flagged:  # Don't process images if text was already flagged
+            for attachment in m.attachments:
+                if any(
+                    attachment.filename.lower().endswith(ext)
+                    for ext in [".png", ".jpg", ".jpeg", ".webp"]
+                ):
+                    await process_image_moderation(attachment)
+                    if flagged:
+                        break  # Stop checking other attachments if one is flagged
+
+    @commands.command()
+    async def setdetectionpunishments(
+        self,
+        ctx: commands.Context,
+        detection: str,
+        action: str = None,
+        value: str = None,
+    ):
+        """**Set punishments for a detection**
+
+        **Usage:**
+        `{prefix}setdetectionpunishments <detection> [action] [value]`
+
+        **<detection>:**
+        The detection to configure.
+
+        **[action]:**
+        The action to take. Can be `delete`, `warn`, `kick`, `ban`, or `mute`.
+
+        **[value]:**
+        - For `warn`, the number of warnings to issue.
+        - For `mute`, the duration of the mute.
+        - Not required for other actions.
+        """
+        if action is None:
+            # Display current settings
+            guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+            punishments = guild_config.detection_punishments.get(detection, {})
+            if not punishments:
+                await ctx.send(f"No punishments configured for `{detection}`.")
+                return
+
+            embed = discord.Embed(
+                title=f"Punishments for `{detection}`",
+                description="Current settings:",
+                color=discord.Color.blue(),
+            )
+            for act, val in punishments.items():
+                embed.add_field(name=act, value=val if val else "Enabled", inline=False)
+            await ctx.send(embed=embed)
+            return
+
+        action = action.lower()
+        if action not in ["delete", "warn", "kick", "ban", "mute"]:
+            await ctx.send(
+                "Invalid action. Must be one of: `delete`, `warn`, `kick`, `ban`, `mute`."
+            )
+            return
+
+        update_payload = {}
+        if value:
+            if action in ["warn"]:
+                try:
+                    update_payload[f"detection_punishments.{detection}.{action}"] = int(value)
+                except ValueError:
+                    await ctx.send("Warn value must be a number.")
+                    return
+            elif action == "mute":
+                update_payload[f"detection_punishments.{detection}.{action}"] = value
+            else:
+                await ctx.send(f"`{action}` does not take a value.")
+                return
+        else:
+            if action in ["warn", "mute"]:
+                await ctx.send(f"`{action}` requires a value.")
+                return
+            update_payload[f"detection_punishments.{detection}.{action}"] = True
+
+        await self.bot.db.update_guild_config(ctx.guild.id, {"$set": update_payload})
+        await ctx.send(f"Set punishment for `{detection}` to `{action}`.")
 
 
 async def setup(bot: rainbot) -> None:

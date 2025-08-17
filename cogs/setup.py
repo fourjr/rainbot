@@ -3,11 +3,13 @@ import json
 import io
 import os
 import re
+import datetime
+import logging
 from typing import Optional, Union, List, Dict, Any
 
 import discord
 import asyncio
-import openai
+import aiohttp
 from discord.ext import commands
 
 from bot import rainbot
@@ -23,6 +25,7 @@ from ext.utility import (
     get_command_level,
 )
 from ext.errors import BotMissingPermissionsInChannel
+from ext.paginator import Paginator
 import config
 from PIL import Image
 from imagehash import average_hash
@@ -34,6 +37,7 @@ class Setup(commands.Cog):
     def __init__(self, bot: rainbot) -> None:
         self.bot = bot
         self.order = 1
+        self.logger = logging.getLogger("rainbot.setup")
 
     async def cog_error(self, ctx: commands.Context, error: Exception) -> None:
         """Handle cog errors with user-friendly messages"""
@@ -49,104 +53,129 @@ class Setup(commands.Cog):
 
     @command(6, aliases=["view_config", "view-config"], usage="[json]")
     async def viewconfig(self, ctx: commands.Context, options: str = None) -> None:
-        """**View server configuration**
-
-        This command displays the current server configuration.
-        You can also get a downloadable JSON file of the configuration.
-
+        """**View all custom server configurations**
+        This command displays every setting that has been changed from the default value.
+        You can also get a downloadable JSON file of the full configuration.
         **Usage:**
         `{prefix}viewconfig [json]`
-
         **[json]:**
-        - If provided, the configuration will be sent as a JSON file.
-
+        - If provided, the full configuration will be sent as a JSON file.
         **Examples:**
-        - `{prefix}viewconfig` - Displays the configuration in an embed.
-        - `{prefix}viewconfig json` - Sends the configuration as a file.
+        - `{prefix}viewconfig` - Displays all custom-set configurations.
+        - `{prefix}viewconfig json` - Sends the full configuration as a file.
         """
-        guild_config = copy.copy(await self.bot.db.get_guild_config(ctx.guild.id))
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
 
         if options and options.lower() == "json":
-            # Send as JSON file for easy editing
             config_json = json.dumps(guild_config, indent=2, default=str)
             file = discord.File(io.StringIO(config_json), filename=f"{ctx.guild.name}_config.json")
-            embed = discord.Embed(
-                title="📄 Server Configuration (JSON)",
-                description="Here's your server configuration as a JSON file:",
-                color=config.get_color("info"),
+            await ctx.send(
+                embed=discord.Embed(
+                    title="📄 Server Configuration (JSON)",
+                    description="Here's your server's full configuration as a JSON file.",
+                    color=config.get_color("info"),
+                ),
+                file=file,
             )
-            await ctx.send(embed=embed, file=file)
             return
 
-        # Create detailed embed
-        embed = discord.Embed(
-            title=f"⚙️ {ctx.guild.name} Configuration", color=config.get_color("info")
-        )
+        def format_value(path, value):
+            if "role" in path.lower() and isinstance(value, str):
+                try:
+                    role = ctx.guild.get_role(int(value))
+                    return f"{role.mention}" if role else f"`{value}`"
+                except (ValueError, TypeError):
+                    pass
+            if "channel" in path.lower() and isinstance(value, str):
+                try:
+                    channel = ctx.guild.get_channel(int(value))
+                    return f"{channel.mention}" if channel else f"`{value}`"
+                except (ValueError, TypeError):
+                    pass
 
-        # Basic settings
-        mute_role_text = (
-            f"**Mute Role:** <@&{guild_config.mute_role}>"
-            if guild_config.mute_role
-            else "**Mute Role:** Not set"
-        )
-        embed.add_field(
-            name="🔧 Basic Settings",
-            value=(
-                f"**Prefix:** `{guild_config.prefix}`\n"
-                f"**Time Offset:** {guild_config.time_offset} hours\n"
-                f"{mute_role_text}"
-            ),
-            inline=False,
-        )
+            if isinstance(value, list):
+                if not value:
+                    return "None"
+                return ", ".join(f"`{v}`" for v in value)
+            if isinstance(value, dict):
+                if not value:
+                    return "None"
+                return "\n".join(f"- `{k}`: `{v}`" for k, v in value.items())
 
-        # Permission levels
-        perm_levels = []
-        for entry in guild_config.perm_levels:
-            role_id = getattr(entry, "role_id", None)
-            level = getattr(entry, "level", None)
-            role = ctx.guild.get_role(int(role_id)) if role_id else None
-            role_name = role.name if role else "Not set"
-            perm_levels.append(f"Level {level}: {role_name}")
+            return f"`{value}`"
 
-        if perm_levels:
-            embed.add_field(
-                name="🛡️ Permission Levels",
-                value="\n".join(perm_levels[:5]) + ("\n..." if len(perm_levels) > 5 else ""),
-                inline=True,
+        custom_settings = []
+
+        def find_diff(d1, d2, path=""):
+            for k in d1:
+                new_path = f"{path}.{k}" if path else k
+                if k not in d2:
+                    custom_settings.append((new_path, d1[k]))
+                elif isinstance(d1[k], dict) and isinstance(d2[k], dict):
+                    find_diff(d1[k], d2[k], new_path)
+                elif d1[k] != d2[k]:
+                    custom_settings.append((new_path, d1[k]))
+
+        find_diff(guild_config, DEFAULT)
+
+        if not any(path not in ("guild_id", "_id") for path, _ in custom_settings):
+            embed = discord.Embed(
+                title=f"⚙️ {ctx.guild.name} Custom Configurations",
+                description="No custom configurations found. All settings are at their default values.",
+                color=config.get_color("info"),
             )
+            await ctx.send(embed=embed)
+            return
 
-        # Logging channels
-        log_channels = []
-        for log_type, channel_id in guild_config.logs.items():
-            if channel_id:
-                channel = ctx.guild.get_channel(int(channel_id))
-                if channel:
-                    log_channels.append(f"{log_type}: #{channel.name}")
+        custom_settings.sort()
 
-        if log_channels:
-            embed.add_field(
-                name="📝 Logging Channels",
-                value="\n".join(log_channels[:5]) + ("\n..." if len(log_channels) > 5 else ""),
-                inline=True,
+        embeds = [
+            discord.Embed(
+                title=f"⚙️ {ctx.guild.name} Custom Configurations",
+                description="Showing all settings that have been changed from the default.",
+                color=config.get_color("info"),
             )
+        ]
 
-        # Auto-moderation settings
-        automod_settings = []
-        for setting, value in guild_config.detections.items():
-            if isinstance(value, bool):
-                status = "✅" if value else "❌"
-                automod_settings.append(f"{setting}: {status}")
+        for path, value in custom_settings:
+            if path in ("guild_id", "_id"):
+                continue
 
-        if automod_settings:
-            embed.add_field(
-                name="🛡️ Auto-moderation",
-                value="\n".join(automod_settings[:5])
-                + ("\n..." if len(automod_settings) > 5 else ""),
-                inline=True,
-            )
+            field_name = path.replace("_", " ").title()
+            field_value = format_value(path, value)
 
-        embed.set_footer(text=f"Use {ctx.prefix}help setup for more configuration options")
-        await ctx.send(embed=embed)
+            if (
+                len(embeds[-1]) + len(field_name) + len(field_value) > 6000
+                or len(embeds[-1].fields) >= 25
+            ):
+                embeds.append(
+                    discord.Embed(
+                        title=f"⚙️ {ctx.guild.name} Custom Configurations (cont.)",
+                        color=config.get_color("info"),
+                    )
+                )
+
+            if len(field_value) > 1024:
+                chunks = [field_value[i : i + 1024] for i in range(0, len(field_value), 1024)]
+                for i, chunk in enumerate(chunks):
+                    embeds[-1].add_field(
+                        name=f"{field_name} (part {i+1})", value=chunk, inline=False
+                    )
+                    if len(embeds[-1].fields) >= 25:
+                        embeds.append(
+                            discord.Embed(
+                                title=f"⚙️ {ctx.guild.name} Custom Configurations (cont.)",
+                                color=config.get_color("info"),
+                            )
+                        )
+            else:
+                embeds[-1].add_field(name=field_name, value=field_value, inline=False)
+
+        if len(embeds) > 1:
+            paginator = Paginator(ctx, *embeds)
+            await paginator.start()
+        else:
+            await ctx.send(embed=embeds[0])
 
     @command(10, aliases=["import_config", "import-config"], usage="<url>")
     async def importconfig(self, ctx: commands.Context, *, url: str) -> None:
@@ -1174,75 +1203,6 @@ class Setup(commands.Cog):
         )
         await ctx.send(f"Alert location set to `{location}`.")
 
-    @command(10, aliases=["set_detection_punishments", "set-detection-punishments"])
-    async def setdetectionpunishments(
-        self, ctx: commands.Context, detection_type: str, key: str, *, value: Optional[str] = None
-    ) -> None:
-        """**Sets punishments for auto-moderation detections**
-
-        This command configures the actions taken when an auto-moderation filter is triggered.
-
-        **Usage:**
-        `{prefix}setdetectionpunishments <detection_type> <action> [value]`
-
-        **<detection_type>:**
-        The type of detection to configure a punishment for.
-
-        **<action>:**
-        The action to take when the detection is triggered.
-
-        **[value]:**
-        - For `warn`, the number of warnings to issue.
-        - For `mute`, the duration of the mute (e.g., `1h`, `30m`). Use `none` for indefinite.
-        - For `kick`, `ban`, and `delete`, use `yes` or `no`.
-
-        **Valid Detections:**
-        `filters`, `regex_filters`, `image_filters`, `block_invite`, `english_only`, `mention_limit`, `spam_detection`, `repetitive_message`, `repetitive_characters`, `max_lines`, `max_words`, `max_characters`, `sexually_explicit`, `caps_message`, `ai_moderation`, `image_moderation`
-
-        **Valid Actions:**
-        `warn`, `mute`, `kick`, `ban`, `delete`
-
-        **Examples:**
-        - `{prefix}setdetectionpunishments filters warn 1`
-        - `{prefix}setdetectionpunishments block_invite kick yes`
-        - `{prefix}setdetectionpunishments mention_limit mute 1d`
-        - `{prefix}setdetectionpunishments ai_moderation delete yes`
-        """
-        valid_detections = list(DEFAULT["detection_punishments"].keys())
-
-        if detection_type not in valid_detections:
-            raise commands.BadArgument("Invalid detection.")
-
-        valid_keys = list(DEFAULT["detection_punishments"][valid_detections[0]].keys())
-
-        if key not in valid_keys:
-            raise commands.BadArgument(
-                "Invalid key, pick one from below:\n" + ", ".join(valid_keys)
-            )
-
-        if key in ("warn"):
-            if value.lower() in ("true", "yes", "y", "1", "on", "false", "no", "n", "0", "off"):
-                value = value.lower() in ("true", "yes", "y", "1", "on")
-            else:
-                try:
-                    value = int(value)
-                except ValueError:
-                    raise commands.BadArgument(f"{key} accepts a number or a boolean")
-
-        elif key in ("kick", "ban", "delete"):
-            value = value.lower() in ("true", "yes", "y", "1", "on")
-
-        elif key in ("mute"):
-            if value.lower() in ("false", "no", "n", "0", "off", "none"):
-                value = None
-            elif value.lower() not in ("true", "yes", "y", "1", "on"):
-                await UserFriendlyTime(default="nil").convert(ctx, value)
-
-        await self.bot.db.update_guild_config(
-            ctx.guild.id, {"$set": {f"detection_punishments.{detection_type}.{key}": value}}
-        )
-        await ctx.send(f"Detection punishment `{detection_type}` `{key}` set to `{value}`.")
-
     @command(10, aliases=["set_recommended", "set-recommended"])
     async def setrecommended(self, ctx: commands.Context) -> None:
         """**Applies a recommended set of auto-moderation detections**
@@ -1791,86 +1751,6 @@ class Setup(commands.Cog):
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         await ctx.send(f"Filters: {', '.join([f'`{i}`' for i in guild_config.detections.filters])}")
 
-    @command(10, aliases=["set-warn-punishment", "set_warn_punishment"])
-    async def setwarnpunishment(
-        self,
-        ctx: commands.Context,
-        limit: int,
-        punishment: str = None,
-        *,
-        time: UserFriendlyTime = None,
-    ) -> None:
-        """**Configure automatic punishments for warnings**
-
-        This command sets an automatic punishment to be issued when a user reaches a certain number of warnings.
-
-        **Usage:**
-        `{prefix}setwarnpunishment <warn_count> <punishment> [duration]`
-
-        **<warn_count>:**
-        The number of warnings a user must have to trigger the punishment.
-
-        **<punishment>:**
-        The action to take.
-
-        **[duration]:**
-        Required for mute punishments.
-
-        **Valid Punishments:**
-        - `mute`: Temporarily mutes the user.
-        - `kick`: Kicks the user from the server.
-        - `ban`: Permanently bans the user.
-        - `none`: Removes the punishment for the specified warning count.
-
-        **Examples:**
-        - `{prefix}setwarnpunishment 3 mute 1h`
-        - `{prefix}setwarnpunishment 5 kick`
-        - `{prefix}setwarnpunishment 7 ban`
-        - `{prefix}setwarnpunishment 3 none`
-        """
-        if punishment not in ("kick", "ban", "mute", "none"):
-            raise commands.BadArgument(
-                'Invalid punishment, pick from "mute", "kick", "ban", "none".'
-            )
-
-        if punishment == "none" or punishment is None:
-            await self.bot.db.update_guild_config(
-                ctx.guild.id, {"$pull": {"warn_punishments": {"warn_number": limit}}}
-            )
-        else:
-            duration = None
-            if time is not None and time.dt:
-                duration = (time.dt - ctx.message.created_at).total_seconds()
-
-            guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-            if limit in [i["warn_number"] for i in guild_config["warn_punishments"]]:
-                # overwrite
-                await self.bot.db.update_guild_config(
-                    ctx.guild.id,
-                    {
-                        "$set": {
-                            "warn_punishments.$[elem].punishment": punishment,
-                            "warn_punishments.$[elem].duration": duration,
-                        }
-                    },
-                    array_filters=[{"elem.warn_number": limit}],
-                )
-            else:
-                # push
-                await self.bot.db.update_guild_config(
-                    ctx.guild.id,
-                    {
-                        "$push": {
-                            "warn_punishments": {
-                                "warn_number": limit,
-                                "punishment": punishment,
-                                "duration": duration,
-                            }
-                        }
-                    },
-                )
-        await ctx.send(f"Warn punishment for {limit} set to {punishment}.")
-
     @command(10, aliases=["set-canned-variables", "set_canned_variables"])
     async def setcannedvariables(
         self, ctx: commands.Context, name: str, *, value: Optional[str] = None
@@ -1904,68 +1784,82 @@ class Setup(commands.Cog):
         await ctx.send(f"Canned variable `{name}` set to: {value if value else 'removed'}.")
 
     @command(10, aliases=["aimodtest"])
-    async def aimoderationtest(self, ctx: commands.Context, *, text: str):
-        """**Tests a string against the AI moderation filter**
-
-        This command allows you to test how the AI moderation filter will score a given piece of text.
-        This is useful for tuning your AI moderation settings.
-
+    async def aimoderationtest(self, ctx: commands.Context, *, text: str = None):
+        """**Tests content against the AI moderation filter**
+        This command allows you to test how the AI moderation filter will respond to a given piece of text and/or an image.
         **Usage:**
-        `{prefix}aimoderationtest <text>`
-
+        `{prefix}aimoderationtest [text]`
+        You can also attach an image to the message.
         **<text>:**
         The text you want to test.
-
         **Example:**
-        `{prefix}aimoderationtest I really like this bot!`
+        `{prefix}aimoderationtest This is a test.`
         """
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            return await ctx.send("The `OPENAI_API_KEY` is not set in the bot's environment.")
+        api_url = os.getenv("MODERATION_API_URL")
+        if not api_url:
+            return await ctx.send("The `MODERATION_API_URL` is not set in the bot's environment.")
 
-        try:
-            openai.api_key = api_key
-            response = await self.bot.loop.run_in_executor(
-                self.bot.executor, lambda: openai.Moderation.create(input=text)
-            )
-        except Exception as e:
-            await ctx.send(f"An error occurred while calling the OpenAI API: `{e}`")
-            return
+        embed = discord.Embed(title="AI Moderation Test Results", color=discord.Color.blue())
 
-        result = response["results"][0]
-        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-        settings = guild_config.detections.ai_moderation
-        sensitivity = settings.sensitivity / 100
+        # --- Text Moderation ---
+        if text:
+            try:
+                payload = {"content": text}
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(f"{api_url}/moderate/text", json=payload) as resp:
+                        if resp.status == 200:
+                            result = await resp.json()
+                            decision = result.get("decision", "error")
+                            categories = ", ".join(result.get("categories", [])) or "None"
+                            embed.add_field(
+                                name="Text Moderation",
+                                value=f"**Decision:** {decision}\n**Categories:** {categories}",
+                                inline=False,
+                            )
+                        else:
+                            embed.add_field(
+                                name="Text Moderation",
+                                value=f"API request failed with status {resp.status}",
+                                inline=False,
+                            )
+            except Exception as e:
+                embed.add_field(
+                    name="Text Moderation", value=f"An error occurred: {e}", inline=False
+                )
 
-        embed = discord.Embed(
-            title="AI Moderation Test Results",
-            description=f'Testing the string: "{text}"',
-            color=discord.Color.green() if not result["flagged"] else discord.Color.red(),
-        )
+        # --- Image Moderation ---
+        if ctx.message.attachments:
+            attachment = ctx.message.attachments[0]
+            try:
+                form = aiohttp.FormData()
+                form.add_field("file", await attachment.read(), filename=attachment.filename)
 
-        scores_text = ""
-        for category, score in result["category_scores"].items():
-            scores_text += f"`{category:<20}`: {score:.4f}\n"
-        embed.add_field(name="OpenAI API Scores", value=scores_text, inline=False)
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(f"{api_url}/moderate/image", data=form) as resp:
+                        if resp.status == 200:
+                            result = await resp.json()
+                            decision = result.get("decision", "error")
+                            nsfw = result.get("nsfw", "N/A")
+                            confidence = result.get("confidence", "N/A")
+                            categories = ", ".join(result.get("categories", [])) or "None"
+                            embed.add_field(
+                                name="Image Moderation",
+                                value=f"**Decision:** {decision}\n**NSFW:** {nsfw}\n**Confidence:** {confidence}\n**Categories:** {categories}",
+                                inline=False,
+                            )
+                        else:
+                            embed.add_field(
+                                name="Image Moderation",
+                                value=f"API request failed with status {resp.status}",
+                                inline=False,
+                            )
+            except Exception as e:
+                embed.add_field(
+                    name="Image Moderation", value=f"An error occurred: {e}", inline=False
+                )
 
-        flagged_categories = [
-            k
-            for k, v in result["category_scores"].items()
-            if v > sensitivity and settings.categories.get(k)
-        ]
-
-        verdict = "NOT FLAGGED"
-        if flagged_categories:
-            verdict = f"FLAGGED for: {', '.join(flagged_categories)}"
-
-        embed.add_field(
-            name="Bot's Decision",
-            value=(
-                f"**Verdict:** {verdict}\n"
-                f"**Reasoning:** The message was compared against your server's sensitivity (`{settings.sensitivity}%`) and enabled categories."
-            ),
-            inline=False,
-        )
+        if not text and not ctx.message.attachments:
+            return await ctx.send("Please provide text or an image to test.")
 
         await ctx.send(embed=embed)
 
