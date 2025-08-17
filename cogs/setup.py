@@ -4,6 +4,7 @@ import io
 import os
 import re
 import datetime
+import logging
 from typing import Optional, Union, List, Dict, Any
 
 import discord
@@ -36,6 +37,7 @@ class Setup(commands.Cog):
     def __init__(self, bot: rainbot) -> None:
         self.bot = bot
         self.order = 1
+        self.logger = logging.getLogger("rainbot.setup")
 
     async def cog_error(self, ctx: commands.Context, error: Exception) -> None:
         """Handle cog errors with user-friendly messages"""
@@ -1827,6 +1829,10 @@ class Setup(commands.Cog):
         *,
         time: UserFriendlyTime = None,
     ) -> None:
+        self.logger.info(
+            f"setwarnpunishment invoked by {ctx.author} in guild {ctx.guild.id}. "
+            f"Limit: {limit}, Punishment: {punishment}, Time: {time.dt if time else None}"
+        )
         """**Configure automatic punishments for warnings**
 
         This command sets an automatic punishment to be issued when a user reaches a certain number of warnings.
@@ -1856,21 +1862,25 @@ class Setup(commands.Cog):
         - `{prefix}setwarnpunishment 3 none`
         """
         if punishment not in ("kick", "ban", "mute", "none"):
+            self.logger.warning(f"Invalid punishment type '{punishment}' provided.")
             raise commands.BadArgument(
                 'Invalid punishment, pick from "mute", "kick", "ban", "none".'
             )
 
         if punishment == "none" or punishment is None:
+            self.logger.info(f"Removing warn punishment for limit: {limit}")
             await self.bot.db.update_guild_config(
                 ctx.guild.id, {"$pull": {"warn_punishments": {"warn_number": limit}}}
             )
         else:
             duration = None
             if time is not None and time.dt:
-                duration = (time.dt - datetime.datetime.now(datetime.timezone.utc)).total_seconds()
+                duration = (time.dt - datetime.datetime.utcnow()).total_seconds()
+                self.logger.info(f"Calculated duration for mute: {duration} seconds.")
 
             guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
             if limit in [i["warn_number"] for i in guild_config["warn_punishments"]]:
+                self.logger.info(f"Overwriting punishment for limit {limit} to {punishment}, duration {duration}")
                 # overwrite
                 await self.bot.db.update_guild_config(
                     ctx.guild.id,
@@ -1883,6 +1893,7 @@ class Setup(commands.Cog):
                     array_filters=[{"elem.warn_number": limit}],
                 )
             else:
+                self.logger.info(f"Adding new punishment for limit {limit}: {punishment}, duration {duration}")
                 # push
                 await self.bot.db.update_guild_config(
                     ctx.guild.id,
@@ -1896,6 +1907,7 @@ class Setup(commands.Cog):
                         }
                     },
                 )
+        self.logger.info(f"Successfully set warn punishment for {limit} to {punishment}.")
         await ctx.send(f"Warn punishment for {limit} set to {punishment}.")
 
     @command(10, aliases=["set-canned-variables", "set_canned_variables"])

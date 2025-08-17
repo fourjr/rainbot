@@ -1,5 +1,6 @@
 import asyncio
 import re
+import logging
 from datetime import datetime, timedelta
 from typing import Optional, Union
 
@@ -51,6 +52,7 @@ class Moderation(commands.Cog):
     def __init__(self, bot: rainbot) -> None:
         self.bot = bot
         self.order = 2
+        self.logger = logging.getLogger("rainbot.moderation")
         self.kick_confirm_timeouts = set()  # Track member IDs for which kick confirmation timed out
 
     # Helper to safely send to a channel given a channel object or ID
@@ -907,6 +909,7 @@ class Moderation(commands.Cog):
 
     @warn.command(6, name="add")
     async def add_(self, ctx: commands.Context, member: MemberOrID, *, reason: CannedStr) -> None:
+        self.logger.info(f"warn add invoked by {ctx.author} on {member} for reason: {reason}")
         """**Warn a user**
 
         This command issues a formal warning to a user and logs it.
@@ -945,13 +948,16 @@ class Moderation(commands.Cog):
             fmt = f"You have been warned in **{ctx.guild.name}**, reason: {reason}. This is warning #{num_warns}."
 
             if warn_punishments:
+                self.logger.info(f"Checking for punishments for {num_warns} warnings.")
                 punishments = [p for p in warn_punishments if p.warn_number == num_warns]
                 if not punishments:
                     punish = False
+                    self.logger.info(f"No direct punishment found for {num_warns} warnings.")
                     above = [p for p in warn_punishments if p.warn_number > num_warns]
                     if above:
                         closest = min(above, key=lambda x: x.warn_number)
                         cmd = closest.punishment
+                        self.logger.info(f"Next punishment is '{cmd}' at {closest.warn_number} warnings.")
                         if cmd == "ban":
                             cmd = "bann"
                         if cmd == "mute":
@@ -961,6 +967,7 @@ class Moderation(commands.Cog):
                     punish = True
                     punishment = max(punishments, key=lambda x: x.warn_number)
                     cmd = punishment.punishment
+                    self.logger.info(f"Punishment found for {num_warns} warnings: {cmd}")
                     if cmd == "ban":
                         cmd = "bann"
                     if cmd == "mute":
@@ -993,6 +1000,7 @@ class Moderation(commands.Cog):
 
                 # apply punishment
                 if punish:
+                    self.logger.info(f"Applying punishment '{cmd}' for {num_warns} warnings.")
                     if cmd == "bann":
                         cmd = "ban"
                     if cmd == "mut":
@@ -1005,6 +1013,7 @@ class Moderation(commands.Cog):
                         time.dt = datetime.utcnow() + timedelta(seconds=punishment.duration)
                         time.arg = f"Hit warn limit {num_warns}"
                         kwargs = {"time": time}
+                        self.logger.info(f"Punishment duration: {punishment.duration} seconds.")
                     else:
                         kwargs = {"reason": f"Hit warn limit {num_warns}"}
 
