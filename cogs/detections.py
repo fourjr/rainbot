@@ -357,6 +357,77 @@ class Detections(commands.Cog):
                     if flagged:
                         break  # Stop checking other attachments if one is flagged
 
+    @commands.command(8)
+    async def setdetectionpunishments(
+        self,
+        ctx: commands.Context,
+        detection: str,
+        action: str = None,
+        value: str = None,
+    ):
+        """**Set punishments for a detection**
+
+        **Usage:**
+        `{prefix}setdetectionpunishments <detection> [action] [value]`
+
+        **<detection>:**
+        The detection to configure.
+
+        **[action]:**
+        The action to take. Can be `delete`, `warn`, `kick`, `ban`, or `mute`.
+
+        **[value]:**
+        - For `warn`, the number of warnings to issue.
+        - For `mute`, the duration of the mute.
+        - Not required for other actions.
+        """
+        if action is None:
+            # Display current settings
+            guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+            punishments = guild_config.detection_punishments.get(detection, {})
+            if not punishments:
+                await ctx.send(f"No punishments configured for `{detection}`.")
+                return
+
+            embed = discord.Embed(
+                title=f"Punishments for `{detection}`",
+                description="Current settings:",
+                color=discord.Color.blue(),
+            )
+            for act, val in punishments.items():
+                embed.add_field(name=act, value=val if val else "Enabled", inline=False)
+            await ctx.send(embed=embed)
+            return
+
+        action = action.lower()
+        if action not in ["delete", "warn", "kick", "ban", "mute"]:
+            await ctx.send(
+                "Invalid action. Must be one of: `delete`, `warn`, `kick`, `ban`, `mute`."
+            )
+            return
+
+        update_payload = {}
+        if value:
+            if action in ["warn"]:
+                try:
+                    update_payload[f"detection_punishments.{detection}.{action}"] = int(value)
+                except ValueError:
+                    await ctx.send("Warn value must be a number.")
+                    return
+            elif action == "mute":
+                update_payload[f"detection_punishments.{detection}.{action}"] = value
+            else:
+                await ctx.send(f"`{action}` does not take a value.")
+                return
+        else:
+            if action in ["warn", "mute"]:
+                await ctx.send(f"`{action}` requires a value.")
+                return
+            update_payload[f"detection_punishments.{detection}.{action}"] = True
+
+        await self.bot.db.update_guild_config(ctx.guild.id, {"$set": update_payload})
+        await ctx.send(f"Set punishment for `{detection}` to `{action}`.")
+
 
 async def setup(bot: rainbot) -> None:
     await bot.add_cog(Detections(bot))
