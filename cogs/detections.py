@@ -294,15 +294,16 @@ class Detections(commands.Cog):
 
                 if result and result.get("decision") == "flag":
                     reason = f"AI text moderation triggered for: {', '.join(result.get('categories', []))}"
-                    await m.detection.punish(
-                        self.bot,
-                        m,
-                        guild_config,
-                        reason=reason,
-                        detection_name="ai_moderation",
-                        ai_scores=result.get("category_scores"),
-                    )
-                    flagged = True
+                    if m.guild:  # Check if message still exists
+                        await m.detection.punish(
+                            self.bot,
+                            m,
+                            guild_config,
+                            reason=reason,
+                            detection_name="ai_moderation",
+                            ai_scores=result.get("category_scores"),
+                        )
+                        flagged = True
 
             except Exception as e:
                 self.logger.error(f"Error calling text moderation API: {e}")
@@ -329,15 +330,16 @@ class Detections(commands.Cog):
 
                 if result and result.get("decision") in ("block", "flag"):
                     reason = f"AI image moderation triggered for: {', '.join(result.get('categories', []))}"
-                    await m.detection.punish(
-                        self.bot,
-                        m,
-                        guild_config,
-                        reason=reason,
-                        detection_name="ai_moderation",
-                        ai_scores=result.get("category_scores"),
-                    )
-                    flagged = True
+                    if m.guild:  # Check if message still exists
+                        await m.detection.punish(
+                            self.bot,
+                            m,
+                            guild_config,
+                            reason=reason,
+                            detection_name="ai_moderation",
+                            ai_scores=result.get("category_scores"),
+                        )
+                        flagged = True
 
             except Exception as e:
                 self.logger.error(f"Error calling image moderation API: {e}")
