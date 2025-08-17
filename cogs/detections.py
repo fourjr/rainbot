@@ -305,7 +305,7 @@ class Detections(commands.Cog):
 
         # --- Text Moderation ---
         if m.content:
-            await process_moderation("/moderate/text", {"text": m.content})
+            await process_moderation("/moderate/text", {"content": m.content})
 
         # --- Image Moderation ---
         if m.attachments:
@@ -315,7 +315,7 @@ class Detections(commands.Cog):
                     for ext in [".png", ".jpg", ".jpeg", ".webp"]
                 ):
                     # Pass message content as context for image moderation
-                    payload = {"image_url": attachment.url, "text": m.content}
+                    payload = {"image_url": attachment.url, "content": m.content}
                     await process_moderation("/moderate/image", payload)
                     if flagged:
                         break  # Stop checking other attachments if one is flagged

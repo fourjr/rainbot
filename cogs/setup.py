@@ -1923,7 +1923,7 @@ class Setup(commands.Cog):
         if not api_url:
             return await ctx.send("The `MODERATION_API_URL` is not set in the bot's environment.")
 
-        payload = {"text": text}
+        payload = {"content": text}
 
         try:
             async with aiohttp.ClientSession() as session:
