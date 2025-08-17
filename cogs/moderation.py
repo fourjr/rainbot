@@ -996,7 +996,9 @@ class Moderation(commands.Cog):
         """
         guild_data = await self.bot.db.get_guild_config(ctx.guild.id)
         notes = guild_data.notes
-        note_to_remove = next((note for note in notes if note.get("case_number") == case_number), None)
+        note_to_remove = next(
+            (note for note in notes if note.get("case_number") == case_number), None
+        )
 
         if not note_to_remove:
             await ctx.send(f"Note #{case_number} does not exist.")
@@ -1004,7 +1006,7 @@ class Moderation(commands.Cog):
             await self.bot.db.update_guild_config(
                 ctx.guild.id, {"$pull": {"notes": {"case_number": case_number}}}
             )
-            member_id = note_to_remove.get('member_id')
+            member_id = note_to_remove.get("member_id")
             await ctx.send(f"Note #{case_number} has been removed from <@{member_id}>.")
 
     @note.command(6, name="list", aliases=["view"])
@@ -1033,17 +1035,16 @@ class Moderation(commands.Cog):
         if not user_notes:
             await ctx.send(f"{name} has no notes.")
         else:
-            embed = discord.Embed(
-                title=f"Notes for {name}",
-                color=discord.Color.blue()
-            )
+            embed = discord.Embed(title=f"Notes for {name}", color=discord.Color.blue())
             for note in user_notes:
                 moderator = ctx.guild.get_member(int(note.get("moderator_id", 0)))
-                moderator_name = moderator.mention if moderator else f"<@{note.get('moderator_id', 'Unknown')}>"
+                moderator_name = (
+                    moderator.mention if moderator else f"<@{note.get('moderator_id', 'Unknown')}>"
+                )
                 embed.add_field(
                     name=f"Note #{note.get('case_number', 'N/A')} on {note.get('date', 'Unknown Date')}",
                     value=f"**Moderator:** {moderator_name}\n**Note:** {note.get('note', 'N/A')}",
-                    inline=False
+                    inline=False,
                 )
             await ctx.send(embed=embed)
 
