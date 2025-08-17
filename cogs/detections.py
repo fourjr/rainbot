@@ -281,6 +281,7 @@ class Detections(commands.Cog):
                     async with session.post(f"{api_url}{endpoint}", json=payload) as resp:
                         if resp.status == 200:
                             result = await resp.json()
+                            self.logger.info(f"Moderation API response from {endpoint}: {result}")
                         else:
                             self.logger.error(
                                 f"Moderation API request to {endpoint} failed with status {resp.status}: {await resp.text()}"
