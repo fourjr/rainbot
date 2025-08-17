@@ -204,7 +204,7 @@ class Logging(commands.Cog):
             elif mode == "member_join":
                 fmt = f"{current_time} {payload} ({payload.id}) has joined. "
                 delta = (
-                    datetime.now(timezone.utc) - payload.created_at
+                    datetime.utcnow() - payload.created_at
                 )  # Make utcnow timezone-aware
                 if delta.total_seconds() < 60 * 60 * 24:
                     # joined in last day

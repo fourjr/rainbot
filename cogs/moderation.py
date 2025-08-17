@@ -945,21 +945,21 @@ class Moderation(commands.Cog):
             fmt = f"You have been warned in **{ctx.guild.name}**, reason: {reason}. This is warning #{num_warns}."
 
             if warn_punishments:
-                punishments = list(filter(lambda x: int(x) == num_warns, warn_punishment_limits))
+                punishments = [p for p in warn_punishments if p.warn_number == num_warns]
                 if not punishments:
                     punish = False
-                    above = list(filter(lambda x: int(x) > num_warns, warn_punishment_limits))
+                    above = [p for p in warn_punishments if p.warn_number > num_warns]
                     if above:
-                        closest = min(map(int, above))
-                        cmd = warn_punishments.get_kv("warn_number", closest).punishment
+                        closest = min(above, key=lambda x: x.warn_number)
+                        cmd = closest.punishment
                         if cmd == "ban":
                             cmd = "bann"
                         if cmd == "mute":
                             cmd = "mut"
-                        fmt += f" You will be {cmd}ed on warning {closest}."
+                        fmt += f" You will be {cmd}ed on warning {closest.warn_number}."
                 else:
                     punish = True
-                    punishment = warn_punishments.get_kv("warn_number", max(map(int, punishments)))
+                    punishment = max(punishments, key=lambda x: x.warn_number)
                     cmd = punishment.punishment
                     if cmd == "ban":
                         cmd = "bann"
@@ -1002,7 +1002,7 @@ class Moderation(commands.Cog):
 
                     if punishment.get("duration"):
                         time = UserFriendlyTime(default=False)
-                        time.dt = ctx.message.created_at + timedelta(seconds=punishment.duration)
+                        time.dt = datetime.utcnow() + timedelta(seconds=punishment.duration)
                         time.arg = f"Hit warn limit {num_warns}"
                         kwargs = {"time": time}
                     else:
