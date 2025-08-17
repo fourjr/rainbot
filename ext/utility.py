@@ -418,6 +418,16 @@ class Detection:
             ctx.command = bot.get_command("warn add")
             await ctx.invoke(bot.get_command("warn add"), member=message.author, reason=reason)
 
+        if punishments.delete:
+            if purge_limit:
+                ctx.command = bot.get_command("purge")
+                await ctx.invoke(bot.get_command("purge"), member=message.author, limit=purge_limit)
+            else:
+                try:
+                    await message.delete()
+                except discord.NotFound:
+                    pass
+
         if punishments.kick:
             try:
                 ctx.command = bot.get_command("kick")
@@ -431,16 +441,6 @@ class Detection:
                 await ctx.invoke(bot.get_command("ban"), member=message.author, reason=reason)
             except discord.NotFound:
                 pass
-
-        if punishments.delete:
-            if purge_limit:
-                ctx.command = bot.get_command("purge")
-                await ctx.invoke(bot.get_command("purge"), member=message.author, limit=purge_limit)
-            else:
-                try:
-                    await message.delete()
-                except discord.NotFound:
-                    pass
 
         if punishments.mute:
             try:
