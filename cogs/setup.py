@@ -77,7 +77,6 @@ class Setup(commands.Cog):
             return
 
         def format_value(path, value):
-            # Try to resolve IDs to names
             if "role" in path.lower() and isinstance(value, str):
                 try:
                     role = ctx.guild.get_role(int(value))
@@ -126,30 +125,48 @@ class Setup(commands.Cog):
             return
 
         custom_settings.sort()
-        embeds = []
-        current_embed = discord.Embed(
-            title=f"⚙️ {ctx.guild.name} Custom Configurations",
-            description="Showing all settings that have been changed from the default.",
-            color=config.get_color("info"),
-        )
-        char_count = 0
+
+        embeds = [
+            discord.Embed(
+                title=f"⚙️ {ctx.guild.name} Custom Configurations",
+                description="Showing all settings that have been changed from the default.",
+                color=config.get_color("info"),
+            )
+        ]
 
         for path, value in custom_settings:
             if path in ("guild_id", "_id"):
                 continue
 
-            formatted_setting = f"**{path}**: {format_value(path, value)}\n"
-            if char_count + len(formatted_setting) > 1024:
-                embeds.append(current_embed)
-                current_embed = discord.Embed(color=config.get_color("info"))
-                char_count = 0
+            field_name = path.replace("_", " ").title()
+            field_value = format_value(path, value)
 
-            current_embed.add_field(
-                name=path.replace("_", " ").title(), value=format_value(path, value), inline=False
-            )
-            char_count += len(formatted_setting)
+            if (
+                len(embeds[-1]) + len(field_name) + len(field_value) > 6000
+                or len(embeds[-1].fields) >= 25
+            ):
+                embeds.append(
+                    discord.Embed(
+                        title=f"⚙️ {ctx.guild.name} Custom Configurations (cont.)",
+                        color=config.get_color("info"),
+                    )
+                )
 
-        embeds.append(current_embed)
+            if len(field_value) > 1024:
+                chunks = [field_value[i : i + 1024] for i in range(0, len(field_value), 1024)]
+                for i, chunk in enumerate(chunks):
+                    embeds[-1].add_field(
+                        name=f"{field_name} (part {i+1})", value=chunk, inline=False
+                    )
+                    if len(embeds[-1].fields) >= 25:
+                        embeds.append(
+                            discord.Embed(
+                                title=f"⚙️ {ctx.guild.name} Custom Configurations (cont.)",
+                                color=config.get_color("info"),
+                            )
+                        )
+            else:
+                embeds[-1].add_field(name=field_name, value=field_value, inline=False)
 
         if len(embeds) > 1:
             paginator = Paginator(ctx, *embeds)
