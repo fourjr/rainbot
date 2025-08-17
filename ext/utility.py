@@ -415,8 +415,8 @@ class Detection:
                 await log_channel.send(embed=embed)
 
         for _ in range(punishments.warn):
-            ctx.command = bot.get_command("warn add")
-            await ctx.invoke(bot.get_command("warn add"), member=message.author, reason=reason)
+            ctx.command = bot.get_command("warn")
+            await ctx.invoke(bot.get_command("warn"), member=message.author, reason=reason)
 
         if punishments.delete:
             if purge_limit:
