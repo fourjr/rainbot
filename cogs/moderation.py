@@ -1032,23 +1032,25 @@ class Moderation(commands.Cog):
 
                     # Check for automatic punishment
                     punishment_config = getattr(guild_config, "warn_punishment", None)
+                    unpunished_warns = [w for w in guild_warns if not w.get("punishment_applied") and w.get("member_id") == str(member.id)]
+                    
                     if (
                         punishment_config
                         and isinstance(member, discord.Member)
-                        and num_warns >= punishment_config.get("threshold", float("inf"))
+                        and len(unpunished_warns) >= punishment_config.get("threshold", float("inf"))
                     ):
                         action = punishment_config["action"]
                         duration_seconds = punishment_config.get("duration")
                         duration = timedelta(seconds=duration_seconds) if duration_seconds else None
                         punishment_reason = (
-                            f"Automatic punishment for reaching {num_warns} warnings."
+                            f"Automatic punishment for reaching {len(unpunished_warns)} warnings."
                         )
                         duration_str = f" for {format_timedelta(duration)}" if duration else ""
 
                         embed = discord.Embed(
                             title="Confirm Automatic Punishment",
                             description=(
-                                f"{member.mention} has reached {num_warns} warnings.\n"
+                                f"{member.mention} has reached {len(unpunished_warns)} warnings.\n"
                                 f"The configured punishment is **{action.capitalize()}{duration_str}**.\n\n"
                                 f"Do you want to apply this punishment?"
                             ),
@@ -1071,6 +1073,10 @@ class Moderation(commands.Cog):
                             )
 
                             if str(reaction.emoji) == "✅":
+                                # Add a note about the punishment
+                                await self.add_note.callback(self, ctx, member=member, note=punishment_reason)
+
+                                # Apply punishment
                                 await confirm_msg.edit(
                                     embed=discord.Embed(
                                         title="Punishment Confirmed",
@@ -1092,7 +1098,16 @@ class Moderation(commands.Cog):
                                     await self._perform_mute(
                                         ctx, member, punishment_reason, duration
                                     )
-                            else:  # User reacted with ❌
+                                
+                                # Mark warnings as punished
+                                for warn in unpunished_warns:
+                                    await self.bot.db.update_guild_config(
+                                        ctx.guild.id,
+                                        {"$set": {f"warns.$[elem].punishment_applied": True}},
+                                        array_filters=[{"elem.case_number": warn["case_number"]}]
+                                    )
+
+                            else:  # User reacted with ��
                                 await confirm_msg.edit(
                                     embed=discord.Embed(
                                         title="Punishment Cancelled",
@@ -1169,9 +1184,15 @@ class Moderation(commands.Cog):
         )
         await ctx.send(f"Cleared all warnings for {member.mention}.")
 
+    recently_kicked = set()
+
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member) -> None:
         """Clear a user's warns when they leave the server."""
+        if member.id in self.recently_kicked:
+            self.recently_kicked.remove(member.id)
+            return
+
         await self.bot.db.update_guild_config(
             member.guild.id, {"$pull": {"warns": {"member_id": str(member.id)}}}
         )
@@ -1531,6 +1552,7 @@ class Moderation(commands.Cog):
 
         try:
             await self.alert_user(ctx, member, reason, action_name="kicked")
+            self.recently_kicked.add(member.id)
             await member.kick(reason=reason)
             await ctx.send(f"{member.mention} has been kicked. Reason: {reason}")
             await self.send_log(ctx, member, reason)
@@ -1555,6 +1577,7 @@ class Moderation(commands.Cog):
 
         try:
             await self.alert_user(ctx, member, reason, action_name="softbanned")
+            self.recently_kicked.add(member.id)
             await member.ban(reason=reason, delete_message_days=1)
             await member.unban(reason="Softban punishment")
             await ctx.send(f"{member.mention} has been softbanned. Reason: {reason}")
@@ -1582,6 +1605,7 @@ class Moderation(commands.Cog):
 
         try:
             await self.alert_user(ctx, member, reason, action_name="banned")
+            self.recently_kicked.add(member.id)
             await ctx.guild.ban(member, reason=reason, delete_message_days=1)
 
             if duration:
@@ -1736,6 +1760,7 @@ class Moderation(commands.Cog):
         if str(reaction.emoji) == "✅":
             try:
                 await self.alert_user(ctx, member, reason)
+                self.recently_kicked.add(member.id)
                 await member.kick(reason=reason)
                 await msg.edit(
                     embed=discord.Embed(
@@ -1804,6 +1829,7 @@ class Moderation(commands.Cog):
             await ctx.send("User has insufficient permissions")
         else:
             await self.alert_user(ctx, member, reason)
+            self.recently_kicked.add(member.id)
             try:
                 await member.ban(reason=reason)
             except discord.Forbidden:
@@ -1904,6 +1930,7 @@ class Moderation(commands.Cog):
             prune_days = getattr(guild_config, "ban_prune_days", 3)
 
         try:
+            self.recently_kicked.add(member.id)
             await ctx.guild.ban(
                 member,
                 reason=f"{ctx.author}: {reason}" if reason else f"Ban by {ctx.author}",
