@@ -1027,15 +1027,13 @@ class Moderation(commands.Cog):
                     else:
                         kwargs = {"reason": f"Hit warn limit {num_warns}"}
 
-                    # If previous kick confirmation timed out for this member, resend dialog
-                    if cmd == "kick" and str(member.id) in self.kick_confirm_timeouts:
-                        await ctx.send(
-                            f"Previous kick confirmation for {member} timed out. Resending confirmation dialog."
-                        )
-                        self.kick_confirm_timeouts.remove(str(member.id))
-                        await self.kick(ctx, member, reason=kwargs.get("reason"))
-                    else:
-                        await ctx.invoke(ctx.command, member, **kwargs)
+                    # Apply the punishment directly
+                    punishment_cmd = self.bot.get_command(cmd)
+                    if punishment_cmd:
+                        try:
+                            await ctx.invoke(punishment_cmd, member, **kwargs)
+                        except Exception as e:
+                            print(f"Error applying warn punishment {cmd}: {e}")
 
     @warn.command(6, name="remove", aliases=["delete", "del"])
     async def remove_(self, ctx: commands.Context, case_number: int) -> None:
