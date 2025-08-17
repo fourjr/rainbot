@@ -1945,67 +1945,53 @@ class Setup(commands.Cog):
         if not api_url:
             return await ctx.send("The `MODERATION_API_URL` is not set in the bot's environment.")
 
-        embed = discord.Embed(title="AI Moderation Test Results", color=discord.Color.blue())
-
-        # --- Text Moderation ---
-        if text:
-            try:
-                payload = {"content": text}
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(f"{api_url}/moderate/text", json=payload) as resp:
-                        if resp.status == 200:
-                            result = await resp.json()
-                            decision = result.get("decision", "error")
-                            categories = ", ".join(result.get("categories", [])) or "None"
-                            embed.add_field(
-                                name="Text Moderation",
-                                value=f"**Decision:** {decision}\n**Categories:** {categories}",
-                                inline=False,
-                            )
-                        else:
-                            embed.add_field(
-                                name="Text Moderation",
-                                value=f"API request failed with status {resp.status}",
-                                inline=False,
-                            )
-            except Exception as e:
-                embed.add_field(
-                    name="Text Moderation", value=f"An error occurred: {e}", inline=False
-                )
-
-        # --- Image Moderation ---
-        if ctx.message.attachments:
-            attachment = ctx.message.attachments[0]
-            try:
-                form = aiohttp.FormData()
-                form.add_field("file", await attachment.read(), filename=attachment.filename)
-
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(f"{api_url}/moderate/image", data=form) as resp:
-                        if resp.status == 200:
-                            result = await resp.json()
-                            decision = result.get("decision", "error")
-                            nsfw = result.get("nsfw", "N/A")
-                            confidence = result.get("confidence", "N/A")
-                            categories = ", ".join(result.get("categories", [])) or "None"
-                            embed.add_field(
-                                name="Image Moderation",
-                                value=f"**Decision:** {decision}\n**NSFW:** {nsfw}\n**Confidence:** {confidence}\n**Categories:** {categories}",
-                                inline=False,
-                            )
-                        else:
-                            embed.add_field(
-                                name="Image Moderation",
-                                value=f"API request failed with status {resp.status}",
-                                inline=False,
-                            )
-            except Exception as e:
-                embed.add_field(
-                    name="Image Moderation", value=f"An error occurred: {e}", inline=False
-                )
-
         if not text and not ctx.message.attachments:
             return await ctx.send("Please provide text or an image to test.")
+
+        try:
+            form = aiohttp.FormData()
+            if text:
+                form.add_field("text", text)
+            if ctx.message.attachments:
+                attachment = ctx.message.attachments[0]
+                form.add_field("image", await attachment.read(), filename=attachment.filename)
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(f"{api_url}/moderate", data=form) as resp:
+                    if resp.status == 200:
+                        result = await resp.json()
+                    else:
+                        await ctx.send(
+                            f"API request failed with status {resp.status}: {await resp.text()}"
+                        )
+                        return
+        except Exception as e:
+            await ctx.send(f"An error occurred: {e}")
+            return
+
+        embed = discord.Embed(title="AI Moderation Test Results", color=discord.Color.blue())
+
+        if "text" in result:
+            text_result = result["text"]
+            decision = text_result.get("decision", "error")
+            categories = ", ".join(text_result.get("categories", [])) or "None"
+            embed.add_field(
+                name="Text Moderation",
+                value=f"**Decision:** {decision}\n**Categories:** {categories}",
+                inline=False,
+            )
+
+        if "image" in result:
+            image_result = result["image"]
+            decision = image_result.get("decision", "error")
+            nsfw = image_result.get("nsfw", "N/A")
+            confidence = image_result.get("confidence", "N/A")
+            categories = ", ".join(image_result.get("categories", [])) or "None"
+            embed.add_field(
+                name="Image Moderation",
+                value=f"**Decision:** {decision}\n**NSFW:** {nsfw}\n**Confidence:** {confidence}\n**Categories:** {categories}",
+                inline=False,
+            )
 
         await ctx.send(embed=embed)
 
