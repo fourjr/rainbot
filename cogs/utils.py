@@ -398,9 +398,9 @@ class Utility(commands.Cog):
                 for i in list(cmd.commands):
                     if await self.can_run(ctx, i):
                         usage = i.usage or i.signature.replace(i.name, f"{i.name}")
-                        example = f"{prefix}{i.name} {i.usage}" if i.usage else f"{prefix}{i.name}"
+                        example = f"{prefix}{cmd.name} {i.name} {i.usage}" if i.usage else f"{prefix}{cmd.name} {i.name}"
                         subcommands.append(
-                            f"• `{i.name}` - {i.short_doc or 'No description'}\n  Usage: `{prefix}{i.name}{(' ' + i.usage) if i.usage else ''}`\n  Example: `{example}`"
+                            f"• `{i.name}` - {i.short_doc or 'No description'}\n  Usage: `{prefix}{cmd.name} {i.name}{(' ' + i.usage) if i.usage else ''}`\n  Example: `{example}`"
                         )
 
                 if subcommands:

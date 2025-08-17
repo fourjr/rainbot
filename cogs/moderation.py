@@ -898,22 +898,44 @@ class Moderation(commands.Cog):
         em.add_field(name="Member Information", value=member_info, inline=False)
         await ctx.send(embed=em)
 
-    @group(6, invoke_without_command=True)
-    async def note(self, ctx: commands.Context) -> None:
+    @group(6, invoke_without_command=True, usage="<member> <note>")
+    async def note(
+        self,
+        ctx: commands.Context,
+        member: MemberOrID = None,
+        *,
+        note: CannedStr = None,
+    ) -> None:
         """**Manage notes for users**
 
-        This command group allows you to add, remove, and view notes about users.
+        This command allows you to add, remove, and view notes about users.
         Notes are visible to moderators and can be used to track user behavior.
 
+        **Usage:**
+        `{prefix}note <member> <note>`
+
+        **<member>:**
+        - Mention the user, e.g., `@user`
+        - Provide the user's ID, e.g., `123456789012345678`
+
+        **<note>:**
+        The content of the note.
+
         **Subcommands:**
-        - `add` - Add a note to a user.
         - `remove` - Remove a note from a user.
         - `list` - List all notes for a user.
+
+        **Example:**
+        `{prefix}note @TestUser Investigating potential alt account.`
         """
-        await ctx.invoke(self.bot.get_command("help"), command_or_cog="note")
+        if ctx.invoked_subcommand is None:
+            if member is None:
+                await ctx.invoke(self.bot.get_command("help"), command_or_cog="note")
+                return
+            await self.add.callback(self, ctx, member=member, note=note)
 
     @note.command(6)
-    async def add(self, ctx: commands.Context, member: MemberOrID, *, note):
+    async def add(self, ctx: commands.Context, member: MemberOrID, *, note: CannedStr):
         """**Add a note to a user**
 
         This command adds a private note to a user's record.
@@ -935,7 +957,7 @@ class Moderation(commands.Cog):
             get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
             >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]
         ):
-            await ctx.send("User has insufficient permissions")
+            await ctx.send("You do not have permission to add a note to this user.")
         else:
             guild_data = await self.bot.db.get_guild_config(ctx.guild.id)
             notes = guild_data.notes
@@ -945,7 +967,7 @@ class Moderation(commands.Cog):
             if not notes:
                 case_number = 1
             else:
-                case_number = notes[-1]["case_number"] + 1
+                case_number = notes[-1]["case_number"] + 1 if notes else 1
 
             push = {
                 "case_number": case_number,
@@ -955,7 +977,7 @@ class Moderation(commands.Cog):
                 "note": note,
             }
             await self.bot.db.update_guild_config(ctx.guild.id, {"$push": {"notes": push}})
-            await ctx.send(f"Note added for {member.mention}: {note}")
+            await ctx.send(f"Note #{case_number} has been added for {member.mention}: {note}")
 
     @note.command(6, aliases=["delete", "del"])
     async def remove(self, ctx: commands.Context, case_number: int) -> None:
@@ -974,12 +996,16 @@ class Moderation(commands.Cog):
         """
         guild_data = await self.bot.db.get_guild_config(ctx.guild.id)
         notes = guild_data.notes
-        note = list(filter(lambda w: w["case_number"] == case_number, notes))
-        if not note:
+        note_to_remove = next((note for note in notes if note.get("case_number") == case_number), None)
+
+        if not note_to_remove:
             await ctx.send(f"Note #{case_number} does not exist.")
         else:
-            await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"notes": note[0]}})
-            await ctx.send(f"Note #{case_number} removed from <@{note[0]['member_id']}>.")
+            await self.bot.db.update_guild_config(
+                ctx.guild.id, {"$pull": {"notes": {"case_number": case_number}}}
+            )
+            member_id = note_to_remove.get('member_id')
+            await ctx.send(f"Note #{case_number} has been removed from <@{member_id}>.")
 
     @note.command(6, name="list", aliases=["view"])
     async def _list(self, ctx: commands.Context, member: MemberOrID) -> None:
@@ -999,20 +1025,27 @@ class Moderation(commands.Cog):
         """
         guild_data = await self.bot.db.get_guild_config(ctx.guild.id)
         notes = guild_data.notes
-        notes = list(filter(lambda w: w["member_id"] == str(member.id), notes))
+        user_notes = [note for note in notes if note.get("member_id") == str(member.id)]
         name = getattr(member, "name", str(member.id))
-        if name != str(member.id):
+        if hasattr(member, "discriminator") and name != str(member.id):
             name += f"#{member.discriminator}"
 
-        if not notes:
+        if not user_notes:
             await ctx.send(f"{name} has no notes.")
         else:
-            fmt = f"**{name} has {len(notes)} notes.**"
-            for note in notes:
-                moderator = ctx.guild.get_member(int(note["moderator_id"]))
-                fmt += f"\n`{note['date']}` Note #{note['case_number']}: {moderator} noted {note['note']}"
-
-            await ctx.send(fmt)
+            embed = discord.Embed(
+                title=f"Notes for {name}",
+                color=discord.Color.blue()
+            )
+            for note in user_notes:
+                moderator = ctx.guild.get_member(int(note.get("moderator_id", 0)))
+                moderator_name = moderator.mention if moderator else f"<@{note.get('moderator_id', 'Unknown')}>"
+                embed.add_field(
+                    name=f"Note #{note.get('case_number', 'N/A')} on {note.get('date', 'Unknown Date')}",
+                    value=f"**Moderator:** {moderator_name}\n**Note:** {note.get('note', 'N/A')}",
+                    inline=False
+                )
+            await ctx.send(embed=embed)
 
     @command(8, usage="<threshold> <punishment> [duration]")
     async def setwarnpunishment(
