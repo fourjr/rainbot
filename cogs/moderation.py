@@ -621,12 +621,8 @@ class Moderation(commands.Cog):
     async def send_log(self, ctx: commands.Context, *args) -> None:
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         offset = guild_config.time_offset
-        # Ensure created_at is timezone-aware
-        created_at = ctx.message.created_at
-        if created_at.tzinfo is None:
-            created_at = created_at.replace(tzinfo=datetime.timezone.utc)
         current_time = (
-            f"<t:{int((created_at + timedelta(hours=offset)).timestamp())}:T>"
+            f"<t:{int((ctx.message.created_at + timedelta(hours=offset)).timestamp())}:T>"
         )
 
         modlogs = DBDict(
@@ -737,14 +733,7 @@ class Moderation(commands.Cog):
         """
 
         async def timestamp(created):
-            # Ensure both datetimes are timezone-aware
-            msg_created = ctx.message.created_at
-            if msg_created.tzinfo is None:
-                msg_created = msg_created.replace(tzinfo=datetime.timezone.utc)
-            if created.tzinfo is None:
-                created = created.replace(tzinfo=datetime.timezone.utc)
-            
-            delta = format_timedelta(msg_created - created)
+            delta = format_timedelta(ctx.message.created_at - created)
             guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
             created = created + timedelta(hours=guild_config.time_offset)
             return f"{delta} ago (<t:{int(created.timestamp())}:T>)"
@@ -985,11 +974,7 @@ class Moderation(commands.Cog):
                     await ctx.send("The user has PMs disabled or blocked the bot.")
             finally:
                 guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-                # Ensure created_at is timezone-aware
-                created_at = ctx.message.created_at
-                if created_at.tzinfo is None:
-                    created_at = created_at.replace(tzinfo=datetime.timezone.utc)
-                current_date = f"<t:{int((created_at + timedelta(hours=guild_config.time_offset)).timestamp())}:D>"
+                current_date = f"<t:{int((ctx.message.created_at + timedelta(hours=guild_config.time_offset)).timestamp())}:D>"
                 if not guild_warns:
                     case_number = 1
                 else:
@@ -1017,11 +1002,7 @@ class Moderation(commands.Cog):
 
                     if punishment.get("duration"):
                         time = UserFriendlyTime(default=False)
-                        # Ensure created_at is timezone-aware
-                        created_at = ctx.message.created_at
-                        if created_at.tzinfo is None:
-                            created_at = created_at.replace(tzinfo=datetime.timezone.utc)
-                        time.dt = created_at + timedelta(seconds=punishment.duration)
+                        time.dt = ctx.message.created_at + timedelta(seconds=punishment.duration)
                         time.arg = f"Hit warn limit {num_warns}"
                         kwargs = {"time": time}
                     else:
@@ -1185,15 +1166,7 @@ class Moderation(commands.Cog):
         reason = None
         if time:
             if time.dt:
-                # Ensure both datetimes are timezone-aware
-                created_at = ctx.message.created_at
-                if created_at.tzinfo is None:
-                    created_at = created_at.replace(tzinfo=datetime.timezone.utc)
-                if time.dt.tzinfo is None:
-                    time_dt = time.dt.replace(tzinfo=datetime.timezone.utc)
-                else:
-                    time_dt = time.dt
-                duration = time_dt - created_at
+                duration = time.dt - ctx.message.created_at
             if time.arg:
                 reason = time.arg
 
@@ -1425,15 +1398,7 @@ class Moderation(commands.Cog):
         duration = timedelta()
         channel = ctx.channel
         if time.dt:
-            # Ensure both datetimes are timezone-aware
-            created_at = ctx.message.created_at
-            if created_at.tzinfo is None:
-                created_at = created_at.replace(tzinfo=datetime.timezone.utc)
-            if time.dt.tzinfo is None:
-                time_dt = time.dt.replace(tzinfo=datetime.timezone.utc)
-            else:
-                time_dt = time.dt
-            duration = time_dt - created_at
+            duration = time.dt - ctx.message.created_at
         if time.arg:
             if isinstance(time.arg, str):
                 try:
@@ -1679,15 +1644,7 @@ class Moderation(commands.Cog):
             try:
                 uft = await UserFriendlyTime(default=False).convert(ctx, time_or_reason)
                 if uft.dt:
-                    # Ensure both datetimes are timezone-aware
-                    created_at = ctx.message.created_at
-                    if created_at.tzinfo is None:
-                        created_at = created_at.replace(tzinfo=datetime.timezone.utc)
-                    if uft.dt.tzinfo is None:
-                        uft_dt = uft.dt.replace(tzinfo=datetime.timezone.utc)
-                    else:
-                        uft_dt = uft.dt
-                    duration = uft_dt - created_at
+                    duration = uft.dt - ctx.message.created_at
                 if uft.arg:
                     reason = uft.arg
             except commands.BadArgument:
