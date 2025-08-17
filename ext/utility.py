@@ -443,6 +443,10 @@ class Detection:
         if punishments.mute:
             try:
                 time_obj = await UserFriendlyTime().convert(ctx, punishments.mute + " " + reason)
+                # Ensure time_obj is timezone-aware (UTC)
+                import datetime
+                if hasattr(time_obj, 'tzinfo') and time_obj.tzinfo is None:
+                    time_obj = time_obj.replace(tzinfo=datetime.timezone.utc)
                 ctx.command = bot.get_command("mute")
                 await ctx.invoke(
                     bot.get_command("mute"),
