@@ -988,9 +988,11 @@ class Moderation(commands.Cog):
         - `clear` - Clear all warnings from a user.
         """
         if ctx.invoked_subcommand is None:
-            if member is None or reason is None:
+            if member is None:
                 await ctx.invoke(self.bot.get_command("help"), command_or_cog="warn")
                 return
+
+            reason = reason or "No reason provided."
 
             if (
                 get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
