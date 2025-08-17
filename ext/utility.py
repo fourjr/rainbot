@@ -343,6 +343,17 @@ class Detection:
         punishments = guild_config.detection_punishments[name]
         reason = reason or f"Detection triggered: {name}"
 
+        # Delete message first
+        if punishments.delete:
+            if purge_limit:
+                ctx.command = bot.get_command("purge")
+                await ctx.invoke(bot.get_command("purge"), member=message.author, limit=purge_limit)
+            else:
+                try:
+                    await message.delete()
+                except discord.NotFound:
+                    pass
+
         # Notify user
         alert_location = guild_config.alert.alert_location
         notification_message = (
@@ -417,16 +428,6 @@ class Detection:
         for _ in range(punishments.warn):
             ctx.command = bot.get_command("warn")
             await ctx.invoke(bot.get_command("warn"), member=message.author, reason=reason)
-
-        if punishments.delete:
-            if purge_limit:
-                ctx.command = bot.get_command("purge")
-                await ctx.invoke(bot.get_command("purge"), member=message.author, limit=purge_limit)
-            else:
-                try:
-                    await message.delete()
-                except discord.NotFound:
-                    pass
 
         if punishments.kick:
             try:
