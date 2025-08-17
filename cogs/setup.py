@@ -49,103 +49,89 @@ class Setup(commands.Cog):
 
     @command(6, aliases=["view_config", "view-config"], usage="[json]")
     async def viewconfig(self, ctx: commands.Context, options: str = None) -> None:
-        """**View server configuration**
+        """**View all custom server configurations**
 
-        This command displays the current server configuration.
-        You can also get a downloadable JSON file of the configuration.
+        This command displays every setting that has been changed from the default value.
+        You can also get a downloadable JSON file of the full configuration.
 
         **Usage:**
         `{prefix}viewconfig [json]`
 
         **[json]:**
-        - If provided, the configuration will be sent as a JSON file.
+        - If provided, the full configuration will be sent as a JSON file.
 
         **Examples:**
-        - `{prefix}viewconfig` - Displays the configuration in an embed.
-        - `{prefix}viewconfig json` - Sends the configuration as a file.
+        - `{prefix}viewconfig` - Displays all custom-set configurations.
+        - `{prefix}viewconfig json` - Sends the full configuration as a file.
         """
-        guild_config = copy.copy(await self.bot.db.get_guild_config(ctx.guild.id))
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
 
         if options and options.lower() == "json":
-            # Send as JSON file for easy editing
             config_json = json.dumps(guild_config, indent=2, default=str)
             file = discord.File(io.StringIO(config_json), filename=f"{ctx.guild.name}_config.json")
-            embed = discord.Embed(
-                title="📄 Server Configuration (JSON)",
-                description="Here's your server configuration as a JSON file:",
-                color=config.get_color("info"),
+            await ctx.send(
+                embed=discord.Embed(
+                    title="📄 Server Configuration (JSON)",
+                    description="Here's your server's full configuration as a JSON file.",
+                    color=config.get_color("info"),
+                ),
+                file=file,
             )
-            await ctx.send(embed=embed, file=file)
             return
 
-        # Create detailed embed
         embed = discord.Embed(
-            title=f"⚙️ {ctx.guild.name} Configuration", color=config.get_color("info")
+            title=f"⚙️ {ctx.guild.name} Custom Configurations",
+            description="Showing all settings that have been changed from the default.",
+            color=config.get_color("info"),
         )
 
-        # Basic settings
-        mute_role_text = (
-            f"**Mute Role:** <@&{guild_config.mute_role}>"
-            if guild_config.mute_role
-            else "**Mute Role:** Not set"
-        )
-        embed.add_field(
-            name="🔧 Basic Settings",
-            value=(
-                f"**Prefix:** `{guild_config.prefix}`\n"
-                f"**Time Offset:** {guild_config.time_offset} hours\n"
-                f"{mute_role_text}"
-            ),
-            inline=False,
-        )
+        def format_value(value):
+            if isinstance(value, list):
+                return ", ".join(f"`{v}`" for v in value) or "None"
+            if isinstance(value, dict):
+                return "\n".join(f"- `{k}`: `{v}`" for k, v in value.items()) or "None"
+            return f"`{value}`"
 
-        # Permission levels
-        perm_levels = []
-        for entry in guild_config.perm_levels:
-            role_id = getattr(entry, "role_id", None)
-            level = getattr(entry, "level", None)
-            role = ctx.guild.get_role(int(role_id)) if role_id else None
-            role_name = role.name if role else "Not set"
-            perm_levels.append(f"Level {level}: {role_name}")
+        custom_settings = []
 
-        if perm_levels:
-            embed.add_field(
-                name="🛡️ Permission Levels",
-                value="\n".join(perm_levels[:5]) + ("\n..." if len(perm_levels) > 5 else ""),
-                inline=True,
-            )
+        def find_diff(d1, d2, path=""):
+            for k in d1:
+                new_path = f"{path}.{k}" if path else k
+                if k not in d2:
+                    custom_settings.append((new_path, d1[k]))
+                elif isinstance(d1[k], dict) and isinstance(d2[k], dict):
+                    find_diff(d1[k], d2[k], new_path)
+                elif d1[k] != d2[k]:
+                    custom_settings.append((new_path, d1[k]))
 
-        # Logging channels
-        log_channels = []
-        for log_type, channel_id in guild_config.logs.items():
-            if channel_id:
-                channel = ctx.guild.get_channel(int(channel_id))
-                if channel:
-                    log_channels.append(f"{log_type}: #{channel.name}")
+        find_diff(guild_config, DEFAULT)
 
-        if log_channels:
-            embed.add_field(
-                name="📝 Logging Channels",
-                value="\n".join(log_channels[:5]) + ("\n..." if len(log_channels) > 5 else ""),
-                inline=True,
-            )
+        if not custom_settings:
+            embed.description = "No custom configurations found. All settings are at their default values."
+            await ctx.send(embed=embed)
+            return
 
-        # Auto-moderation settings
-        automod_settings = []
-        for setting, value in guild_config.detections.items():
-            if isinstance(value, bool):
-                status = "✅" if value else "❌"
-                automod_settings.append(f"{setting}: {status}")
+        # Sort and format for readability
+        custom_settings.sort()
+        current_category = ""
+        field_value = ""
 
-        if automod_settings:
-            embed.add_field(
-                name="🛡️ Auto-moderation",
-                value="\n".join(automod_settings[:5])
-                + ("\n..." if len(automod_settings) > 5 else ""),
-                inline=True,
-            )
+        for path, value in custom_settings:
+            if path in ("guild_id", "_id"):
+                continue
 
-        embed.set_footer(text=f"Use {ctx.prefix}help setup for more configuration options")
+            category = path.split(".")[0]
+            if category != current_category:
+                if field_value:
+                    embed.add_field(name=f"**{current_category.replace('_', ' ').title()}**", value=field_value, inline=False)
+                current_category = category
+                field_value = ""
+            
+            field_value += f"**{path}**: {format_value(value)}\n"
+
+        if field_value:
+            embed.add_field(name=f"**{current_category.replace('_', ' ').title()}**", value=field_value, inline=False)
+
         await ctx.send(embed=embed)
 
     @command(10, aliases=["import_config", "import-config"], usage="<url>")
