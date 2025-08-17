@@ -1687,6 +1687,16 @@ class Moderation(commands.Cog):
         **Example:**
         `{prefix}kick @TestUser Breaking rules.`
         """
+        if getattr(ctx, "_dummy", False):
+            if not isinstance(member, discord.Member):
+                member_obj = ctx.guild.get_member(getattr(member, "id", member))
+                if not member_obj:
+                    self.logger.warning(
+                        f"Attempted to auto-kick user not in guild: {getattr(member, 'id', member)}"
+                    )
+                    return
+                member = member_obj
+            return await self._perform_kick(ctx, member, reason)
         # Permission level check
         if (
             get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
