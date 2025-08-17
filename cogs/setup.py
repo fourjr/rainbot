@@ -76,11 +76,30 @@ class Setup(commands.Cog):
             )
             return
 
-        def format_value(value):
+        def format_value(path, value):
+            # Try to resolve IDs to names
+            if "role" in path.lower() and isinstance(value, str):
+                try:
+                    role = ctx.guild.get_role(int(value))
+                    return f"{role.mention}" if role else f"`{value}`"
+                except (ValueError, TypeError):
+                    pass
+            if "channel" in path.lower() and isinstance(value, str):
+                try:
+                    channel = ctx.guild.get_channel(int(value))
+                    return f"{channel.mention}" if channel else f"`{value}`"
+                except (ValueError, TypeError):
+                    pass
+
             if isinstance(value, list):
-                return ", ".join(f"`{v}`" for v in value) or "None"
+                if not value:
+                    return "None"
+                return ", ".join(f"`{v}`" for v in value)
             if isinstance(value, dict):
-                return "\n".join(f"- `{k}`: `{v}`" for k, v in value.items()) or "None"
+                if not value:
+                    return "None"
+                return "\n".join(f"- `{k}`: `{v}`" for k, v in value.items())
+
             return f"`{value}`"
 
         custom_settings = []
@@ -119,14 +138,14 @@ class Setup(commands.Cog):
             if path in ("guild_id", "_id"):
                 continue
 
-            formatted_setting = f"**{path}**: {format_value(value)}\n"
+            formatted_setting = f"**{path}**: {format_value(path, value)}\n"
             if char_count + len(formatted_setting) > 1024:
                 embeds.append(current_embed)
                 current_embed = discord.Embed(color=config.get_color("info"))
                 char_count = 0
 
             current_embed.add_field(
-                name=path.replace("_", " ").title(), value=format_value(value), inline=False
+                name=path.replace("_", " ").title(), value=format_value(path, value), inline=False
             )
             char_count += len(formatted_setting)
 
