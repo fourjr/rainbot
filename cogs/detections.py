@@ -18,7 +18,7 @@ from discord.ext.commands import Cog
 from imagehash import average_hash
 from PIL import Image, UnidentifiedImageError
 import logging
-import openai
+
 
 from bot import rainbot
 from ext.utility import UNICODE_EMOJI, Detection, detection, MessageWrapper
@@ -258,100 +258,56 @@ class Detections(commands.Cog):
                 most_common_count = len(timestamps)
         return most_common_count
 
-    @detection("ai_text_moderation")
-    async def ai_text_moderation(self, m: MessageWrapper, guild_config) -> None:
-        """Use OpenAI's Moderation API for text moderation"""
-        if not guild_config.detections.ai_moderation.enabled or not m.content:
-            return
-
-        openai.api_key = os.getenv("OPENAI_API_KEY")
-        if not openai.api_key:
-            self.logger.warning("OPENAI_API_KEY is not set, AI moderation is disabled.")
-            return
-
-        sensitivity = guild_config.detections.ai_moderation.sensitivity / 100
-
-        # --- Text Moderation ---
-        try:
-            response = await self.bot.loop.run_in_executor(
-                self.bot.executor, lambda: openai.Moderation.create(input=m.content)
-            )
-            result = response["results"][0]
-            if result["flagged"]:
-                flagged_categories = [
-                    k
-                    for k, v in result["category_scores"].items()
-                    if v > sensitivity and guild_config.detections.ai_moderation.categories.get(k)
-                ]
-                if flagged_categories:
-                    reason = f"AI moderation triggered for: {', '.join(flagged_categories)}"
-                    await m.detection.punish(
-                        self.bot,
-                        m,
-                        guild_config,
-                        reason=reason,
-                        ai_scores=result["category_scores"],
-                    )
-        except Exception as e:
-            self.logger.error(f"Error calling OpenAI Moderation API for text: {e}")
-
-    @detection("image_moderation", require_attachment=True)
-    async def image_moderation(self, m: MessageWrapper, guild_config) -> None:
-        """Use a third-party API for image moderation"""
+    @detection("ai_moderation")
+    async def ai_moderation(self, m: MessageWrapper, guild_config) -> None:
+        """Use the new API for text and image moderation"""
         if not guild_config.detections.ai_moderation.enabled:
             return
 
-        api_key = os.getenv("DEEPAI_API_KEY")
-        if not api_key:
-            self.logger.warning("DEEPAI_API_KEY is not set, AI moderation is disabled.")
+        api_url = os.getenv("MODERATION_API_URL")
+        if not api_url:
+            self.logger.warning("MODERATION_API_URL is not set, AI moderation is disabled.")
             return
 
-        for attachment in m.attachments:
-            if any(
-                attachment.filename.lower().endswith(ext)
-                for ext in [".png", ".jpg", ".jpeg", ".webp"]
-            ):
-                try:
-                    image_bytes = await attachment.read()
+        payload = {}
+        if m.content:
+            payload["text"] = m.content
 
-                    # Use a temporary file to send the image data
-                    with NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
-                        temp_file.write(image_bytes)
-                        temp_filename = temp_file.name
+        if m.attachments:
+            for attachment in m.attachments:
+                if any(
+                    attachment.filename.lower().endswith(ext)
+                    for ext in [".png", ".jpg", ".jpeg", ".webp"]
+                ):
+                    payload["image_url"] = attachment.url
+                    break
 
-                    headers = {"api-key": api_key}
+        if not payload:
+            return
 
-                    async with aiohttp.ClientSession() as session:
-                        with open(temp_filename, "rb") as f:
-                            data = {"image": f}
-                            async with session.post(
-                                "https://api.deepai.org/api/nsfw-detector",
-                                data=data,
-                                headers=headers,
-                            ) as resp:
-                                if resp.status == 200:
-                                    result = await resp.json()
-                                else:
-                                    self.logger.error(
-                                        f"DeepAI API request failed with status {resp.status}: {await resp.text()}"
-                                    )
-                                    os.remove(temp_filename)
-                                    continue
-
-                    os.remove(temp_filename)
-
-                    if result.get("output") and result["output"].get("nsfw_score") > 0.75:
-                        reason = "Potentially inappropriate image detected"
-                        await m.detection.punish(
-                            self.bot,
-                            m,
-                            guild_config,
-                            reason=reason,
-                            detection_name="image_moderation",
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(api_url, json=payload) as resp:
+                    if resp.status == 200:
+                        result = await resp.json()
+                    else:
+                        self.logger.error(
+                            f"Moderation API request failed with status {resp.status}: {await resp.text()}"
                         )
                         return
-                except Exception as e:
-                    self.logger.error(f"Error calling moderation API for image: {e}")
+
+            if result.get("action") == "flag":
+                reason = f"AI moderation triggered for: {', '.join(result.get('flagged_for', []))}"
+                await m.detection.punish(
+                    self.bot,
+                    m,
+                    guild_config,
+                    reason=reason,
+                    detection_name="ai_moderation",
+                )
+
+        except Exception as e:
+            self.logger.error(f"Error calling moderation API: {e}")
 
 
 async def setup(bot: rainbot) -> None:

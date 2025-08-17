@@ -7,7 +7,7 @@ from typing import Optional, Union, List, Dict, Any
 
 import discord
 import asyncio
-import openai
+import aiohttp
 from discord.ext import commands
 
 from bot import rainbot
@@ -1919,50 +1919,53 @@ class Setup(commands.Cog):
         **Example:**
         `{prefix}aimoderationtest I really like this bot!`
         """
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            return await ctx.send("The `OPENAI_API_KEY` is not set in the bot's environment.")
+        api_url = os.getenv("MODERATION_API_URL")
+        if not api_url:
+            return await ctx.send("The `MODERATION_API_URL` is not set in the bot's environment.")
+
+        payload = {"text": text}
 
         try:
-            openai.api_key = api_key
-            response = await self.bot.loop.run_in_executor(
-                self.bot.executor, lambda: openai.Moderation.create(input=text)
-            )
+            async with aiohttp.ClientSession() as session:
+                async with session.post(api_url, json=payload) as resp:
+                    if resp.status == 200:
+                        result = await resp.json()
+                    else:
+                        await ctx.send(
+                            f"Moderation API request failed with status {resp.status}: {await resp.text()}"
+                        )
+                        return
         except Exception as e:
-            await ctx.send(f"An error occurred while calling the OpenAI API: `{e}`")
+            await ctx.send(f"An error occurred while calling the moderation API: `{e}`")
             return
 
-        result = response["results"][0]
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         settings = guild_config.detections.ai_moderation
-        sensitivity = settings.sensitivity / 100
 
         embed = discord.Embed(
             title="AI Moderation Test Results",
             description=f'Testing the string: "{text}"',
-            color=discord.Color.green() if not result["flagged"] else discord.Color.red(),
+            color=discord.Color.green() if result.get("action") != "flag" else discord.Color.red(),
         )
 
+        flagged_for = result.get("flagged_for", [])
         scores_text = ""
-        for category, score in result["category_scores"].items():
-            scores_text += f"`{category:<20}`: {score:.4f}\n"
-        embed.add_field(name="OpenAI API Scores", value=scores_text, inline=False)
+        if flagged_for:
+            scores_text = ", ".join(flagged_for)
+        else:
+            scores_text = "None"
 
-        flagged_categories = [
-            k
-            for k, v in result["category_scores"].items()
-            if v > sensitivity and settings.categories.get(k)
-        ]
+        embed.add_field(name="Flagged Categories", value=scores_text, inline=False)
 
         verdict = "NOT FLAGGED"
-        if flagged_categories:
-            verdict = f"FLAGGED for: {', '.join(flagged_categories)}"
+        if result.get("action") == "flag":
+            verdict = f"FLAGGED for: {scores_text}"
 
         embed.add_field(
             name="Bot's Decision",
             value=(
                 f"**Verdict:** {verdict}\n"
-                f"**Reasoning:** The message was compared against your server's sensitivity (`{settings.sensitivity}%`) and enabled categories."
+                f"**Reasoning:** The message was compared against your server's enabled categories."
             ),
             inline=False,
         )
