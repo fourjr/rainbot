@@ -1840,7 +1840,7 @@ class Setup(commands.Cog):
         else:
             duration = None
             if time is not None and time.dt:
-                duration = (time.dt - ctx.message.created_at).total_seconds()
+                duration = (time.dt - discord.utils.utcnow()).total_seconds()
 
             guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
             if limit in [i["warn_number"] for i in guild_config["warn_punishments"]]:
