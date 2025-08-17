@@ -880,6 +880,66 @@ class Moderation(commands.Cog):
 
             await ctx.send(fmt)
 
+    @command(8, usage="<threshold> <punishment> [duration]")
+    async def setwarnpunishment(
+        self,
+        ctx: commands.Context,
+        threshold: int,
+        punishment: str,
+        duration: UserFriendlyTime = None,
+    ) -> None:
+        """**Set an automatic punishment for reaching a warning threshold**
+
+        **Usage:**
+        `{prefix}setwarnpunishment <threshold> <punishment> [duration]`
+
+        **<threshold>:**
+        The number of warnings required to trigger the punishment.
+
+        **<punishment>:**
+        The action to take. Can be `mute`, `kick`, `softban`, `ban`, or `tempban`.
+
+        **[duration]:**
+        - Required for `mute` and `tempban`.
+        - Example: `1h`, `7d`.
+
+        **Examples:**
+        - `{prefix}setwarnpunishment 3 kick`
+        - `{prefix}setwarnpunishment 5 mute 1h`
+        - `{prefix}setwarnpunishment 10 ban`
+        """
+        punishment = punishment.lower()
+        if punishment not in ["mute", "kick", "softban", "ban", "tempban"]:
+            await ctx.send(
+                "Invalid punishment type. Must be one of: `mute`, `kick`, `softban`, `ban`, `tempban`."
+            )
+            return
+
+        if punishment in ["mute", "tempban"] and not duration:
+            await ctx.send(f"You must provide a duration for the `{punishment}` punishment.")
+            return
+
+        punishment_config = {
+            "threshold": threshold,
+            "action": punishment,
+        }
+
+        if duration and duration.dt:
+            punishment_config["duration"] = (duration.dt - ctx.message.created_at).total_seconds()
+
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {"$set": {"warn_punishment": punishment_config}}
+        )
+
+        duration_str = (
+            f" for {format_timedelta(timedelta(seconds=punishment_config['duration']))}"
+            if "duration" in punishment_config
+            else ""
+        )
+        await ctx.send(
+            f"Set automatic punishment to `{punishment}{duration_str}` at `{threshold}` warnings."
+        )
+
     @group(6, invoke_without_command=True, usage="\u200b")
     async def warn(
         self,
@@ -909,11 +969,9 @@ class Moderation(commands.Cog):
 
     @warn.command(6, name="add")
     async def add_(self, ctx: commands.Context, member: MemberOrID, *, reason: CannedStr) -> None:
-        self.logger.info(f"warn add invoked by {ctx.author} on {member} for reason: {reason}")
         """**Warn a user**
 
         This command issues a formal warning to a user and logs it.
-        Automatic punishments can be configured to trigger after a certain number of warnings.
 
         **Usage:**
         `{prefix}warn add <member> <reason>`
@@ -937,42 +995,10 @@ class Moderation(commands.Cog):
         else:
             guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
             guild_warns = guild_config.warns
-            warn_punishments = guild_config.warn_punishments
-            warn_punishment_limits = [i.warn_number for i in warn_punishments]
             warns = list(filter(lambda w: w["member_id"] == str(member.id), guild_warns))
-
-            cmd = None
-            punish = False
 
             num_warns = len(warns) + 1
             fmt = f"You have been warned in **{ctx.guild.name}**, reason: {reason}. This is warning #{num_warns}."
-
-            if warn_punishments:
-                self.logger.info(f"Checking for punishments for {num_warns} warnings.")
-                punishments = [p for p in warn_punishments if p.warn_number == num_warns]
-                if not punishments:
-                    punish = False
-                    self.logger.info(f"No direct punishment found for {num_warns} warnings.")
-                    above = [p for p in warn_punishments if p.warn_number > num_warns]
-                    if above:
-                        closest = min(above, key=lambda x: x.warn_number)
-                        cmd = closest.punishment
-                        self.logger.info(f"Next punishment is '{cmd}' at {closest.warn_number} warnings.")
-                        if cmd == "ban":
-                            cmd = "bann"
-                        if cmd == "mute":
-                            cmd = "mut"
-                        fmt += f" You will be {cmd}ed on warning {closest.warn_number}."
-                else:
-                    punish = True
-                    punishment = max(punishments, key=lambda x: x.warn_number)
-                    cmd = punishment.punishment
-                    self.logger.info(f"Punishment found for {num_warns} warnings: {cmd}")
-                    if cmd == "ban":
-                        cmd = "bann"
-                    if cmd == "mute":
-                        cmd = "mut"
-                    fmt += f" You have been {cmd}ed from the server."
 
             try:
                 await member.send(fmt)
@@ -980,7 +1006,6 @@ class Moderation(commands.Cog):
                 if ctx.author != ctx.guild.me:
                     await ctx.send("The user has PMs disabled or blocked the bot.")
             finally:
-                guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
                 current_date = f"<t:{int((ctx.message.created_at + timedelta(hours=guild_config.time_offset)).timestamp())}:D>"
                 if not guild_warns:
                     case_number = 1
@@ -998,34 +1023,79 @@ class Moderation(commands.Cog):
                     await ctx.send(f"Warned {member.mention} (#{case_number}) for: {reason}")
                 await self.send_log(ctx, member, reason, case_number)
 
-                # apply punishment
-                if punish:
-                    self.logger.info(f"Applying punishment '{cmd}' for {num_warns} warnings.")
-                    if cmd == "bann":
-                        cmd = "ban"
-                    if cmd == "mut":
-                        cmd = "mute"
-                    ctx.command = self.bot.get_command(cmd)
-                    ctx.author = ctx.guild.me
+                # Check for automatic punishment
+                punishment_config = getattr(guild_config, "warn_punishment", None)
+                if (
+                    punishment_config
+                    and isinstance(member, discord.Member)
+                    and num_warns >= punishment_config.get("threshold", float("inf"))
+                ):
+                    action = punishment_config["action"]
+                    duration_seconds = punishment_config.get("duration")
+                    duration = timedelta(seconds=duration_seconds) if duration_seconds else None
+                    punishment_reason = f"Automatic punishment for reaching {num_warns} warnings."
+                    duration_str = f" for {format_timedelta(duration)}" if duration else ""
 
-                    if punishment.get("duration"):
-                        time = UserFriendlyTime(default=False)
-                        time.dt = datetime.utcnow() + timedelta(seconds=punishment.duration)
-                        time.arg = f"Hit warn limit {num_warns}"
-                        kwargs = {"time": time}
-                        self.logger.info(f"Punishment duration: {punishment.duration} seconds.")
-                    else:
-                        kwargs = {"reason": f"Hit warn limit {num_warns}"}
+                    embed = discord.Embed(
+                        title="Confirm Automatic Punishment",
+                        description=(
+                            f"{member.mention} has reached {num_warns} warnings.\n"
+                            f"The configured punishment is **{action.capitalize()}{duration_str}**.\n\n"
+                            f"Do you want to apply this punishment?"
+                        ),
+                        color=discord.Color.orange(),
+                    )
+                    confirm_msg = await ctx.send(embed=embed)
+                    await confirm_msg.add_reaction("✅")
+                    await confirm_msg.add_reaction("❌")
 
-                    # If previous kick confirmation timed out for this member, resend dialog
-                    if cmd == "kick" and str(member.id) in self.kick_confirm_timeouts:
-                        await ctx.send(
-                            f"Previous kick confirmation for {member} timed out. Resending confirmation dialog."
+                    def check(reaction, user):
+                        return (
+                            user == ctx.author
+                            and str(reaction.emoji) in ["✅", "❌"]
+                            and reaction.message.id == confirm_msg.id
                         )
-                        self.kick_confirm_timeouts.remove(str(member.id))
-                        await self.kick(ctx, member, reason=kwargs.get("reason"))
-                    else:
-                        await ctx.invoke(ctx.command, member, **kwargs)
+
+                    try:
+                        reaction, user = await self.bot.wait_for(
+                            "reaction_add", timeout=60.0, check=check
+                        )
+
+                        if str(reaction.emoji) == "✅":
+                            await confirm_msg.edit(
+                                embed=discord.Embed(
+                                    title="Punishment Confirmed",
+                                    description=f"Applying punishment to {member.mention}...",
+                                    color=discord.Color.green(),
+                                )
+                            )
+                            if action == "kick":
+                                await self._perform_kick(ctx, member, punishment_reason)
+                            elif action == "softban":
+                                await self._perform_softban(ctx, member, punishment_reason)
+                            elif action == "ban":
+                                await self._perform_ban(ctx, member, punishment_reason)
+                            elif action == "tempban":
+                                await self._perform_ban(ctx, member, punishment_reason, duration)
+                            elif action == "mute":
+                                await self._perform_mute(ctx, member, punishment_reason, duration)
+                        else:  # User reacted with ❌
+                            await confirm_msg.edit(
+                                embed=discord.Embed(
+                                    title="Punishment Cancelled",
+                                    description="The automatic punishment was cancelled by the moderator.",
+                                    color=discord.Color.red(),
+                                )
+                            )
+
+                    except asyncio.TimeoutError:
+                        await confirm_msg.edit(
+                            embed=discord.Embed(
+                                title="Punishment Cancelled",
+                                description="Confirmation timed out. The automatic punishment was not applied.",
+                                color=discord.Color.red(),
+                            )
+                        )
 
     @warn.command(6, name="remove", aliases=["delete", "del"])
     async def remove_(self, ctx: commands.Context, case_number: int) -> None:
@@ -1431,6 +1501,130 @@ class Moderation(commands.Cog):
             else:
                 await ctx.send(f"Disabled slowmode on {channel.mention}")
 
+    async def _perform_kick(
+        self, ctx: commands.Context, member: discord.Member, reason: str
+    ) -> None:
+        """Helper to kick a member without user confirmation."""
+        if not ctx.guild.me.guild_permissions.kick_members:
+            await ctx.send("I don't have permission to kick members.")
+            return
+
+        if member.top_role >= ctx.guild.me.top_role:
+            await ctx.send(
+                f"I cannot kick {member.mention} due to role hierarchy.", delete_after=10
+            )
+            return
+
+        try:
+            await self.alert_user(ctx, member, reason, action_name="kicked")
+            await member.kick(reason=reason)
+            await ctx.send(f"{member.mention} has been kicked. Reason: {reason}")
+            await self.send_log(ctx, member, reason)
+        except discord.Forbidden:
+            await ctx.send(f"I don't have permission to kick {member.mention}.", delete_after=10)
+        except discord.HTTPException as e:
+            await ctx.send(f"Failed to kick {member.mention}: {e}", delete_after=10)
+
+    async def _perform_softban(
+        self, ctx: commands.Context, member: discord.Member, reason: str
+    ) -> None:
+        """Helper to softban a member without user confirmation."""
+        if not ctx.guild.me.guild_permissions.ban_members:
+            await ctx.send("I don't have permission to ban members.")
+            return
+
+        if member.top_role >= ctx.guild.me.top_role:
+            await ctx.send(
+                f"I cannot softban {member.mention} due to role hierarchy.", delete_after=10
+            )
+            return
+
+        try:
+            await self.alert_user(ctx, member, reason, action_name="softbanned")
+            await member.ban(reason=reason, delete_message_days=1)
+            await member.unban(reason="Softban punishment")
+            await ctx.send(f"{member.mention} has been softbanned. Reason: {reason}")
+            await self.send_log(ctx, member, reason)
+        except discord.Forbidden:
+            await ctx.send(f"I don't have permission to softban {member.mention}.", delete_after=10)
+        except discord.HTTPException as e:
+            await ctx.send(f"Failed to softban {member.mention}: {e}", delete_after=10)
+
+    async def _perform_ban(
+        self,
+        ctx: commands.Context,
+        member: Union[discord.Member, discord.User],
+        reason: str,
+        duration: timedelta = None,
+    ) -> None:
+        """Helper to ban a member without user confirmation."""
+        if not ctx.guild.me.guild_permissions.ban_members:
+            await ctx.send("I don't have permission to ban members.")
+            return
+
+        if isinstance(member, discord.Member) and member.top_role >= ctx.guild.me.top_role:
+            await ctx.send(f"I cannot ban {member.mention} due to role hierarchy.", delete_after=10)
+            return
+
+        try:
+            await self.alert_user(ctx, member, reason, action_name="banned")
+            await ctx.guild.ban(member, reason=reason, delete_message_days=1)
+
+            if duration:
+                seconds = duration.total_seconds()
+                unban_time = time.time() + seconds
+                await self.bot.db.update_guild_config(
+                    ctx.guild.id,
+                    {
+                        "$push": {
+                            "tempbans": {
+                                "member": str(member.id),
+                                "time": unban_time,
+                            }
+                        }
+                    },
+                )
+                self.bot.loop.create_task(self.bot.unban(ctx.guild.id, member.id, unban_time))
+                await ctx.send(
+                    f"{member.mention} has been temporarily banned for {format_timedelta(duration)}. Reason: {reason}"
+                )
+            else:
+                await ctx.send(f"{member.mention} has been permanently banned. Reason: {reason}")
+
+            await self.send_log(ctx, member, reason, duration)
+        except discord.Forbidden:
+            await ctx.send(f"I don't have permission to ban {member.mention}.", delete_after=10)
+        except discord.HTTPException as e:
+            await ctx.send(f"Failed to ban {member.mention}: {e}", delete_after=10)
+
+    async def _perform_mute(
+        self,
+        ctx: commands.Context,
+        member: discord.Member,
+        reason: str,
+        duration: timedelta = None,
+    ) -> None:
+        """Helper to mute a member without user confirmation."""
+        try:
+            await self.alert_user(
+                ctx,
+                member,
+                reason,
+                action_name="muted",
+                duration=format_timedelta(duration) if duration else "indefinitely",
+            )
+            await self.bot.mute(ctx.author, member, duration, reason=reason)
+
+            if duration:
+                await ctx.send(
+                    f"{member.mention} has been muted for {format_timedelta(duration)}. Reason: {reason}"
+                )
+            else:
+                await ctx.send(f"{member.mention} has been muted indefinitely. Reason: {reason}")
+            await self.send_log(ctx, member, reason, duration)
+        except Exception as e:
+            await ctx.send(f"Failed to mute {member.mention}: {e}", delete_after=10)
+
     @command(7)
     async def kick(
         self, ctx: commands.Context, member: MemberOrID, *, reason: CannedStr = None
@@ -1736,7 +1930,13 @@ class Moderation(commands.Cog):
             await ctx.send(f"Failed to ban user: {e}")
 
     async def alert_user(
-        self, ctx: commands.Context, member, reason: str = None, *, duration: str = None
+        self,
+        ctx: commands.Context,
+        member,
+        reason: str = None,
+        *,
+        duration: str = None,
+        action_name: str = None,
     ) -> None:
         """Send a DM to a user about their punishment"""
         if not hasattr(member, "send"):
@@ -1748,8 +1948,8 @@ class Moderation(commands.Cog):
                 return
 
         try:
-            action_name = ctx.command.name if ctx.command else "moderated"
-            msg = f"You have been {action_name} in **{ctx.guild.name}**."
+            action = action_name or (ctx.command.name if ctx.command else "moderated")
+            msg = f"You have been {action} in **{ctx.guild.name}**."
 
             if reason:
                 msg += f"\nReason: {reason}"
