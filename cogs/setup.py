@@ -1906,16 +1906,12 @@ class Setup(commands.Cog):
     @command(10, aliases=["aimodtest"])
     async def aimoderationtest(self, ctx: commands.Context, *, text: str):
         """**Tests a string against the AI moderation filter**
-
         This command allows you to test how the AI moderation filter will score a given piece of text.
         This is useful for tuning your AI moderation settings.
-
         **Usage:**
         `{prefix}aimoderationtest <text>`
-
         **<text>:**
         The text you want to test.
-
         **Example:**
         `{prefix}aimoderationtest I really like this bot!`
         """
@@ -1924,10 +1920,12 @@ class Setup(commands.Cog):
             return await ctx.send("The `MODERATION_API_URL` is not set in the bot's environment.")
 
         payload = {"text": text}
+        if ctx.message.attachments:
+            payload["image_url"] = ctx.message.attachments[0].url
 
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.post(f"{api_url}/moderate/text", json=payload) as resp:
+                async with session.post(f"{api_url}/moderate", json=payload) as resp:
                     if resp.status == 200:
                         result = await resp.json()
                     else:
@@ -1939,36 +1937,39 @@ class Setup(commands.Cog):
             await ctx.send(f"An error occurred while calling the moderation API: `{e}`")
             return
 
-        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-        settings = guild_config.detections.ai_moderation
-
         embed = discord.Embed(
             title="AI Moderation Test Results",
             description=f'Testing the string: "{text}"',
-            color=discord.Color.green() if result.get("action") != "flag" else discord.Color.red(),
+            color=discord.Color.blue(),
         )
 
-        flagged_for = result.get("flagged_for", [])
-        scores_text = ""
-        if flagged_for:
-            scores_text = ", ".join(flagged_for)
-        else:
-            scores_text = "None"
+        text_result = result.get("text", {})
+        image_result = result.get("image", {})
 
-        embed.add_field(name="Flagged Categories", value=scores_text, inline=False)
-
-        verdict = "NOT FLAGGED"
-        if result.get("action") == "flag":
-            verdict = f"FLAGGED for: {scores_text}"
-
+        # --- Text Results ---
+        text_flagged_for = text_result.get("flagged_for", [])
+        text_scores_text = ", ".join(text_flagged_for) if text_flagged_for else "None"
+        text_verdict = (
+            "**FLAGGED**" if text_result.get("action") == "flag" else "NOT FLAGGED"
+        )
         embed.add_field(
-            name="Bot's Decision",
-            value=(
-                f"**Verdict:** {verdict}\n"
-                f"**Reasoning:** The message was compared against your server's enabled categories."
-            ),
-            inline=False,
+            name="Text Moderation",
+            value=f"**Verdict:** {text_verdict}\n**Flagged for:** {text_scores_text}",
+            inline=True,
         )
+
+        # --- Image Results ---
+        if "image_url" in payload:
+            image_flagged_for = image_result.get("flagged_for", [])
+            image_scores_text = ", ".join(image_flagged_for) if image_flagged_for else "None"
+            image_verdict = (
+                "**FLAGGED**" if image_result.get("action") == "flag" else "NOT FLAGGED"
+            )
+            embed.add_field(
+                name="Image Moderation",
+                value=f"**Verdict:** {image_verdict}\n**Flagged for:** {image_scores_text}",
+                inline=True,
+            )
 
         await ctx.send(embed=embed)
 

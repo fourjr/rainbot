@@ -260,7 +260,7 @@ class Detections(commands.Cog):
 
     @detection("ai_moderation")
     async def ai_moderation(self, m: MessageWrapper, guild_config) -> None:
-        """Use the new API for text and image moderation"""
+        """Use the new unified API for text and image moderation"""
         if not guild_config.detections.ai_moderation.enabled:
             return
 
@@ -269,56 +269,57 @@ class Detections(commands.Cog):
             self.logger.warning("MODERATION_API_URL is not set, AI moderation is disabled.")
             return
 
-        flagged = False
+        payload: Dict[str, str] = {}
+        if m.content:
+            payload["text"] = m.content
 
-        async def process_moderation(endpoint, payload):
-            nonlocal flagged
-            if flagged:  # If a punishment has already been issued for this message, stop.
+        for attachment in m.attachments:
+            if any(
+                attachment.filename.lower().endswith(ext)
+                for ext in [".png", ".jpg", ".jpeg", ".webp"]
+            ):
+                payload["image_url"] = attachment.url
+                break  # Only process the first valid image attachment
+
+        if not payload:
+            return
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(f"{api_url}/moderate", json=payload) as resp:
+                    if resp.status == 200:
+                        result = await resp.json()
+                    else:
+                        self.logger.error(
+                            f"Moderation API request failed with status {resp.status}: {await resp.text()}"
+                        )
+                        return
+
+            if not result:
                 return
 
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(f"{api_url}{endpoint}", json=payload) as resp:
-                        if resp.status == 200:
-                            result = await resp.json()
-                        else:
-                            self.logger.error(
-                                f"Moderation API request to {endpoint} failed with status {resp.status}: {await resp.text()}"
-                            )
-                            return
+            all_flagged_categories = set()
+            text_result = result.get("text", {})
+            image_result = result.get("image", {})
 
-                if result.get("action") == "flag":
-                    reason = (
-                        f"AI moderation triggered for: {', '.join(result.get('flagged_for', []))}"
-                    )
-                    await m.detection.punish(
-                        self.bot,
-                        m,
-                        guild_config,
-                        reason=reason,
-                        detection_name="ai_moderation",
-                    )
-                    flagged = True
+            if text_result.get("action") == "flag":
+                all_flagged_categories.update(text_result.get("flagged_for", []))
 
-            except Exception as e:
-                self.logger.error(f"Error calling moderation API endpoint {endpoint}: {e}")
+            if image_result.get("action") == "flag":
+                all_flagged_categories.update(image_result.get("flagged_for", []))
 
-        # --- Text Moderation ---
-        if m.content:
-            await process_moderation("/moderate/text", {"text": m.content})
+            if all_flagged_categories:
+                reason = f"AI moderation triggered for: {', '.join(sorted(list(all_flagged_categories)))}"
+                await m.detection.punish(
+                    self.bot,
+                    m,
+                    guild_config,
+                    reason=reason,
+                    detection_name="ai_moderation",
+                )
 
-        # --- Image Moderation ---
-        if m.attachments:
-            for attachment in m.attachments:
-                if any(
-                    attachment.filename.lower().endswith(ext)
-                    for ext in [".png", ".jpg", ".jpeg", ".webp"]
-                ):
-                    # Pass message content as context for image moderation
-                    payload = {"image_url": attachment.url, "text": m.content}
-                    await process_moderation("/moderate/image", payload)
-                    if flagged:
-                        break  # Stop checking other attachments if one is flagged
+        except Exception as e:
+            self.logger.error(f"Error calling moderation API: {e}")
 
 
 async def setup(bot: rainbot) -> None:
