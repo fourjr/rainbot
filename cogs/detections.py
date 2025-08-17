@@ -66,22 +66,18 @@ class Detections(commands.Cog):
             return
 
         if self.bot.dev_mode:
-            dev_guild_id = getattr(self, "dev_guild_id", None)
+            dev_guild_id = getattr(self.bot, "dev_guild_id", None)
             if dev_guild_id and m.guild and m.guild.id != dev_guild_id:
                 return
         if (
             (
                 self.bot.dev_mode
-                and getattr(self, "dev_guild_id", None)
-                and (m.guild and m.guild.id != getattr(self, "dev_guild_id", None))
+                and getattr(self.bot, "dev_guild_id", None)
+                and (m.guild and m.guild.id != getattr(self.bot, "dev_guild_id", None))
             )
             or m.type not in (discord.MessageType.default, discord.MessageType.reply)
             or not m.guild
         ):
-            return
-
-        bucket = self._cd.get_bucket(m)
-        if bucket.update_rate_limit():
             return
 
         guild_config = await self.bot.db.get_guild_config(m.guild.id)
