@@ -125,7 +125,9 @@ class Setup(commands.Cog):
                 current_embed = discord.Embed(color=config.get_color("info"))
                 char_count = 0
 
-            current_embed.add_field(name=path.replace('_', ' ').title(), value=format_value(value), inline=False)
+            current_embed.add_field(
+                name=path.replace("_", " ").title(), value=format_value(value), inline=False
+            )
             char_count += len(formatted_setting)
 
         embeds.append(current_embed)

@@ -216,16 +216,7 @@ class rainbot(commands.Bot):
                 except discord.Forbidden:
                     pass
 
-                # If user invoked a bare command without required args, show help instead
-                try:
-                    await self.invoke(ctx)
-                except commands.MissingRequiredArgument:
-                    try:
-                        await ctx.invoke(
-                            self.get_command("help"), command_or_cog=ctx.command.qualified_name
-                        )
-                    except Exception:
-                        pass
+                await self.invoke(ctx)
 
                 # Remove loading reaction and add success reaction
                 try:
@@ -313,14 +304,16 @@ class rainbot(commands.Bot):
             return
 
         # Create user-friendly error messages
+        if isinstance(e, commands.MissingRequiredArgument):
+            await ctx.invoke(self.get_command("help"), command_or_cog=ctx.command.qualified_name)
+            return
+
         if isinstance(e, commands.UserInputError):
             # Try to provide more helpful info for missing/invalid arguments
             usage = f"{ctx.prefix}{ctx.command.signature}"
             # If it's a missing required argument, highlight what's missing
             missing = None
-            if isinstance(e, commands.MissingRequiredArgument):
-                missing = f"Missing required argument: `{e.param.name}`."
-            elif isinstance(e, commands.BadArgument):
+            if isinstance(e, commands.BadArgument):
                 missing = (
                     f"Invalid value for argument: `{e.param.name if hasattr(e, 'param') else ''}`."
                 )
