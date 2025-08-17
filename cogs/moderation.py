@@ -684,7 +684,7 @@ class Moderation(commands.Cog):
                     print(
                         f"[send_log] Cannot find a valid channel for modlogs remove. ID: {channel_id}, channel: {channel}"
                     )
-            elif ctx.command.qualified_name == "warn add":
+            elif ctx.command.qualified_name == "warn":
                 fmt = f"{current_time} {ctx.author} warned #{args[2]} {args[0]} ({args[0].id}), reason: {args[1]}"
                 channel = ctx.bot.get_channel(modlogs.member_warn)
                 if channel and hasattr(channel, "send"):
@@ -959,42 +959,21 @@ class Moderation(commands.Cog):
             f"Set automatic punishment to `{punishment}{duration_str}` at `{threshold}` warnings."
         )
 
-    @group(6, invoke_without_command=True, usage="\u200b")
+    @group(6, invoke_without_command=True, usage="<member> <reason>")
     async def warn(
         self,
         ctx: commands.Context,
-        member: Union[MemberOrID, str] = None,
+        member: MemberOrID = None,
         *,
         reason: CannedStr = None,
     ) -> None:
-        """**Manage user warnings**
+        """**Warn a user or manage warnings**
 
-        This command group allows you to add, remove, and view user warnings.
-        You can also use `{prefix}warn <member> [reason]` as a shortcut for `{prefix}warn add <member> [reason]`.
-
-        **Subcommands:**
-        - `add` - Add a warning to a user.
-        - `remove` - Remove a warning from a user.
-        - `list` - List all warnings for a user.
-        """
-        if isinstance(member, (discord.User, discord.Member)):
-            if reason:
-                ctx.command = self.add_
-                await ctx.invoke(self.add_, member=member, reason=reason)
-            else:
-                await ctx.invoke(self.bot.get_command("help"), command_or_cog="warn add")
-        else:
-            await ctx.invoke(self.bot.get_command("help"), command_or_cog="warn")
-
-    @warn.command(6, name="add")
-    async def add_(self, ctx: commands.Context, member: MemberOrID, *, reason: CannedStr) -> None:
-        """**Warn a user**
-
-        This command issues a formal warning to a user and logs it.
+        This command allows you to warn a user.
+        You can also use subcommands to manage warnings.
 
         **Usage:**
-        `{prefix}warn add <member> <reason>`
-        Can also be used as `{prefix}warn <member> <reason>`.
+        `{prefix}warn <member> <reason>`
 
         **<member>:**
         - Mention the user, e.g., `@user`
@@ -1003,9 +982,131 @@ class Moderation(commands.Cog):
         **<reason>:**
         The reason for the warning.
 
-        **Example:**
-        `{prefix}warn add @TestUser Spamming in #general.`
+        **Subcommands:**
+        - `remove` - Remove a warning from a user.
+        - `list` - List all warnings for a user.
+        - `clear` - Clear all warnings from a user.
         """
+        if ctx.invoked_subcommand is None:
+            if member is None or reason is None:
+                await ctx.invoke(self.bot.get_command("help"), command_or_cog="warn")
+                return
+
+            if (
+                get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
+                >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]
+            ):
+                await ctx.send("User has insufficient permissions")
+            else:
+                guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+                guild_warns = guild_config.warns
+                warns = list(filter(lambda w: w["member_id"] == str(member.id), guild_warns))
+
+                num_warns = len(warns) + 1
+                fmt = f"You have been warned in **{ctx.guild.name}**, reason: {reason}. This is warning #{num_warns}."
+
+                try:
+                    await member.send(fmt)
+                except discord.Forbidden:
+                    if ctx.author != ctx.guild.me:
+                        await ctx.send("The user has PMs disabled or blocked the bot.")
+                finally:
+                    current_date = f"<t:{int((ctx.message.created_at + timedelta(hours=guild_config.time_offset)).timestamp())}:D>"
+                    if not guild_warns:
+                        case_number = 1
+                    else:
+                        case_number = guild_warns[-1]["case_number"] + 1
+                    push = {
+                        "case_number": case_number,
+                        "date": current_date,
+                        "member_id": str(member.id),
+                        "moderator_id": str(ctx.author.id),
+                        "reason": reason,
+                    }
+                    await self.bot.db.update_guild_config(ctx.guild.id, {"$push": {"warns": push}})
+                    if ctx.author != ctx.guild.me:
+                        await ctx.send(f"Warned {member.mention} (#{case_number}) for: {reason}")
+                    await self.send_log(ctx, member, reason, case_number)
+
+                    # Check for automatic punishment
+                    punishment_config = getattr(guild_config, "warn_punishment", None)
+                    if (
+                        punishment_config
+                        and isinstance(member, discord.Member)
+                        and num_warns >= punishment_config.get("threshold", float("inf"))
+                    ):
+                        action = punishment_config["action"]
+                        duration_seconds = punishment_config.get("duration")
+                        duration = timedelta(seconds=duration_seconds) if duration_seconds else None
+                        punishment_reason = (
+                            f"Automatic punishment for reaching {num_warns} warnings."
+                        )
+                        duration_str = f" for {format_timedelta(duration)}" if duration else ""
+
+                        embed = discord.Embed(
+                            title="Confirm Automatic Punishment",
+                            description=(
+                                f"{member.mention} has reached {num_warns} warnings.\n"
+                                f"The configured punishment is **{action.capitalize()}{duration_str}**.\n\n"
+                                f"Do you want to apply this punishment?"
+                            ),
+                            color=discord.Color.orange(),
+                        )
+                        confirm_msg = await ctx.send(embed=embed)
+                        await confirm_msg.add_reaction("✅")
+                        await confirm_msg.add_reaction("❌")
+
+                        def check(reaction, user):
+                            return (
+                                user == ctx.author
+                                and str(reaction.emoji) in ["✅", "❌"]
+                                and reaction.message.id == confirm_msg.id
+                            )
+
+                        try:
+                            reaction, user = await self.bot.wait_for(
+                                "reaction_add", timeout=60.0, check=check
+                            )
+
+                            if str(reaction.emoji) == "✅":
+                                await confirm_msg.edit(
+                                    embed=discord.Embed(
+                                        title="Punishment Confirmed",
+                                        description=f"Applying punishment to {member.mention}...",
+                                        color=discord.Color.green(),
+                                    )
+                                )
+                                if action == "kick":
+                                    await self._perform_kick(ctx, member, punishment_reason)
+                                elif action == "softban":
+                                    await self._perform_softban(ctx, member, punishment_reason)
+                                elif action == "ban":
+                                    await self._perform_ban(ctx, member, punishment_reason)
+                                elif action == "tempban":
+                                    await self._perform_ban(
+                                        ctx, member, punishment_reason, duration
+                                    )
+                                elif action == "mute":
+                                    await self._perform_mute(
+                                        ctx, member, punishment_reason, duration
+                                    )
+                            else:  # User reacted with ❌
+                                await confirm_msg.edit(
+                                    embed=discord.Embed(
+                                        title="Punishment Cancelled",
+                                        description="The automatic punishment was cancelled by the moderator.",
+                                        color=discord.Color.red(),
+                                    )
+                                )
+
+                        except asyncio.TimeoutError:
+                            await confirm_msg.edit(
+                                embed=discord.Embed(
+                                    title="Punishment Cancelled",
+                                    description="Confirmation timed out. The automatic punishment was not applied.",
+                                    color=discord.Color.red(),
+                                )
+                            )
         if (
             get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
             >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]
