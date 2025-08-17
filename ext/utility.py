@@ -380,7 +380,7 @@ class Detection:
                             pass  # Can't send messages in this channel
 
         # Log to modlog channel
-        log_channel_id = guild_config.modlog.get("ai_moderation")
+        log_channel_id = guild_config.modlog.ai_moderation
         if log_channel_id:
             log_channel = bot.get_channel(int(log_channel_id))
             if log_channel:

@@ -742,8 +742,12 @@ class Moderation(commands.Cog):
             f"<t:{int((ctx.message.created_at + timedelta(hours=offset)).timestamp())}:T>"
         )
 
+        modlogs = guild_config.modlog
+        if isinstance(modlogs, list):
+            modlogs = {i["name"]: i["value"] for i in modlogs}
+
         modlogs = DBDict(
-            {i: tryint(guild_config.modlog[i]) for i in guild_config.modlog if i},
+            {i: tryint(modlogs[i]) for i in modlogs if i},
             _default=DEFAULT["modlog"],
         )
 
@@ -754,8 +758,7 @@ class Moderation(commands.Cog):
                     fmt += f", from {args[1]}"
                 channel = ctx.bot.get_channel(modlogs.message_purge)
                 if channel and hasattr(channel, "send"):
-                    if hasattr(channel, "send"):
-                        await channel.send(fmt)
+                    await channel.send(fmt)
             elif ctx.command.name == "kick":
                 fmt = f"{current_time} {ctx.author} kicked {args[0]} ({args[0].id}), reason: {args[1]}"
                 channel = ctx.bot.get_channel(modlogs.member_kick)
@@ -812,7 +815,6 @@ class Moderation(commands.Cog):
                 channel = ctx.bot.get_channel(modlogs.member_warn)
                 if channel and hasattr(channel, "send"):
                     await channel.send(fmt)
-            # (Removed duplicate unsafe modlogs remove block)
             elif ctx.command.name == "lockdown":
                 fmt = f'{current_time} {ctx.author} has {"enabled" if args[0] else "disabled"} lockdown for {args[1].mention}'
                 channel = ctx.bot.get_channel(modlogs.channel_lockdown)
@@ -823,7 +825,6 @@ class Moderation(commands.Cog):
                 channel = ctx.bot.get_channel(modlogs.channel_slowmode)
                 if channel:
                     await channel.send(fmt)
-
             elif ctx.command.name == "mute":
                 name = getattr(args[0], "name", "(no name)")
                 if args[2]:
@@ -833,7 +834,6 @@ class Moderation(commands.Cog):
                 channel = ctx.bot.get_channel(modlogs.member_mute)
                 if channel:
                     await channel.send(fmt)
-
             elif ctx.command.name == "unmute":
                 name = getattr(args[0], "name", "(no name)")
                 fmt = (
@@ -842,7 +842,6 @@ class Moderation(commands.Cog):
                 channel = ctx.bot.get_channel(modlogs.member_unmute)
                 if channel:
                     await channel.send(fmt)
-
             else:
                 raise NotImplementedError(
                     f"{ctx.command.name} not implemented for commands/send_log"
