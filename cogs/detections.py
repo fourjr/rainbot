@@ -260,7 +260,7 @@ class Detections(commands.Cog):
 
     @detection("ai_moderation")
     async def ai_moderation(self, m: MessageWrapper, guild_config) -> None:
-        """Use the new unified API for text and image moderation"""
+        """Use the new API for text and image moderation based on apidocs.MD"""
         if not guild_config.detections.ai_moderation.enabled:
             return
 
@@ -269,73 +269,90 @@ class Detections(commands.Cog):
             self.logger.warning("MODERATION_API_URL is not set, AI moderation is disabled.")
             return
 
-        payload: Dict[str, Any] = {}
-        if m.content:
-            payload["text"] = m.content
+        flagged = False
 
-        image_attachment = None
-        for attachment in m.attachments:
-            if any(
-                attachment.filename.lower().endswith(ext)
-                for ext in [".png", ".jpg", ".jpeg", ".webp"]
-            ):
-                image_attachment = attachment
-                break
-
-        if not payload and not image_attachment:
-            return
-
-        try:
-            form = aiohttp.FormData()
-            if m.content:
-                form.add_field("text", m.content)
-            if image_attachment:
-                form.add_field(
-                    "image", await image_attachment.read(), filename=image_attachment.filename
-                )
-
-            async with aiohttp.ClientSession() as session:
-                async with session.post(f"{api_url}/moderate", data=form) as resp:
-                    if resp.status == 200:
-                        result = await resp.json()
-                        self.logger.info(f"Moderation API response: {result}")
-                    else:
-                        self.logger.error(
-                            f"Moderation API request failed with status {resp.status}: {await resp.text()}"
-                        )
-                        return
-
-            if not result:
+        async def process_text_moderation(text_content):
+            nonlocal flagged
+            if flagged:
                 return
 
-            all_flagged_categories = set()
-            all_scores = {}
-            text_result = result.get("text", {})
-            image_result = result.get("image", {})
+            try:
+                payload = {"content": text_content}
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(f"{api_url}/moderate/text", json=payload) as resp:
+                        if resp.status == 200:
+                            result = await resp.json()
+                            self.logger.info(f"Text moderation response: {result}")
+                        else:
+                            self.logger.error(
+                                f"Text moderation request failed with status {resp.status}: {await resp.text()}"
+                            )
+                            return
 
-            if text_result.get("decision") == "flag":
-                all_flagged_categories.update(text_result.get("categories", []))
-                if text_result.get("category_scores"):
-                    all_scores.update(text_result["category_scores"])
+                if result and result.get("decision") == "flag":
+                    reason = f"AI text moderation triggered for: {', '.join(result.get('categories', []))}"
+                    await m.detection.punish(
+                        self.bot,
+                        m,
+                        guild_config,
+                        reason=reason,
+                        detection_name="ai_moderation",
+                        ai_scores=result.get("category_scores"),
+                    )
+                    flagged = True
 
-            if image_result.get("decision") in ("block", "flag"):
-                all_flagged_categories.update(image_result.get("categories", []))
-                if image_result.get("category_scores"):
-                    all_scores.update(image_result["category_scores"])
+            except Exception as e:
+                self.logger.error(f"Error calling text moderation API: {e}")
 
-            if all_flagged_categories:
-                reason = f"AI moderation triggered for: {', '.join(sorted(list(all_flagged_categories)))}"
-                await m.detection.punish(
-                    self.bot,
-                    m,
-                    guild_config,
-                    reason=reason,
-                    detection_name="ai_moderation",
-                    ai_scores=all_scores,
-                )
+        async def process_image_moderation(attachment):
+            nonlocal flagged
+            if flagged:
+                return
 
-        except Exception as e:
-            self.logger.error(f"Error calling moderation API: {e}")
+            try:
+                form = aiohttp.FormData()
+                form.add_field("file", await attachment.read(), filename=attachment.filename)
+
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(f"{api_url}/moderate/image", data=form) as resp:
+                        if resp.status == 200:
+                            result = await resp.json()
+                            self.logger.info(f"Image moderation response: {result}")
+                        else:
+                            self.logger.error(
+                                f"Image moderation request failed with status {resp.status}: {await resp.text()}"
+                            )
+                            return
+
+                if result and result.get("decision") in ("block", "flag"):
+                    reason = f"AI image moderation triggered for: {', '.join(result.get('categories', []))}"
+                    await m.detection.punish(
+                        self.bot,
+                        m,
+                        guild_config,
+                        reason=reason,
+                        detection_name="ai_moderation",
+                        ai_scores=result.get("category_scores"),
+                    )
+                    flagged = True
+
+            except Exception as e:
+                self.logger.error(f"Error calling image moderation API: {e}")
+
+        # --- Text Moderation ---
+        if m.content:
+            await process_text_moderation(m.content)
+
+        # --- Image Moderation ---
+        if not flagged:  # Don't process images if text was already flagged
+            for attachment in m.attachments:
+                if any(
+                    attachment.filename.lower().endswith(ext)
+                    for ext in [".png", ".jpg", ".jpeg", ".webp"]
+                ):
+                    await process_image_moderation(attachment)
+                    if flagged:
+                        break  # Stop checking other attachments if one is flagged
 
 
 async def setup(bot: rainbot) -> None:
