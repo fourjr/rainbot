@@ -292,7 +292,12 @@ class Detections(commands.Cog):
                 if result and result.get("decision") == "flag":
                     reason = f"AI text moderation triggered for: {', '.join(result.get('categories', []))}"
                     await m.detection.punish(
-                        self.bot, m, guild_config, reason=reason, detection_name="ai_moderation"
+                        self.bot,
+                        m,
+                        guild_config,
+                        reason=reason,
+                        detection_name="ai_moderation",
+                        ai_scores=result.get("category_scores"),
                     )
                     flagged = True
 
@@ -322,7 +327,12 @@ class Detections(commands.Cog):
                 if result and result.get("decision") in ("block", "flag"):
                     reason = f"AI image moderation triggered for: {', '.join(result.get('categories', []))}"
                     await m.detection.punish(
-                        self.bot, m, guild_config, reason=reason, detection_name="ai_moderation"
+                        self.bot,
+                        m,
+                        guild_config,
+                        reason=reason,
+                        detection_name="ai_moderation",
+                        ai_scores=result.get("category_scores"),
                     )
                     flagged = True
 

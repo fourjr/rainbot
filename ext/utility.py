@@ -397,20 +397,11 @@ class Detection:
                     embed.add_field(name="Attachments", value=urls, inline=False)
 
                 if ai_scores:
-                    triggered_categories_str = reason.replace(
-                        "AI moderation triggered for: ", ""
-                    ).replace("Potentially inappropriate image detected for: ", "")
-                    triggered_categories = [c.strip() for c in triggered_categories_str.split(",")]
-
                     scores_text = ""
                     for category, score in sorted(
                         ai_scores.items(), key=lambda item: item[1], reverse=True
                     ):
-                        if score > 0.01:  # Only show scores over 1%
-                            if category in triggered_categories:
-                                scores_text += f"**{category}: {score:.2%}**\n"
-                            else:
-                                scores_text += f"{category}: {score:.2%}\n"
+                        scores_text += f"{category}: {score:.2%}\n"
                     if scores_text:
                         embed.add_field(name="AI Scores", value=scores_text, inline=False)
 
