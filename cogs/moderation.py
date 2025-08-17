@@ -1215,7 +1215,7 @@ class Moderation(commands.Cog):
         ctx: commands.Context,
         member: MemberOrID,
         *,
-        time: UserFriendlyTime = None,
+        time: UserFriendlyTime(assume_reason=True) = None,
     ) -> None:
         """**Mute a member**
 
