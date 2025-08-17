@@ -271,10 +271,6 @@ class rainbot(commands.Bot):
             try:
                 if err:
                     await err.send(f"✅ Startup connectivity check at <t:{now}:T>")
-                if join:
-                    await join.send(f"✅ Startup connectivity check at <t:{now}:T>")
-                if leave:
-                    await leave.send(f"✅ Startup connectivity check at <t:{now}:T>")
             except Exception as e:
                 self.logger.debug(f"Failed to send startup test messages: {e}")
             self._startup_announced = True

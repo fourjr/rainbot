@@ -1007,37 +1007,54 @@ class Moderation(commands.Cog):
                 num_warns = len(warns) + 1
                 fmt = f"You have been warned in **{ctx.guild.name}**, reason: {reason}. This is warning #{num_warns}."
 
+                dm_send_error = None
                 try:
                     await member.send(fmt)
                 except discord.Forbidden:
-                    if ctx.author != ctx.guild.me:
-                        await ctx.send("The user has PMs disabled or blocked the bot.")
-                finally:
-                    current_date = f"<t:{int((ctx.message.created_at + timedelta(hours=guild_config.time_offset)).timestamp())}:D>"
-                    if not guild_warns:
-                        case_number = 1
+                    dm_send_error = "The user has PMs disabled or blocked the bot."
+                except discord.NotFound:
+                    dm_send_error = f"Could not find user with ID `{member.id}`."
+
+                current_date = f"<t:{int((ctx.message.created_at + timedelta(hours=guild_config.time_offset)).timestamp())}:D>"
+                if not guild_warns:
+                    case_number = 1
+                else:
+                    case_number = guild_warns[-1]["case_number"] + 1
+                push = {
+                    "case_number": case_number,
+                    "date": current_date,
+                    "member_id": str(member.id),
+                    "moderator_id": str(ctx.author.id),
+                    "reason": reason,
+                }
+                await self.bot.db.update_guild_config(ctx.guild.id, {"$push": {"warns": push}})
+
+                if ctx.author != ctx.guild.me:
+                    if dm_send_error:
+                        await ctx.send(
+                            f"Warned {member.mention} (#{case_number}) for: {reason}\nNOTE: {dm_send_error}"
+                        )
                     else:
-                        case_number = guild_warns[-1]["case_number"] + 1
-                    push = {
-                        "case_number": case_number,
-                        "date": current_date,
-                        "member_id": str(member.id),
-                        "moderator_id": str(ctx.author.id),
-                        "reason": reason,
-                    }
-                    await self.bot.db.update_guild_config(ctx.guild.id, {"$push": {"warns": push}})
-                    if ctx.author != ctx.guild.me:
                         await ctx.send(f"Warned {member.mention} (#{case_number}) for: {reason}")
-                    await self.send_log(ctx, member, reason, case_number)
+
+                await self.send_log(ctx, member, reason, case_number)
+
+                if dm_send_error and "Could not find user" in dm_send_error:
+                    return
 
                     # Check for automatic punishment
                     punishment_config = getattr(guild_config, "warn_punishment", None)
-                    unpunished_warns = [w for w in guild_warns if not w.get("punishment_applied") and w.get("member_id") == str(member.id)]
-                    
+                    unpunished_warns = [
+                        w
+                        for w in guild_warns
+                        if not w.get("punishment_applied") and w.get("member_id") == str(member.id)
+                    ]
+
                     if (
                         punishment_config
                         and isinstance(member, discord.Member)
-                        and len(unpunished_warns) >= punishment_config.get("threshold", float("inf"))
+                        and len(unpunished_warns)
+                        >= punishment_config.get("threshold", float("inf"))
                     ):
                         action = punishment_config["action"]
                         duration_seconds = punishment_config.get("duration")
@@ -1074,7 +1091,9 @@ class Moderation(commands.Cog):
 
                             if str(reaction.emoji) == "✅":
                                 # Add a note about the punishment
-                                await self.add_note.callback(self, ctx, member=member, note=punishment_reason)
+                                await self.note.get_command("add").callback(
+                                    self, ctx, member=member, note=punishment_reason
+                                )
 
                                 # Apply punishment
                                 await confirm_msg.edit(
@@ -1098,13 +1117,13 @@ class Moderation(commands.Cog):
                                     await self._perform_mute(
                                         ctx, member, punishment_reason, duration
                                     )
-                                
+
                                 # Mark warnings as punished
                                 for warn in unpunished_warns:
                                     await self.bot.db.update_guild_config(
                                         ctx.guild.id,
                                         {"$set": {f"warns.$[elem].punishment_applied": True}},
-                                        array_filters=[{"elem.case_number": warn["case_number"]}]
+                                        array_filters=[{"elem.case_number": warn["case_number"]}],
                                     )
 
                             else:  # User reacted with ��
