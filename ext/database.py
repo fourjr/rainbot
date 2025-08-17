@@ -126,14 +126,14 @@ DEFAULT: Dict[str, Any] = {
         "caps_message": {"warn": 0, "mute": None, "kick": False, "ban": False, "delete": True},
         "ai_moderation": {
             "warn": 1,
-            "mute": "10 minutes",
+            "mute": None,
             "kick": False,
             "ban": False,
             "delete": True,
         },
         "image_moderation": {
             "warn": 1,
-            "mute": "10 minutes",
+            "mute": None,
             "kick": False,
             "ban": False,
             "delete": True,
