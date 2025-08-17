@@ -709,6 +709,23 @@ class Moderation(commands.Cog):
                 if channel:
                     await channel.send(fmt)
 
+            elif ctx.command.name == 'mute':
+                name = getattr(args[0], 'name', '(no name)')
+                if args[2]:
+                    fmt = f'{current_time} {ctx.author} muted {name} ({args[0].id}), reason: {args[1]} for {format_timedelta(args[2])}'
+                else:
+                    fmt = f'{current_time} {ctx.author} muted {name} ({args[0].id}), reason: {args[1]}'
+                channel = ctx.bot.get_channel(modlogs.member_mute)
+                if channel:
+                    await channel.send(fmt)
+
+            elif ctx.command.name == 'unmute':
+                name = getattr(args[0], 'name', '(no name)')
+                fmt = f'{current_time} {ctx.author} unmuted {name} ({args[0].id}), reason: {args[1]}'
+                channel = ctx.bot.get_channel(modlogs.member_unmute)
+                if channel:
+                    await channel.send(fmt)
+
             else:
                 raise NotImplementedError(
                     f"{ctx.command.name} not implemented for commands/send_log"
@@ -1278,9 +1295,10 @@ class Moderation(commands.Cog):
             await ctx.send(
                 f"{user_mention} has been muted for {format_timedelta(duration)}. Reason: {reason}"
             )
+            await self.send_log(ctx, member, reason, duration)
         else:
             await ctx.send(f"{user_mention} has been muted indefinitely. Reason: {reason}")
-        await self.send_log(ctx, member, reason, duration)
+            await self.send_log(ctx, member, reason, None)
 
     @command(6, name="muted")
     async def muted(self, ctx: commands.Context) -> None:
@@ -1619,9 +1637,10 @@ class Moderation(commands.Cog):
                 await ctx.send(
                     f"{member.mention} has been muted for {format_timedelta(duration)}. Reason: {reason}"
                 )
+                await self.send_log(ctx, member, reason, duration)
             else:
                 await ctx.send(f"{member.mention} has been muted indefinitely. Reason: {reason}")
-            await self.send_log(ctx, member, reason, duration)
+                await self.send_log(ctx, member, reason, None)
         except Exception as e:
             await ctx.send(f"Failed to mute {member.mention}: {e}", delete_after=10)
 

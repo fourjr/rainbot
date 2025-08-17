@@ -666,8 +666,11 @@ class rainbot(commands.Bot):
             await asyncio.sleep(duration - time())
 
         try:
-            member = self.get_guild(guild_id).get_member(member_id)
-            member.guild.id
+            guild = self.get_guild(guild_id)
+            if guild:
+                member = guild.get_member(member_id)
+            else:
+                member = None
         except AttributeError:
             member = None
 
@@ -683,18 +686,23 @@ class rainbot(commands.Bot):
             current_time = datetime.utcnow() + timedelta(hours=guild_config.time_offset)
             current_time_fmt = f"<t:{int(current_time.timestamp())}:T>"
 
-            if member:
-                if mute_role in member.roles:
-                    await member.remove_roles(mute_role)
-                    if log_channel:
-                        await log_channel.send(
-                            f"{current_time_fmt} {member} ({member.id}) has been unmuted. Reason: {reason}"
-                        )
-            else:
+            if mute_role in member.roles:
+                await member.remove_roles(mute_role)
                 if log_channel:
                     await log_channel.send(
-                        f"{current_time_fmt} Tried to unmute {member} ({member.id}), member not in server"
+                        f"{current_time_fmt} {member} ({member.id}) has been unmuted. Reason: {reason}"
                     )
+        else:
+            guild_config = await self.db.get_guild_config(guild_id)
+            log_channel: Optional[discord.TextChannel] = self.get_channel(
+                tryint(guild_config.modlog.member_unmute)
+            )
+            current_time = datetime.utcnow() + timedelta(hours=guild_config.time_offset)
+            current_time_fmt = f"<t:{int(current_time.timestamp())}:T>"
+            if log_channel:
+                await log_channel.send(
+                    f"{current_time_fmt} Tried to unmute <@{member_id}> ({member_id}), member not in server"
+                )
 
         # set db
         pull: Dict[str, Any] = {"$pull": {"mutes": {"member": str(member_id)}}}
