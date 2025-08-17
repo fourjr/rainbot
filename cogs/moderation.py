@@ -709,19 +709,21 @@ class Moderation(commands.Cog):
                 if channel:
                     await channel.send(fmt)
 
-            elif ctx.command.name == 'mute':
-                name = getattr(args[0], 'name', '(no name)')
+            elif ctx.command.name == "mute":
+                name = getattr(args[0], "name", "(no name)")
                 if args[2]:
-                    fmt = f'{current_time} {ctx.author} muted {name} ({args[0].id}), reason: {args[1]} for {format_timedelta(args[2])}'
+                    fmt = f"{current_time} {ctx.author} muted {name} ({args[0].id}), reason: {args[1]} for {format_timedelta(args[2])}"
                 else:
-                    fmt = f'{current_time} {ctx.author} muted {name} ({args[0].id}), reason: {args[1]}'
+                    fmt = f"{current_time} {ctx.author} muted {name} ({args[0].id}), reason: {args[1]}"
                 channel = ctx.bot.get_channel(modlogs.member_mute)
                 if channel:
                     await channel.send(fmt)
 
-            elif ctx.command.name == 'unmute':
-                name = getattr(args[0], 'name', '(no name)')
-                fmt = f'{current_time} {ctx.author} unmuted {name} ({args[0].id}), reason: {args[1]}'
+            elif ctx.command.name == "unmute":
+                name = getattr(args[0], "name", "(no name)")
+                fmt = (
+                    f"{current_time} {ctx.author} unmuted {name} ({args[0].id}), reason: {args[1]}"
+                )
                 channel = ctx.bot.get_channel(modlogs.member_unmute)
                 if channel:
                     await channel.send(fmt)
