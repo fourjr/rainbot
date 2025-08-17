@@ -134,8 +134,10 @@ __all__ = ("get_perm_level", "format_timedelta")
 def get_perm_level(
     member: discord.Member, guild_config: "DBDict"
 ) -> Tuple[int, Union[str, discord.Role, None]]:
-    highest_role: Union[str, discord.Role, None] = None
-
+    if not isinstance(member, discord.Member):
+        return (0, None)
+    highest_role: Union[str, discord.Role, None] = "Member"
+    perm_level = 0
     if not getattr(member, "guild_permissions", None):
         perm_level = 0
     elif member.id == member.guild.me.id:
