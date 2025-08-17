@@ -1044,105 +1044,90 @@ class Moderation(commands.Cog):
 
                     # Check for automatic punishment
                     punishment_config = getattr(guild_config, "warn_punishment", None)
-                    unpunished_warns = [
-                        w
-                        for w in guild_warns
-                        if not w.get("punishment_applied") and w.get("member_id") == str(member.id)
-                    ]
-
-                    if (
-                        punishment_config
-                        and isinstance(member, discord.Member)
-                        and len(unpunished_warns)
-                        >= punishment_config.get("threshold", float("inf"))
-                    ):
-                        action = punishment_config["action"]
-                        duration_seconds = punishment_config.get("duration")
-                        duration = timedelta(seconds=duration_seconds) if duration_seconds else None
-                        punishment_reason = (
-                            f"Automatic punishment for reaching {len(unpunished_warns)} warnings."
-                        )
-                        duration_str = f" for {format_timedelta(duration)}" if duration else ""
-
-                        embed = discord.Embed(
-                            title="Confirm Automatic Punishment",
-                            description=(
-                                f"{member.mention} has reached {len(unpunished_warns)} warnings.\n"
-                                f"The configured punishment is **{action.capitalize()}{duration_str}**.\n\n"
-                                f"Do you want to apply this punishment?"
-                            ),
-                            color=discord.Color.orange(),
-                        )
-                        confirm_msg = await ctx.send(embed=embed)
-                        await confirm_msg.add_reaction("✅")
-                        await confirm_msg.add_reaction("❌")
-
-                        def check(reaction, user):
-                            return (
-                                user == ctx.author
-                                and str(reaction.emoji) in ["✅", "❌"]
-                                and reaction.message.id == confirm_msg.id
+                    if punishment_config and isinstance(member, discord.Member):
+                        threshold = punishment_config.get("threshold")
+                        if threshold and threshold > 0 and num_warns % threshold == 0:
+                            action = punishment_config["action"]
+                            duration_seconds = punishment_config.get("duration")
+                            duration = (
+                                timedelta(seconds=duration_seconds) if duration_seconds else None
                             )
-
-                        try:
-                            reaction, user = await self.bot.wait_for(
-                                "reaction_add", timeout=60.0, check=check
+                            punishment_reason = (
+                                f"Automatic punishment for reaching {num_warns} warnings."
                             )
+                            duration_str = f" for {format_timedelta(duration)}" if duration else ""
 
-                            if str(reaction.emoji) == "✅":
-                                # Add a note about the punishment
-                                await self.note.get_command("add").callback(
-                                    self, ctx, member=member, note=punishment_reason
+                            embed = discord.Embed(
+                                title="Confirm Automatic Punishment",
+                                description=(
+                                    f"{member.mention} has reached {num_warns} warnings.\n"
+                                    f"The configured punishment is **{action.capitalize()}{duration_str}**.\n\n"
+                                    f"Do you want to apply this punishment?"
+                                ),
+                                color=discord.Color.orange(),
+                            )
+                            confirm_msg = await ctx.send(embed=embed)
+                            await confirm_msg.add_reaction("✅")
+                            await confirm_msg.add_reaction("❌")
+
+                            def check(reaction, user):
+                                return (
+                                    user == ctx.author
+                                    and str(reaction.emoji) in ["✅", "❌"]
+                                    and reaction.message.id == confirm_msg.id
                                 )
 
-                                # Apply punishment
-                                await confirm_msg.edit(
-                                    embed=discord.Embed(
-                                        title="Punishment Confirmed",
-                                        description=f"Applying punishment to {member.mention}...",
-                                        color=discord.Color.green(),
-                                    )
+                            try:
+                                reaction, user = await self.bot.wait_for(
+                                    "reaction_add", timeout=60.0, check=check
                                 )
-                                if action == "kick":
-                                    await self._perform_kick(ctx, member, punishment_reason)
-                                elif action == "softban":
-                                    await self._perform_softban(ctx, member, punishment_reason)
-                                elif action == "ban":
-                                    await self._perform_ban(ctx, member, punishment_reason)
-                                elif action == "tempban":
-                                    await self._perform_ban(
-                                        ctx, member, punishment_reason, duration
-                                    )
-                                elif action == "mute":
-                                    await self._perform_mute(
-                                        ctx, member, punishment_reason, duration
+
+                                if str(reaction.emoji) == "✅":
+                                    # Add a note about the punishment
+                                    await self.note.get_command("add").callback(
+                                        self, ctx, member=member, note=punishment_reason
                                     )
 
-                                # Mark warnings as punished
-                                for warn in unpunished_warns:
-                                    await self.bot.db.update_guild_config(
-                                        ctx.guild.id,
-                                        {"$set": {f"warns.$[elem].punishment_applied": True}},
-                                        array_filters=[{"elem.case_number": warn["case_number"]}],
+                                    # Apply punishment
+                                    await confirm_msg.edit(
+                                        embed=discord.Embed(
+                                            title="Punishment Confirmed",
+                                            description=f"Applying punishment to {member.mention}...",
+                                            color=discord.Color.green(),
+                                        )
+                                    )
+                                    if action == "kick":
+                                        await self._perform_kick(ctx, member, punishment_reason)
+                                    elif action == "softban":
+                                        await self._perform_softban(ctx, member, punishment_reason)
+                                    elif action == "ban":
+                                        await self._perform_ban(ctx, member, punishment_reason)
+                                    elif action == "tempban":
+                                        await self._perform_ban(
+                                            ctx, member, punishment_reason, duration
+                                        )
+                                    elif action == "mute":
+                                        await self._perform_mute(
+                                            ctx, member, punishment_reason, duration
+                                        )
+
+                                else:  # User reacted with ❌
+                                    await confirm_msg.edit(
+                                        embed=discord.Embed(
+                                            title="Punishment Cancelled",
+                                            description="The automatic punishment was cancelled by the moderator.",
+                                            color=discord.Color.red(),
+                                        )
                                     )
 
-                            else:  # User reacted with ��
+                            except asyncio.TimeoutError:
                                 await confirm_msg.edit(
                                     embed=discord.Embed(
                                         title="Punishment Cancelled",
-                                        description="The automatic punishment was cancelled by the moderator.",
+                                        description="Confirmation timed out. The automatic punishment was not applied.",
                                         color=discord.Color.red(),
                                     )
                                 )
-
-                        except asyncio.TimeoutError:
-                            await confirm_msg.edit(
-                                embed=discord.Embed(
-                                    title="Punishment Cancelled",
-                                    description="Confirmation timed out. The automatic punishment was not applied.",
-                                    color=discord.Color.red(),
-                                )
-                            )
 
     @warn.command(6, name="remove", aliases=["delete", "del"])
     async def remove_(self, ctx: commands.Context, case_number: int) -> None:
