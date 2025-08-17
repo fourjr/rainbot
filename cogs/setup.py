@@ -23,6 +23,7 @@ from ext.utility import (
     get_command_level,
 )
 from ext.errors import BotMissingPermissionsInChannel
+from ext.paginator import Paginator
 import config
 from PIL import Image
 from imagehash import average_hash
@@ -50,16 +51,12 @@ class Setup(commands.Cog):
     @command(6, aliases=["view_config", "view-config"], usage="[json]")
     async def viewconfig(self, ctx: commands.Context, options: str = None) -> None:
         """**View all custom server configurations**
-
         This command displays every setting that has been changed from the default value.
         You can also get a downloadable JSON file of the full configuration.
-
         **Usage:**
         `{prefix}viewconfig [json]`
-
         **[json]:**
         - If provided, the full configuration will be sent as a JSON file.
-
         **Examples:**
         - `{prefix}viewconfig` - Displays all custom-set configurations.
         - `{prefix}viewconfig json` - Sends the full configuration as a file.
@@ -78,12 +75,6 @@ class Setup(commands.Cog):
                 file=file,
             )
             return
-
-        embed = discord.Embed(
-            title=f"⚙️ {ctx.guild.name} Custom Configurations",
-            description="Showing all settings that have been changed from the default.",
-            color=config.get_color("info"),
-        )
 
         def format_value(value):
             if isinstance(value, list):
@@ -106,33 +97,44 @@ class Setup(commands.Cog):
 
         find_diff(guild_config, DEFAULT)
 
-        if not custom_settings:
-            embed.description = "No custom configurations found. All settings are at their default values."
+        if not any(path not in ("guild_id", "_id") for path, _ in custom_settings):
+            embed = discord.Embed(
+                title=f"⚙️ {ctx.guild.name} Custom Configurations",
+                description="No custom configurations found. All settings are at their default values.",
+                color=config.get_color("info"),
+            )
             await ctx.send(embed=embed)
             return
 
-        # Sort and format for readability
         custom_settings.sort()
-        current_category = ""
-        field_value = ""
+        embeds = []
+        current_embed = discord.Embed(
+            title=f"⚙️ {ctx.guild.name} Custom Configurations",
+            description="Showing all settings that have been changed from the default.",
+            color=config.get_color("info"),
+        )
+        char_count = 0
 
         for path, value in custom_settings:
             if path in ("guild_id", "_id"):
                 continue
 
-            category = path.split(".")[0]
-            if category != current_category:
-                if field_value:
-                    embed.add_field(name=f"**{current_category.replace('_', ' ').title()}**", value=field_value, inline=False)
-                current_category = category
-                field_value = ""
-            
-            field_value += f"**{path}**: {format_value(value)}\n"
+            formatted_setting = f"**{path}**: {format_value(value)}\n"
+            if char_count + len(formatted_setting) > 1024:
+                embeds.append(current_embed)
+                current_embed = discord.Embed(color=config.get_color("info"))
+                char_count = 0
 
-        if field_value:
-            embed.add_field(name=f"**{current_category.replace('_', ' ').title()}**", value=field_value, inline=False)
+            current_embed.add_field(name=path.replace('_', ' ').title(), value=format_value(value), inline=False)
+            char_count += len(formatted_setting)
 
-        await ctx.send(embed=embed)
+        embeds.append(current_embed)
+
+        if len(embeds) > 1:
+            paginator = Paginator(ctx, *embeds)
+            await paginator.start()
+        else:
+            await ctx.send(embed=embeds[0])
 
     @command(10, aliases=["import_config", "import-config"], usage="<url>")
     async def importconfig(self, ctx: commands.Context, *, url: str) -> None:
