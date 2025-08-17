@@ -354,7 +354,9 @@ class Detection:
                 pass  # User has DMs disabled
         elif alert_location == "channel":
             try:
-                await message.channel.send(f"{message.author.mention}, {notification_message}")
+                await message.channel.send(
+                    f"{message.author.mention}, {notification_message}", delete_after=30
+                )
             except discord.Forbidden:
                 pass  # Can't send messages in this channel
 
