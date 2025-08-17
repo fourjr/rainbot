@@ -617,6 +617,121 @@ class Moderation(commands.Cog):
                 )
             )
 
+    @modlogs.command(9, name="purge")
+    async def modlogs_purge(self, ctx: commands.Context, user: MemberOrID) -> None:
+        """**Delete all modlogs for a user**
+
+        This command will remove all moderation logs for a given user. This is a destructive action and cannot be undone.
+
+        **Usage:**
+        `{prefix}modlogs purge <user>`
+
+        **<user>:**
+        - Mention the user, e.g., `@user`
+        - Provide the user's ID, e.g., `123456789012345678`
+        """
+        user_id = str(user.id)
+        name = getattr(user, "name", str(user.id))
+        if hasattr(user, "discriminator") and name != str(user.id):
+            name += f"#{user.discriminator}"
+
+        embed = discord.Embed(
+            title="Confirm Modlog Purge",
+            description=(
+                f"Are you sure you want to delete all moderation logs for {name} ({user_id})?\n\n"
+                "**This action is irreversible.**"
+            ),
+            color=discord.Color.red(),
+        )
+        msg = await ctx.send(embed=embed)
+        await msg.add_reaction("✅")
+        await msg.add_reaction("❌")
+
+        def check(reaction, u):
+            return (
+                u == ctx.author
+                and str(reaction.emoji) in ["✅", "❌"]
+                and reaction.message.id == msg.id
+            )
+
+        try:
+            reaction, u = await ctx.bot.wait_for("reaction_add", timeout=30.0, check=check)
+            if str(reaction.emoji) == "✅":
+                guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+
+                update_payload = {}
+                log_types = [
+                    "modlog",
+                    "warns",
+                    "mutes",
+                    "tempbans",
+                    "kicks",
+                    "softbans",
+                    "bans",
+                    "notes",
+                ]
+                member_id_fields = {
+                    "modlog": "member_id",
+                    "warns": "member_id",
+                    "mutes": "member",
+                    "tempbans": "member",
+                    "kicks": "member_id",
+                    "softbans": "member_id",
+                    "bans": "member_id",
+                    "notes": "member_id",
+                }
+
+                deleted_counts = {}
+
+                for log_type in log_types:
+                    id_field = member_id_fields[log_type]
+                    original_list = getattr(guild_config, log_type, [])
+                    if original_list:
+                        new_list = [
+                            entry
+                            for entry in original_list
+                            if isinstance(entry, dict) and entry.get(id_field) != user_id
+                        ]
+                        update_payload[log_type] = new_list
+                        deleted_counts[log_type] = len(original_list) - len(new_list)
+
+                if update_payload:
+                    await self.bot.db.update_guild_config(ctx.guild.id, {"$set": update_payload})
+
+                deleted_summary = "\n".join(
+                    [
+                        f"• {log_type.title()}: {count}"
+                        for log_type, count in deleted_counts.items()
+                        if count > 0
+                    ]
+                )
+                if not deleted_summary:
+                    deleted_summary = "No logs found to delete."
+
+                await msg.edit(
+                    embed=discord.Embed(
+                        title="Modlogs Purged",
+                        description=f"All moderation logs for {name} ({user_id}) have been deleted.\n\n**Deleted Entries:**\n{deleted_summary}",
+                        color=discord.Color.green(),
+                    )
+                )
+            else:
+                await msg.edit(
+                    embed=discord.Embed(
+                        title="Modlog Purge Cancelled",
+                        description="Modlog purge cancelled by user.",
+                        color=discord.Color.red(),
+                    )
+                )
+        except asyncio.TimeoutError:
+            await msg.edit(
+                embed=discord.Embed(
+                    title="Modlog Purge Cancelled",
+                    description="Modlog purge timed out. Command cancelled.",
+                    color=discord.Color.red(),
+                )
+            )
+
     async def cog_error(self, ctx: commands.Context, error: Exception) -> None:
         """Handles discord.Forbidden"""
 
