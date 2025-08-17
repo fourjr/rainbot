@@ -685,7 +685,7 @@ class Moderation(commands.Cog):
                         f"[send_log] Cannot find a valid channel for modlogs remove. ID: {channel_id}, channel: {channel}"
                     )
             elif ctx.command.qualified_name == "warn":
-                fmt = f"{current_time} {ctx.author} warned #{args[2]} {args[0]} ({args[0].id}), reason: {args[1]}"
+                fmt = f"{current_time} {ctx.author} warned {args[0].mention} (#{args[2]}), reason: {args[1]}"
                 channel = ctx.bot.get_channel(modlogs.member_warn)
                 if channel and hasattr(channel, "send"):
                     await channel.send(fmt)
