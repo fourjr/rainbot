@@ -269,45 +269,56 @@ class Detections(commands.Cog):
             self.logger.warning("MODERATION_API_URL is not set, AI moderation is disabled.")
             return
 
-        payload = {}
-        if m.content:
-            payload["text"] = m.content
+        flagged = False
 
+        async def process_moderation(endpoint, payload):
+            nonlocal flagged
+            if flagged:  # If a punishment has already been issued for this message, stop.
+                return
+
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(f"{api_url}{endpoint}", json=payload) as resp:
+                        if resp.status == 200:
+                            result = await resp.json()
+                        else:
+                            self.logger.error(
+                                f"Moderation API request to {endpoint} failed with status {resp.status}: {await resp.text()}"
+                            )
+                            return
+
+                if result.get("action") == "flag":
+                    reason = (
+                        f"AI moderation triggered for: {', '.join(result.get('flagged_for', []))}"
+                    )
+                    await m.detection.punish(
+                        self.bot,
+                        m,
+                        guild_config,
+                        reason=reason,
+                        detection_name="ai_moderation",
+                    )
+                    flagged = True
+
+            except Exception as e:
+                self.logger.error(f"Error calling moderation API endpoint {endpoint}: {e}")
+
+        # --- Text Moderation ---
+        if m.content:
+            await process_moderation("/moderate/text", {"text": m.content})
+
+        # --- Image Moderation ---
         if m.attachments:
             for attachment in m.attachments:
                 if any(
                     attachment.filename.lower().endswith(ext)
                     for ext in [".png", ".jpg", ".jpeg", ".webp"]
                 ):
-                    payload["image_url"] = attachment.url
-                    break
-
-        if not payload:
-            return
-
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(api_url, json=payload) as resp:
-                    if resp.status == 200:
-                        result = await resp.json()
-                    else:
-                        self.logger.error(
-                            f"Moderation API request failed with status {resp.status}: {await resp.text()}"
-                        )
-                        return
-
-            if result.get("action") == "flag":
-                reason = f"AI moderation triggered for: {', '.join(result.get('flagged_for', []))}"
-                await m.detection.punish(
-                    self.bot,
-                    m,
-                    guild_config,
-                    reason=reason,
-                    detection_name="ai_moderation",
-                )
-
-        except Exception as e:
-            self.logger.error(f"Error calling moderation API: {e}")
+                    # Pass message content as context for image moderation
+                    payload = {"image_url": attachment.url, "text": m.content}
+                    await process_moderation("/moderate/image", payload)
+                    if flagged:
+                        break  # Stop checking other attachments if one is flagged
 
 
 async def setup(bot: rainbot) -> None:

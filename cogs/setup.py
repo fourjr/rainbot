@@ -1927,7 +1927,7 @@ class Setup(commands.Cog):
 
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.post(api_url, json=payload) as resp:
+                async with session.post(f"{api_url}/moderate/text", json=payload) as resp:
                     if resp.status == 200:
                         result = await resp.json()
                     else:
