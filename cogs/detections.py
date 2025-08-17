@@ -30,6 +30,7 @@ from ext.utility import UNICODE_EMOJI, Detection, detection, MessageWrapper
 class Detections(commands.Cog):
     def __init__(self, bot: rainbot) -> None:
         self.bot = bot
+        self._cd = commands.CooldownMapping.from_cooldown(1, 10, commands.BucketType.user)
         self.logger = logging.getLogger("rainbot.detections")
         self.spam_detection: DefaultDict[str, List[float]] = defaultdict(list)
         self.repetitive_message: DefaultDict[str, Dict[str, List[float]]] = defaultdict(
@@ -65,18 +66,22 @@ class Detections(commands.Cog):
             return
 
         if self.bot.dev_mode:
-            dev_guild_id = getattr(self.bot, "dev_guild_id", None)
+            dev_guild_id = getattr(self, "dev_guild_id", None)
             if dev_guild_id and m.guild and m.guild.id != dev_guild_id:
                 return
         if (
             (
                 self.bot.dev_mode
-                and getattr(self.bot, "dev_guild_id", None)
-                and (m.guild and m.guild.id != getattr(self.bot, "dev_guild_id", None))
+                and getattr(self, "dev_guild_id", None)
+                and (m.guild and m.guild.id != getattr(self, "dev_guild_id", None))
             )
             or m.type not in (discord.MessageType.default, discord.MessageType.reply)
             or not m.guild
         ):
+            return
+
+        bucket = self._cd.get_bucket(m)
+        if bucket.update_rate_limit():
             return
 
         guild_config = await self.bot.db.get_guild_config(m.guild.id)

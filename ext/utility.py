@@ -366,12 +366,14 @@ class Detection:
             except discord.Forbidden:
                 pass  # User has DMs disabled
         elif alert_location == "channel":
-            try:
-                await message.channel.send(
-                    f"{message.author.mention}, {notification_message}", delete_after=30
-                )
-            except discord.Forbidden:
-                pass  # Can't send messages in this channel
+            bucket = bot.get_cog("Detections")._cd.get_bucket(message)
+            if not bucket.update_rate_limit():
+                try:
+                    await message.channel.send(
+                        f"{message.author.mention}, {notification_message}", delete_after=30
+                    )
+                except discord.Forbidden:
+                    pass  # Can't send messages in this channel
 
         # Log to modlog channel
         log_channel_id = guild_config.modlog.get("ai_moderation")
