@@ -34,7 +34,7 @@ class Paginator:
             raise SyntaxError("There should be at least 1 embed object provided to the paginator")
 
         for i, em in enumerate(self.embeds):
-            if isinstance(em.footer.text, discord.embeds._EmptyEmbed):
+            if not em.footer.text:
                 footer_text = " "
             else:
                 footer_text = em.footer.text
