@@ -1904,74 +1904,82 @@ class Setup(commands.Cog):
         await ctx.send(f"Canned variable `{name}` set to: {value if value else 'removed'}.")
 
     @command(10, aliases=["aimodtest"])
-    async def aimoderationtest(self, ctx: commands.Context, *, text: str):
-        """**Tests a string against the AI moderation filter**
-
-        This command allows you to test how the AI moderation filter will score a given piece of text.
-        This is useful for tuning your AI moderation settings.
-
+    async def aimoderationtest(self, ctx: commands.Context, *, text: str = None):
+        """**Tests content against the AI moderation filter**
+        This command allows you to test how the AI moderation filter will respond to a given piece of text and/or an image.
         **Usage:**
-        `{prefix}aimoderationtest <text>`
-
+        `{prefix}aimoderationtest [text]`
+        You can also attach an image to the message.
         **<text>:**
         The text you want to test.
-
         **Example:**
-        `{prefix}aimoderationtest I really like this bot!`
+        `{prefix}aimoderationtest This is a test.`
         """
         api_url = os.getenv("MODERATION_API_URL")
         if not api_url:
             return await ctx.send("The `MODERATION_API_URL` is not set in the bot's environment.")
 
-        payload = {"content": text}
+        embed = discord.Embed(title="AI Moderation Test Results", color=discord.Color.blue())
 
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(f"{api_url}/moderate/text", json=payload) as resp:
-                    if resp.status == 200:
-                        result = await resp.json()
-                    else:
-                        await ctx.send(
-                            f"Moderation API request failed with status {resp.status}: {await resp.text()}"
-                        )
-                        return
-        except Exception as e:
-            await ctx.send(f"An error occurred while calling the moderation API: `{e}`")
-            return
+        # --- Text Moderation ---
+        if text:
+            try:
+                payload = {"content": text}
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(f"{api_url}/moderate/text", json=payload) as resp:
+                        if resp.status == 200:
+                            result = await resp.json()
+                            decision = result.get("decision", "error")
+                            categories = ", ".join(result.get("categories", [])) or "None"
+                            embed.add_field(
+                                name="Text Moderation",
+                                value=f"**Decision:** {decision}\n**Categories:** {categories}",
+                                inline=False,
+                            )
+                        else:
+                            embed.add_field(
+                                name="Text Moderation",
+                                value=f"API request failed with status {resp.status}",
+                                inline=False,
+                            )
+            except Exception as e:
+                embed.add_field(
+                    name="Text Moderation", value=f"An error occurred: {e}", inline=False
+                )
 
-        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-        settings = guild_config.detections.ai_moderation
+        # --- Image Moderation ---
+        if ctx.message.attachments:
+            attachment = ctx.message.attachments[0]
+            try:
+                form = aiohttp.FormData()
+                form.add_field("file", await attachment.read(), filename=attachment.filename)
 
-        embed = discord.Embed(
-            title="AI Moderation Test Results",
-            description=f'Testing the string: "{text}"',
-            color=(
-                discord.Color.green()
-                if not result or result.get("action") != "flag"
-                else discord.Color.red()
-            ),
-        )
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(f"{api_url}/moderate/image", data=form) as resp:
+                        if resp.status == 200:
+                            result = await resp.json()
+                            decision = result.get("decision", "error")
+                            nsfw = result.get("nsfw", "N/A")
+                            confidence = result.get("confidence", "N/A")
+                            categories = ", ".join(result.get("categories", [])) or "None"
+                            embed.add_field(
+                                name="Image Moderation",
+                                value=f"**Decision:** {decision}\n**NSFW:** {nsfw}\n**Confidence:** {confidence}\n**Categories:** {categories}",
+                                inline=False,
+                            )
+                        else:
+                            embed.add_field(
+                                name="Image Moderation",
+                                value=f"API request failed with status {resp.status}",
+                                inline=False,
+                            )
+            except Exception as e:
+                embed.add_field(
+                    name="Image Moderation", value=f"An error occurred: {e}", inline=False
+                )
 
-        if result:
-            flagged_for = result.get("flagged_for", [])
-            scores_text = ", ".join(flagged_for) if flagged_for else "None"
-            verdict = "NOT FLAGGED"
-            if result.get("action") == "flag":
-                verdict = f"FLAGGED for: {scores_text}"
-        else:
-            scores_text = "None"
-            verdict = "NOT FLAGGED (empty response)"
-
-        embed.add_field(name="Flagged Categories", value=scores_text, inline=False)
-
-        embed.add_field(
-            name="Bot's Decision",
-            value=(
-                f"**Verdict:** {verdict}\n"
-                f"**Reasoning:** The message was compared against your server's enabled categories."
-            ),
-            inline=False,
-        )
+        if not text and not ctx.message.attachments:
+            return await ctx.send("Please provide text or an image to test.")
 
         await ctx.send(embed=embed)
 
