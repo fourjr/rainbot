@@ -1240,6 +1240,23 @@ class Moderation(commands.Cog):
         *,
         time: UserFriendlyTime(assume_reason=True) = None,
     ) -> None:
+        if getattr(ctx, "_dummy", False):
+            duration = None
+            reason = None
+            if time:
+                if time.dt:
+                    duration = time.dt - ctx.message.created_at
+                if time.arg:
+                    reason = time.arg
+            if not isinstance(member, discord.Member):
+                member_obj = ctx.guild.get_member(getattr(member, "id", member))
+                if not member_obj:
+                    self.logger.warning(
+                        f"Attempted to auto-mute user not in guild: {getattr(member, 'id', member)}"
+                    )
+                    return
+                member = member_obj
+            return await self._perform_mute(ctx, member, reason, duration)
         """**Mute a member**
 
         This command prevents a member from sending messages and speaking in voice channels.
@@ -1863,6 +1880,19 @@ class Moderation(commands.Cog):
         time_or_reason: str = None,
         prune_days: int = None,
     ) -> None:
+        if getattr(ctx, "_dummy", False):
+            duration = None
+            reason = None
+            if time_or_reason:
+                try:
+                    uft = await UserFriendlyTime(default=False).convert(ctx, time_or_reason)
+                    if uft.dt:
+                        duration = uft.dt - ctx.message.created_at
+                    if uft.arg:
+                        reason = uft.arg
+                except commands.BadArgument:
+                    reason = time_or_reason
+            return await self._perform_ban(ctx, member, reason, duration)
         """**Ban a member from the server**
 
         This command permanently removes a member from the server and prevents them from rejoining.
