@@ -8,12 +8,12 @@ import discord
 from discord.ext import commands
 from discord.ext.commands import Cog
 
-from bot import rainbot
+from rainbot.main import RainBot
 from ..ext.utility import QuickId, format_timedelta
 
 
 class Logging(commands.Cog):
-    def __init__(self, bot: rainbot) -> None:
+    def __init__(self, bot: RainBot) -> None:
         self.bot = bot
         # self.bot.loop.create_task(self.fill_message_cache())
 
@@ -474,5 +474,5 @@ class Logging(commands.Cog):
             await self.send_log(log_channel, role, False, mode="channel_role_delete", extra="Role")
 
 
-async def setup(bot: rainbot) -> None:
+async def setup(bot: RainBot) -> None:
     await bot.add_cog(Logging(bot))
