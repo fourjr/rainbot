@@ -19,11 +19,8 @@ class AIModeration(commands.Cog):
         await ctx.invoke(self.bot.get_command("help"), command_or_cog="aimoderation")
 
     @aimoderation.command(name="enable")
-    async def ai_enable(self, ctx: commands.Context, category: str = "all") -> None:
-        """Enable AI moderation for all categories or a specific category.
-        
-        Usage: aimoderation enable [all|category]
-        """
+    async def ai_enable(self, ctx: commands.Context, category: str = None) -> None:
+        """Enable AI moderation for all categories or a specific category."""
         valid_categories = [
             "hate",
             "hate/threatening",
@@ -38,7 +35,7 @@ class AIModeration(commands.Cog):
             ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": True}}
         )
 
-        if category == "all":
+        if category is None or category == "all":
             await ctx.send("AI moderation enabled for all categories.")
         elif category in valid_categories:
             # Disable all categories first
@@ -59,7 +56,7 @@ class AIModeration(commands.Cog):
             )
 
     @aimoderation.command(name="disable")
-    async def ai_disable(self, ctx: commands.Context, category: str = "all") -> None:
+    async def ai_disable(self, ctx: commands.Context, category: str = None) -> None:
         """Disable AI moderation for all categories or a specific category."""
         valid_categories = [
             "hate",
@@ -70,8 +67,8 @@ class AIModeration(commands.Cog):
             "violence",
             "violence/graphic",
         ]
-        
-        if category == "all":
+
+        if category is None or category == "all":
             await self.bot.db.update_guild_config(
                 ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": False}}
             )
@@ -82,17 +79,32 @@ class AIModeration(commands.Cog):
             )
             await ctx.send(f"AI moderation disabled for '{category}' category.")
         else:
-            await ctx.send(f"Invalid category. Valid categories: {', '.join(valid_categories)} or 'all'")
+            await ctx.send(
+                f"Invalid category. Valid categories: {', '.join(valid_categories)} or 'all'"
+            )
 
     @command(5, parent="aimoderation")
     async def aisensitivity(self, ctx: commands.Context, level: int = None) -> None:
         """Adjust the AI's sensitivity (0-100).
 
         Usage: aisensitivity <level>
-        Level must be between 0 and 100.
+
+        Sensitivity levels:
+        • Lower % (0-30): Less strict - Only catches obvious violations
+        • Medium % (40-70): Balanced - Catches most violations
+        • Higher % (80-100): More strict - Catches subtle violations too
+
+        Examples:
+        • aisensitivity 20 - Very lenient, only extreme content
+        • aisensitivity 50 - Balanced moderation
+        • aisensitivity 90 - Strict, catches borderline content
         """
         if level is None:
-            await ctx.invoke(self.bot.get_command("help"), command_or_cog="aisensitivity")
+            guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+            current = guild_config.detections.ai_moderation.sensitivity
+            await ctx.send(
+                f"**Current AI sensitivity:** {current}%\n\n**Sensitivity Guide:**\n• **0-30%**: Less strict - Only obvious violations\n• **40-70%**: Balanced - Most violations\n• **80-100%**: More strict - Subtle violations too\n\n**Usage:** `aisensitivity <0-100>`"
+            )
             return
 
         if not 0 <= level <= 100:
