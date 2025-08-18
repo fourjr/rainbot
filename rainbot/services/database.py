@@ -127,7 +127,7 @@ DEFAULT: Dict[str, Any] = {
         "max_characters": {"warn": 0, "mute": None, "kick": False, "ban": False, "delete": True},
         "caps_message": {"warn": 0, "mute": None, "kick": False, "ban": False, "delete": True},
         "ai_moderation": {
-            "warn": 1,
+            "warn": 0,
             "mute": None,
             "kick": False,
             "ban": False,

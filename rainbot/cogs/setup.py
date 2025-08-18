@@ -1230,8 +1230,10 @@ class Setup(commands.Cog):
         **Subcommands:**
         - `enable` - Enable AI moderation.
         - `disable` - Disable AI moderation.
-        - `sensitivity` - Set the sensitivity of the AI.
         - `category` - Enable or disable specific moderation categories.
+
+        **Related Commands:**
+        - `aisensitivity <1-100>` - Set the AI sensitivity level.
         """
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         enabled_categories = [
@@ -1258,7 +1260,8 @@ class Setup(commands.Cog):
             value=(
                 "`setaimoderation enable` - Enable AI moderation\n"
                 "`setaimoderation disable` - Disable AI moderation\n"
-                "`setaimoderation category <name | all> <on|off>` - Toggle a category"
+                "`setaimoderation category <name | all> <on|off>` - Toggle a category\n"
+                "`aisensitivity <1-100>` - Set AI sensitivity level"
             ),
             inline=False,
         )
@@ -1327,31 +1330,6 @@ class Setup(commands.Cog):
             ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": False}}
         )
         await ctx.send("AI moderation has been disabled.")
-
-    @setaimoderation.command(name="sensitivity")
-    async def aimod_sensitivity(self, ctx: commands.Context, sensitivity: int) -> None:
-        """**Set the sensitivity of the AI moderation**
-
-        This command adjusts how strict the AI moderation is.
-        A higher sensitivity means the AI is more likely to flag content.
-
-        **Usage:**
-        `{prefix}setaimoderation sensitivity <percentage>`
-
-        **<percentage>:**
-        - An integer between 1 and 100.
-
-        **Example:**
-        `{prefix}setaimoderation sensitivity 80`
-        """
-        if not 1 <= sensitivity <= 100:
-            await ctx.send("Sensitivity must be between 1 and 100.")
-            return
-
-        await self.bot.db.update_guild_config(
-            ctx.guild.id, {"$set": {"detections.ai_moderation.sensitivity": sensitivity}}
-        )
-        await ctx.send(f"AI moderation sensitivity set to {sensitivity}%.")
 
     @setaimoderation.command(name="category")
     async def aimod_category(self, ctx: commands.Context, category: str, value: bool) -> None:

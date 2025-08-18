@@ -2,205 +2,134 @@ import discord
 from discord.ext import commands
 
 from rainbot.main import RainBot
-from ..ext.command import group
+from ..ext.command import command, group
 
 
 class AIModeration(commands.Cog):
     def __init__(self, bot: RainBot) -> None:
         self.bot = bot
 
-    @group(6, invoke_without_command=True, aliases=["aimod"])
+    @group(5, invoke_without_command=True)
     async def aimoderation(self, ctx: commands.Context) -> None:
-        """**AI-powered moderation tools**
+        """AI moderation management commands.
 
-        This command provides access to AI-powered moderation features.
-        Use the subcommands to configure and use the AI moderation tools.
-
-        **Subcommands:**
-        - `toggle` - Enable or disable both text and image AI moderation.
-        - `sensitivity` - Adjust the AI's sensitivity.
-        - `punishment` - Set the punishment for AI moderation flags.
-        - `categories` - Manage AI moderation categories.
-        - `text` - Toggle text moderation only.
-        - `image` - Toggle image moderation only.
-        - `settings` - View the current AI moderation settings.
-        - `help` - Show this help message.
+        Related commands:
+        - aisensitivity - Adjust AI sensitivity level
         """
-        pass  # Help is now handled automatically by RainGroup
+        await ctx.invoke(self.bot.get_command("help"), command_or_cog="aimoderation")
 
-    @aimoderation.command()
-    async def toggle(self, ctx: commands.Context, state: bool = None) -> None:
-        """Enable or disable both text and image AI moderation."""
-        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-        if state is None:
-            state = not guild_config.detections.ai_moderation.enabled
+    @aimoderation.command(name="enable")
+    async def ai_enable(self, ctx: commands.Context) -> None:
+        """Enable AI moderation."""
         await self.bot.db.update_guild_config(
-            ctx.guild.id,
-            {
-                "$set": {
-                    "detections.ai_moderation.enabled": state,
-                    "detections.image_moderation.enabled": state,
-                }
-            },
+            ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": True}}
         )
-        await ctx.send(
-            f"AI moderation (text and image) has been {'enabled' if state else 'disabled'}."
-        )
+        await ctx.send("AI moderation enabled.")
 
-    @aimoderation.command()
-    async def sensitivity(self, ctx: commands.Context, level: int) -> None:
-        """Adjust the AI's sensitivity."""
-        print(f"Sensitivity command called with level: {level}")
+    @aimoderation.command(name="disable")
+    async def ai_disable(self, ctx: commands.Context) -> None:
+        """Disable AI moderation."""
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": False}}
+        )
+        await ctx.send("AI moderation disabled.")
+
+    @command(5, parent="aimoderation")
+    async def aisensitivity(self, ctx: commands.Context, level: int = None) -> None:
+        """Adjust the AI's sensitivity (0-100).
+
+        Usage: aisensitivity <level>
+        Level must be between 0 and 100.
+        """
+        if level is None:
+            await ctx.invoke(self.bot.get_command("help"), command_or_cog="aisensitivity")
+            return
+
         if not 0 <= level <= 100:
             await ctx.send("Sensitivity level must be between 0 and 100.")
             return
+
         await self.bot.db.update_guild_config(
             ctx.guild.id, {"$set": {"detections.ai_moderation.sensitivity": level}}
         )
         await ctx.send(f"AI moderation sensitivity set to {level}.")
-        print(f"Sensitivity set to {level} for guild {ctx.guild.id}")
 
-    @aimoderation.command()
-    async def punishment(
-        self,
-        ctx: commands.Context,
-        action: str,
-        value: str = None,
-    ) -> None:
-        """Set the punishment for AI moderation flags.
+    @aimoderation.command(name="category")
+    async def ai_category(self, ctx: commands.Context, category: str, enabled: bool) -> None:
+        """Enable or disable specific AI moderation categories."""
+        valid_categories = [
+            "hate",
+            "hate/threatening",
+            "self-harm",
+            "sexual",
+            "sexual/minors",
+            "violence",
+            "violence/graphic",
+        ]
 
-        **Usage:**
-        - `aimoderation punishment <action> [value]`
+        if category not in valid_categories:
+            await ctx.send(f"Invalid category. Valid categories: {', '.join(valid_categories)}")
+            return
 
-        **Actions:**
-        - `warn`: Warns the user. Requires a number for the warning.
-        - `mute`: Mutes the user. Requires a duration for the mute.
-        - `kick`: Kicks the user.
-        - `ban`: Bans the user.
-        - `delete`: Deletes the message.
-        """
-        action = action.lower()
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {"$set": {f"detections.ai_moderation.categories.{category}": enabled}}
+        )
+        status = "enabled" if enabled else "disabled"
+        await ctx.send(f"AI moderation category '{category}' {status}.")
+
+    @aimoderation.command(name="punishment")
+    async def ai_punishment(self, ctx: commands.Context, action: str, value) -> None:
+        """Configure AI moderation punishments."""
         valid_actions = ["warn", "mute", "kick", "ban", "delete"]
+
         if action not in valid_actions:
-            await ctx.send(f"Invalid action. Valid actions are: {', '.join(valid_actions)}")
+            await ctx.send(f"Invalid action. Valid actions: {', '.join(valid_actions)}")
             return
 
-        if action in ["warn", "mute"] and value is None:
-            await ctx.send(f"A value is required for the `{action}` action.")
-            return
-
-        update_key = f"detection_punishments.ai_moderation.{action}"
-        update_value = None
-
-        if action == "warn":
-            update_value = int(value)
-        elif action == "mute":
-            update_value = value
-        else:
-            update_value = value.lower() == "true" if value is not None else True
-
-        await self.bot.db.update_guild_config(ctx.guild.id, {"$set": {update_key: update_value}})
-        await ctx.send(f"Punishment for {action} set to {update_value}.")
-
-    @aimoderation.group(invoke_without_command=True)
-    async def categories(
-        self, ctx: commands.Context, category: str = None, state: bool = None
-    ) -> None:
-        """Enable, disable, or list AI moderation categories.
-
-        **Usage:**
-        - `aimoderation categories` - Lists all categories and their status.
-        - `aimoderation categories <name> <true/false>` - Enables or disables a category.
-        """
-        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-        all_categories = guild_config.detections.ai_moderation.categories
-
-        if category is None:
-            embed = discord.Embed(title="AI Moderation Categories", color=discord.Color.blue())
-            category_text = "\n".join(
-                [
-                    f"`{cat}`: {'Enabled' if enabled else 'Disabled'}"
-                    for cat, enabled in all_categories.items()
-                ]
+        if action == "delete":
+            value = (
+                bool(value)
+                if isinstance(value, str) and value.lower() in ["true", "false"]
+                else value
             )
-            embed.description = category_text
-            await ctx.send(embed=embed)
-            return
-
-        category = category.lower()
-        if category not in all_categories:
-            await ctx.send(
-                f"Invalid category. Valid categories are: {', '.join(all_categories.keys())}"
+        elif action == "warn":
+            value = int(value) if str(value).isdigit() else 0
+        elif action in ["kick", "ban"]:
+            value = (
+                bool(value)
+                if isinstance(value, str) and value.lower() in ["true", "false"]
+                else value
             )
-            return
-
-        current_state = all_categories[category]
-        if state is None:
-            state = not current_state
 
         await self.bot.db.update_guild_config(
-            ctx.guild.id, {"$set": {f"detections.ai_moderation.categories.{category}": state}}
+            ctx.guild.id, {"$set": {f"detection_punishments.ai_moderation.{action}": value}}
         )
-        await ctx.send(f"Category `{category}` has been {'enabled' if state else 'disabled'}.")
+        await ctx.send(f"AI moderation {action} punishment set to {value}.")
 
-    @aimoderation.command()
-    async def text(self, ctx: commands.Context, state: bool = None) -> None:
-        """Enable or disable AI text moderation only."""
+    @aimoderation.command(name="config")
+    async def ai_config(self, ctx: commands.Context) -> None:
+        """View current AI moderation configuration."""
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-        if state is None:
-            state = not guild_config.detections.ai_moderation.enabled
-        await self.bot.db.update_guild_config(
-            ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": state}}
-        )
-        await ctx.send(f"AI text moderation has been {'enabled' if state else 'disabled'}.")
-
-    @aimoderation.command()
-    async def image(self, ctx: commands.Context, state: bool = None) -> None:
-        """Enable or disable AI image moderation only."""
-        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-        if state is None:
-            state = not guild_config.detections.image_moderation.enabled
-        await self.bot.db.update_guild_config(
-            ctx.guild.id, {"$set": {"detections.image_moderation.enabled": state}}
-        )
-        await ctx.send(f"AI image moderation has been {'enabled' if state else 'disabled'}.")
-
-    @aimoderation.command()
-    async def settings(self, ctx: commands.Context) -> None:
-        """View the current AI moderation settings."""
-        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-        settings = guild_config.detections.ai_moderation
+        ai_config = guild_config.detections.ai_moderation
         punishments = guild_config.detection_punishments.ai_moderation
 
-        embed = discord.Embed(title="AI Moderation Settings", color=discord.Color.blue())
-        embed.add_field(
-            name="Text Moderation",
-            value="Enabled" if settings.enabled else "Disabled",
-            inline=False,
+        embed = discord.Embed(
+            title="AI Moderation Configuration", color=0x00FF00 if ai_config.enabled else 0xFF0000
         )
         embed.add_field(
-            name="Image Moderation",
-            value="Enabled" if guild_config.detections.image_moderation.enabled else "Disabled",
-            inline=False,
+            name="Status", value="Enabled" if ai_config.enabled else "Disabled", inline=True
         )
-        embed.add_field(name="Sensitivity", value=settings.sensitivity, inline=False)
+        embed.add_field(name="Sensitivity", value=f"{ai_config.sensitivity}%", inline=True)
 
-        punishment_text = ""
-        for action, value in punishments.items():
-            punishment_text += f"**{action.capitalize()}**: {value}\n"
+        categories = "\n".join(
+            [f"{cat}: {'✅' if enabled else '❌'}" for cat, enabled in ai_config.categories.items()]
+        )
+        embed.add_field(name="Categories", value=categories, inline=False)
+
+        punishment_text = "\n".join([f"{action}: {value}" for action, value in punishments.items()])
         embed.add_field(name="Punishments", value=punishment_text, inline=False)
 
-        category_text = ""
-        for category, enabled in settings.categories.items():
-            category_text += f"`{category}`: {'Enabled' if enabled else 'Disabled'}\n"
-        embed.add_field(name="Categories", value=category_text, inline=False)
-
         await ctx.send(embed=embed)
-
-    @aimoderation.command(name="help")
-    async def help_command(self, ctx: commands.Context) -> None:
-        """Shows this help message."""
-        await ctx.send_help(self.aimoderation)
 
 
 async def setup(bot: RainBot) -> None:

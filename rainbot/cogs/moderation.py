@@ -1056,7 +1056,7 @@ class Moderation(commands.Cog):
         ctx: commands.Context,
         threshold: int,
         punishment: str,
-        duration: UserFriendlyTime = None,
+        duration: str = None,
     ) -> None:
         """**Set an automatic punishment for reaching a warning threshold**
 
@@ -1094,8 +1094,17 @@ class Moderation(commands.Cog):
             "action": punishment,
         }
 
-        if duration and duration.dt:
-            punishment_config["duration"] = (duration.dt - ctx.message.created_at).total_seconds()
+        if duration:
+            try:
+                time_converter = UserFriendlyTime()
+                time_obj = await time_converter.convert(ctx, duration)
+                if time_obj.dt:
+                    punishment_config["duration"] = (
+                        time_obj.dt - ctx.message.created_at
+                    ).total_seconds()
+            except commands.BadArgument:
+                await ctx.send(f"Invalid duration format. Use formats like '1h', '30m', '2d'.")
+                return
 
         await self.bot.db.update_guild_config(
             ctx.guild.id, {"$set": {"warn_punishment": punishment_config}}
