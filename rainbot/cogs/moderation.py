@@ -1154,13 +1154,13 @@ class Moderation(commands.Cog):
 
             reason = reason or "No reason provided."
 
+            guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
             if (
-                get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
-                >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]
+                get_perm_level(self.bot, member, guild_config)[0]
+                >= get_perm_level(self.bot, ctx.author, guild_config)[0]
             ):
                 await ctx.send("User has insufficient permissions")
             else:
-                guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
                 guild_warns = guild_config.warns
                 warns = list(filter(lambda w: w["member_id"] == str(member.id), guild_warns))
 
@@ -1440,9 +1440,10 @@ class Moderation(commands.Cog):
         - `{prefix}mute @TestUser Being disruptive.`
         """
         # Check permission level only if they're in the server
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         if (
-            get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
-            >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]
+            get_perm_level(self.bot, member, guild_config)[0]
+            >= get_perm_level(self.bot, ctx.author, guild_config)[0]
         ):
             await ctx.send("User has insufficient permissions")
             return
@@ -1544,9 +1545,10 @@ class Moderation(commands.Cog):
         `{prefix}unmute @TestUser Appealed successfully.`
         """
         # Check permission level only if they're in the server
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         if (
-            get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
-            >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]
+            get_perm_level(self.bot, member, guild_config)[0]
+            >= get_perm_level(self.bot, ctx.author, guild_config)[0]
         ):
             await ctx.send("User has insufficient permissions")
         else:
@@ -1875,9 +1877,10 @@ class Moderation(commands.Cog):
                 member = member_obj
             return await self._perform_kick(ctx, member, reason)
         # Permission level check
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         if (
-            get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
-            >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]
+            get_perm_level(self.bot, member, guild_config)[0]
+            >= get_perm_level(self.bot, ctx.author, guild_config)[0]
         ):
             await ctx.send("User has insufficient permissions")
             return
@@ -2011,9 +2014,10 @@ class Moderation(commands.Cog):
         **Example:**
         `{prefix}softban @TestUser Advertising.`
         """
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         if (
-            get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
-            >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]
+            get_perm_level(self.bot, member, guild_config)[0]
+            >= get_perm_level(self.bot, ctx.author, guild_config)[0]
         ):
             await ctx.send("User has insufficient permissions")
         else:
@@ -2076,9 +2080,10 @@ class Moderation(commands.Cog):
         - `{prefix}ban @TestUser 7d Cooling off period.`
         """
         # Check user permission level (only if they're in the server)
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         if (
-            get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
-            >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]
+            get_perm_level(self.bot, member, guild_config)[0]
+            >= get_perm_level(self.bot, ctx.author, guild_config)[0]
         ):
             await ctx.send("User has insufficient permissions")
             return
@@ -2127,7 +2132,6 @@ class Moderation(commands.Cog):
             return
 
         # Get prune_days from config if not provided
-        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         if prune_days is None:
             prune_days = getattr(guild_config, "ban_prune_days", 3)
 
