@@ -92,8 +92,11 @@ class RainGroup(commands.Group):
 
     async def invoke(self, ctx):
         """Override invoke to show formatted help when no subcommand is provided"""
-        if ctx.invoked_subcommand is None and ctx.subcommand_passed is None:
-            await self.send_group_help(ctx)
+        if ctx.invoked_subcommand is None:
+            if ctx.subcommand_passed is not None:
+                await ctx.send_help(self)
+            else:
+                await self.send_group_help(ctx)
         else:
             await super().invoke(ctx)
 

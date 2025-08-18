@@ -36,20 +36,16 @@ class AIModeration(commands.Cog):
         )
 
         if category is None or category == "all":
-            await ctx.send("AI moderation enabled for all categories.")
-        elif category in valid_categories:
-            # Disable all categories first
             for cat in valid_categories:
                 await self.bot.db.update_guild_config(
-                    ctx.guild.id, {"$set": {f"detections.ai_moderation.categories.{cat}": False}}
+                    ctx.guild.id, {"$set": {f"detections.ai_moderation.categories.{cat}": True}}
                 )
-
-            # Enable only the specified category
+            await ctx.send("AI moderation enabled for all categories.")
+        elif category in valid_categories:
             await self.bot.db.update_guild_config(
                 ctx.guild.id, {"$set": {f"detections.ai_moderation.categories.{category}": True}}
             )
-
-            await ctx.send(f"AI moderation enabled for only '{category}' category.")
+            await ctx.send(f"AI moderation enabled for '{category}' category.")
         else:
             await ctx.send(
                 f"Invalid category. Valid categories: {', '.join(valid_categories)} or 'all'"
@@ -72,7 +68,7 @@ class AIModeration(commands.Cog):
             await self.bot.db.update_guild_config(
                 ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": False}}
             )
-            await ctx.send("AI moderation disabled completely.")
+            await ctx.send("AI moderation disabled for all categories.")
         elif category in valid_categories:
             await self.bot.db.update_guild_config(
                 ctx.guild.id, {"$set": {f"detections.ai_moderation.categories.{category}": False}}
