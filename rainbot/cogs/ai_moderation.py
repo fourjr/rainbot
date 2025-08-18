@@ -9,7 +9,7 @@ class AIModeration(commands.Cog):
     def __init__(self, bot: RainBot) -> None:
         self.bot = bot
 
-    @group(5, invoke_without_command=False)
+    @group(5, invoke_without_command=True)
     async def aimoderation(self, ctx: commands.Context) -> None:
         """AI moderation management commands.
 
@@ -228,41 +228,35 @@ class AIModeration(commands.Cog):
 
         embed = discord.Embed(
             title="🤖 AI Moderation Status",
-            color=discord.Color.green() if ai_config.enabled else discord.Color.red()
+            color=discord.Color.green() if ai_config.enabled else discord.Color.red(),
         )
-        
+
         embed.add_field(
-            name="Status", 
-            value=f"{'🟢 Enabled' if ai_config.enabled else '🔴 Disabled'}", 
-            inline=True
+            name="Status",
+            value=f"{'🟢 Enabled' if ai_config.enabled else '🔴 Disabled'}",
+            inline=True,
         )
-        embed.add_field(
-            name="Sensitivity", 
-            value=f"{ai_config.sensitivity}%", 
-            inline=True
-        )
-        
+        embed.add_field(name="Sensitivity", value=f"{ai_config.sensitivity}%", inline=True)
+
         if enabled_categories:
             embed.add_field(
-                name="✅ Enabled Categories", 
-                value="\n".join([f"• {cat}" for cat in enabled_categories]), 
-                inline=False
-            )
-        
-        if disabled_categories:
-            embed.add_field(
-                name="❌ Disabled Categories", 
-                value="\n".join([f"• {cat}" for cat in disabled_categories]), 
-                inline=False
+                name="✅ Enabled Categories",
+                value="\n".join([f"• {cat}" for cat in enabled_categories]),
+                inline=False,
             )
 
-        punishment_text = "\n".join([f"• {action}: {value}" for action, value in punishments.items() if value])
-        if punishment_text:
+        if disabled_categories:
             embed.add_field(
-                name="🛡️ Active Punishments", 
-                value=punishment_text, 
-                inline=False
+                name="❌ Disabled Categories",
+                value="\n".join([f"• {cat}" for cat in disabled_categories]),
+                inline=False,
             )
+
+        punishment_text = "\n".join(
+            [f"• {action}: {value}" for action, value in punishments.items() if value]
+        )
+        if punishment_text:
+            embed.add_field(name="🛡️ Active Punishments", value=punishment_text, inline=False)
 
         await ctx.send(embed=embed)
 

@@ -1502,6 +1502,7 @@ class Moderation(commands.Cog):
             mute_time = None
             if duration:
                 import time as time_module
+
                 mute_time = time_module.time() + duration.total_seconds()
 
             await self.bot.db.update_guild_config(
@@ -1523,7 +1524,9 @@ class Moderation(commands.Cog):
                     f"{user_mention} has been muted for {format_timedelta(duration)} (will be applied when they join). Reason: {reason}"
                 )
             else:
-                await ctx.send(f"{user_mention} has been muted indefinitely (will be applied when they join). Reason: {reason}")
+                await ctx.send(
+                    f"{user_mention} has been muted indefinitely (will be applied when they join). Reason: {reason}"
+                )
             await self.send_log(ctx, member, reason, duration)
 
     @command(6, name="muted")
@@ -2638,10 +2641,12 @@ async def setup(bot: RainBot) -> None:
             ) -> None:
                 """Kick a member from the server with confirmation dialog."""
                 if (
-                    get_perm_level(self.bot, member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
-                    >= get_perm_level(self.bot, ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[
-                        0
-                    ]
+                    get_perm_level(
+                        self.bot, member, await self.bot.db.get_guild_config(ctx.guild.id)
+                    )[0]
+                    >= get_perm_level(
+                        self.bot, ctx.author, await self.bot.db.get_guild_config(ctx.guild.id)
+                    )[0]
                 ):
                     await ctx.send("User has insufficient permissions")
                     return
@@ -2750,10 +2755,12 @@ async def setup(bot: RainBot) -> None:
             ) -> None:
                 """Ban a member from the server with confirmation dialog."""
                 if (
-                    get_perm_level(self.bot, member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
-                    >= get_perm_level(self.bot, ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[
-                        0
-                    ]
+                    get_perm_level(
+                        self.bot, member, await self.bot.db.get_guild_config(ctx.guild.id)
+                    )[0]
+                    >= get_perm_level(
+                        self.bot, ctx.author, await self.bot.db.get_guild_config(ctx.guild.id)
+                    )[0]
                 ):
                     await ctx.send("User has insufficient permissions")
                     return
@@ -2855,10 +2862,12 @@ async def setup(bot: RainBot) -> None:
             ) -> None:
                 """Mute a member for an optional duration and reason with confirmation dialog."""
                 if (
-                    get_perm_level(self.bot, member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
-                    >= get_perm_level(self.bot, ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[
-                        0
-                    ]
+                    get_perm_level(
+                        self.bot, member, await self.bot.db.get_guild_config(ctx.guild.id)
+                    )[0]
+                    >= get_perm_level(
+                        self.bot, ctx.author, await self.bot.db.get_guild_config(ctx.guild.id)
+                    )[0]
                 ):
                     await ctx.send("User has insufficient permissions")
                     return

@@ -94,7 +94,13 @@ class RainGroup(commands.Group):
         """Override invoke to show formatted help when no subcommand is provided"""
         if ctx.invoked_subcommand is None:
             if ctx.subcommand_passed is not None:
-                await ctx.send_help(self)
+                # Try to find the subcommand case-insensitively
+                subcommand = discord.utils.get(self.commands, name=ctx.subcommand_passed.lower())
+                if subcommand:
+                    ctx.invoked_subcommand = subcommand
+                    await subcommand.invoke(ctx)
+                else:
+                    await ctx.send_help(self)
             else:
                 await self.send_group_help(ctx)
         else:

@@ -590,9 +590,7 @@ class RainBot(commands.Bot):
                     remaining_time = user_mute.get("time")
                     if remaining_time and remaining_time > time():
                         duration = timedelta(seconds=remaining_time - time())
-                        await self.mute(
-                            m.guild.me, m, duration, "Mute evasion", modify_db=False
-                        )
+                        await self.mute(m.guild.me, m, duration, "Mute evasion", modify_db=False)
             except Exception as e:
                 self.logger.error(f"Error during member join mute evasion for {m.id}: {e}")
 
@@ -653,7 +651,7 @@ class RainBot(commands.Bot):
                 f"{current_time_fmt} {actor} has muted {member} ({member.id}), reason: {reason} for {duration_text}"
             )
 
-        if delta and hasattr(delta, 'total_seconds'):
+        if delta and hasattr(delta, "total_seconds"):
             duration = delta.total_seconds()
             # log complete, save to DB
             if duration is not None:

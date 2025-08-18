@@ -343,7 +343,7 @@ class Setup(commands.Cog):
             )
             await msg.edit(embed=embed)
 
-    @group(10, invoke_without_command=False)
+    @group(10, invoke_without_command=True)
     async def setup(self, ctx: commands.Context) -> None:
         """**Interactive server setup wizard**
 
@@ -1221,7 +1221,7 @@ class Setup(commands.Cog):
         await self.bot.db.update_guild_config(ctx.guild.id, {"$set": RECOMMENDED_DETECTIONS})
         await ctx.send("Recommended detections have been set.")
 
-    @group(10, aliases=["set-ai-moderation", "set_ai_moderation"], invoke_without_command=False)
+    @group(10, aliases=["set-ai-moderation", "set_ai_moderation"], invoke_without_command=True)
     async def setaimoderation(self, ctx: commands.Context) -> None:
         """**Manage AI-powered auto-moderation settings**
 
@@ -1245,7 +1245,11 @@ class Setup(commands.Cog):
         embed = discord.Embed(
             title="AI Moderation Settings",
             description="Control the AI-powered automoderation features for text and images.",
-            color=discord.Color.green() if guild_config.detections.ai_moderation.enabled else discord.Color.red(),
+            color=(
+                discord.Color.green()
+                if guild_config.detections.ai_moderation.enabled
+                else discord.Color.red()
+            ),
         )
         embed.add_field(
             name="Status",
@@ -1317,8 +1321,13 @@ class Setup(commands.Cog):
             if str(reaction.emoji) == "✅":
                 # Enable AI moderation and ensure at least one category is enabled
                 valid_categories = [
-                    "hate", "hate/threatening", "self-harm", "sexual", 
-                    "sexual/minors", "violence", "violence/graphic"
+                    "hate",
+                    "hate/threatening",
+                    "self-harm",
+                    "sexual",
+                    "sexual/minors",
+                    "violence",
+                    "violence/graphic",
                 ]
                 await self.bot.db.update_guild_config(
                     ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": True}}
@@ -1345,8 +1354,13 @@ class Setup(commands.Cog):
         """
         # Disable AI moderation and all categories
         valid_categories = [
-            "hate", "hate/threatening", "self-harm", "sexual", 
-            "sexual/minors", "violence", "violence/graphic"
+            "hate",
+            "hate/threatening",
+            "self-harm",
+            "sexual",
+            "sexual/minors",
+            "violence",
+            "violence/graphic",
         ]
         await self.bot.db.update_guild_config(
             ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": False}}
@@ -1430,10 +1444,15 @@ class Setup(commands.Cog):
         - `{prefix}setaimoderation toggle off`
         """
         valid_categories = [
-            "hate", "hate/threatening", "self-harm", "sexual", 
-            "sexual/minors", "violence", "violence/graphic"
+            "hate",
+            "hate/threatening",
+            "self-harm",
+            "sexual",
+            "sexual/minors",
+            "violence",
+            "violence/graphic",
         ]
-        
+
         if state:
             # Enable AI moderation and all categories
             await self.bot.db.update_guild_config(
@@ -1466,40 +1485,44 @@ class Setup(commands.Cog):
         """
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         ai_config = guild_config.detections.ai_moderation
-        
+
         enabled_categories = [k for k, v in ai_config.categories.items() if v]
         disabled_categories = [k for k, v in ai_config.categories.items() if not v]
-        
+
         embed = discord.Embed(
             title="🤖 AI Moderation Status",
             color=discord.Color.green() if ai_config.enabled else discord.Color.red(),
         )
-        
+
         embed.add_field(
             name="🔋 Overall Status",
             value=f"{'🟢 **Enabled**' if ai_config.enabled else '🔴 **Disabled**'}",
             inline=True,
         )
-        
+
         embed.add_field(
             name="🎯 Sensitivity Level",
             value=f"**{ai_config.sensitivity}%**",
             inline=True,
         )
-        
+
         embed.add_field(
             name="✅ Enabled Categories",
-            value="\n".join([f"• {cat}" for cat in enabled_categories]) if enabled_categories else "None",
+            value=(
+                "\n".join([f"• {cat}" for cat in enabled_categories])
+                if enabled_categories
+                else "None"
+            ),
             inline=False,
         )
-        
+
         if disabled_categories:
             embed.add_field(
                 name="❌ Disabled Categories",
                 value="\n".join([f"• {cat}" for cat in disabled_categories]),
                 inline=False,
             )
-        
+
         embed.add_field(
             name="🛠️ Quick Actions",
             value=(
@@ -1509,7 +1532,7 @@ class Setup(commands.Cog):
             ),
             inline=False,
         )
-        
+
         await ctx.send(embed=embed)
 
     @command(10, aliases=["set-guild-whitelist", "set_guild_whitelist"])
@@ -1662,7 +1685,7 @@ class Setup(commands.Cog):
             f"Log ignore for `{detection_type}` updated for channel {channel.mention if channel else 'all channels cleared'}."
         )
 
-    @group(8, invoke_without_command=False)
+    @group(8, invoke_without_command=True)
     async def regexfilter(self, ctx: commands.Context) -> None:
         """**Manages the regex filter**
 
@@ -1736,7 +1759,7 @@ class Setup(commands.Cog):
             f"Regex Filters: {', '.join([f'`{i}`' for i in guild_config.detections.regex_filters])}"
         )
 
-    @group(8, name="filter", invoke_without_command=False)
+    @group(8, name="filter", invoke_without_command=True)
     async def filter_(self, ctx: commands.Context) -> None:
         """**Manages the word and image filter**
 
