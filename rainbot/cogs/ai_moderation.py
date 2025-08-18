@@ -20,7 +20,10 @@ class AIModeration(commands.Cog):
 
     @aimoderation.command(name="enable")
     async def ai_enable(self, ctx: commands.Context, category: str = "all") -> None:
-        """Enable AI moderation for all categories or a specific category."""
+        """Enable AI moderation for all categories or a specific category.
+        
+        Usage: aimoderation enable [all|category]
+        """
         valid_categories = [
             "hate",
             "hate/threatening",
@@ -56,12 +59,30 @@ class AIModeration(commands.Cog):
             )
 
     @aimoderation.command(name="disable")
-    async def ai_disable(self, ctx: commands.Context) -> None:
-        """Disable AI moderation."""
-        await self.bot.db.update_guild_config(
-            ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": False}}
-        )
-        await ctx.send("AI moderation disabled.")
+    async def ai_disable(self, ctx: commands.Context, category: str = "all") -> None:
+        """Disable AI moderation for all categories or a specific category."""
+        valid_categories = [
+            "hate",
+            "hate/threatening",
+            "self-harm",
+            "sexual",
+            "sexual/minors",
+            "violence",
+            "violence/graphic",
+        ]
+        
+        if category == "all":
+            await self.bot.db.update_guild_config(
+                ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": False}}
+            )
+            await ctx.send("AI moderation disabled completely.")
+        elif category in valid_categories:
+            await self.bot.db.update_guild_config(
+                ctx.guild.id, {"$set": {f"detections.ai_moderation.categories.{category}": False}}
+            )
+            await ctx.send(f"AI moderation disabled for '{category}' category.")
+        else:
+            await ctx.send(f"Invalid category. Valid categories: {', '.join(valid_categories)} or 'all'")
 
     @command(5, parent="aimoderation")
     async def aisensitivity(self, ctx: commands.Context, level: int = None) -> None:
