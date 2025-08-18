@@ -26,7 +26,7 @@ class AIModeration(commands.Cog):
         - `settings` - View the current AI moderation settings.
         - `help` - Show this help message.
         """
-        await ctx.send_help(ctx.command)
+        pass  # Help is now handled automatically by RainGroup
 
     @aimoderation.command()
     async def toggle(self, ctx: commands.Context, state: bool = None) -> None:

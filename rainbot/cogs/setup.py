@@ -839,6 +839,13 @@ class Setup(commands.Cog):
         elif channel and channel.lower() in ("off", "none"):
             channel_id = None
 
+        # Check if modlog is an array and convert to object
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        if isinstance(guild_config.get("modlog"), list):
+            await self.bot.db.update_guild_config(
+                ctx.guild.id, {"$set": {"modlog": DEFAULT["modlog"]}}
+            )
+        
         valid_logs = DEFAULT["modlog"].keys()
         if log_name == "all":
             for i in valid_logs:

@@ -77,6 +77,35 @@ class RainGroup(commands.Group):
         self.perm_level = attrs.get("perm_level")
         if self.perm_level:
             self.checks.append(check_perm_level)
+    
+    async def invoke(self, ctx):
+        """Override invoke to show formatted help when no subcommand is provided"""
+        if ctx.invoked_subcommand is None and ctx.subcommand_passed is None:
+            await self.send_group_help(ctx)
+        else:
+            await super().invoke(ctx)
+    
+    async def send_group_help(self, ctx):
+        """Send formatted help for group commands"""
+        embed = discord.Embed(
+            title=f"🔧 {self.name.title()} Commands",
+            description=self.help or f"Commands for {self.name}",
+            color=discord.Color.blue()
+        )
+        
+        if self.commands:
+            commands_text = ""
+            for cmd in self.commands:
+                commands_text += f"`{cmd.name}` - {cmd.short_doc or 'No description'}\n"
+            embed.add_field(name="📋 Available Commands", value=commands_text, inline=False)
+        
+        embed.add_field(
+            name="💡 Usage", 
+            value=f"Use `{ctx.prefix}{self.name} <command>` to run a specific command.",
+            inline=False
+        )
+        
+        await ctx.send(embed=embed)
 
     def command(self, *args: Any, **kwargs: Any) -> Callable:
         """Overwrites GroupMixin.command to use RainCommand"""
