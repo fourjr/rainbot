@@ -97,8 +97,15 @@ class RainGroup(commands.Group):
                 # Try to find the subcommand case-insensitively
                 subcommand = discord.utils.get(self.commands, name=ctx.subcommand_passed.lower())
                 if subcommand:
-                    ctx.invoked_subcommand = subcommand
-                    await subcommand.invoke(ctx)
+                    # Create a new context for the subcommand with remaining arguments
+                    new_ctx = await ctx.bot.get_context(ctx.message, cls=type(ctx))
+                    new_ctx.command = subcommand
+                    new_ctx.invoked_with = ctx.subcommand_passed
+                    # Remove the subcommand from the view
+                    ctx.view.skip_ws()
+                    ctx.view.skip_string(ctx.subcommand_passed)
+                    new_ctx.view = ctx.view
+                    await subcommand.invoke(new_ctx)
                 else:
                     await ctx.send_help(self)
             else:
