@@ -1470,7 +1470,7 @@ class Moderation(commands.Cog):
             # Store sticky mute for when they join
             user_id = str(getattr(member, "id", member))
             mute_time = None
-            if duration:
+            if duration and hasattr(duration, 'total_seconds'):
                 mute_time = time.time() + duration.total_seconds()
 
             await self.bot.db.update_guild_config(
@@ -1488,7 +1488,7 @@ class Moderation(commands.Cog):
             )
 
         user_mention = getattr(member, "mention", f"<@{getattr(member, 'id', member)}>")
-        if duration:
+        if duration and hasattr(duration, 'total_seconds'):
             await ctx.send(
                 f"{user_mention} has been muted for {format_timedelta(duration)}. Reason: {reason}"
             )
