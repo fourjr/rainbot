@@ -50,6 +50,7 @@ class AIModeration(commands.Cog):
     @aimoderation.command()
     async def sensitivity(self, ctx: commands.Context, level: int) -> None:
         """Adjust the AI's sensitivity."""
+        print(f"Sensitivity command called with level: {level}")
         if not 0 <= level <= 100:
             await ctx.send("Sensitivity level must be between 0 and 100.")
             return
@@ -57,6 +58,7 @@ class AIModeration(commands.Cog):
             ctx.guild.id, {"$set": {"detections.ai_moderation.sensitivity": level}}
         )
         await ctx.send(f"AI moderation sensitivity set to {level}.")
+        print(f"Sensitivity set to {level} for guild {ctx.guild.id}")
 
     @aimoderation.command()
     async def punishment(
