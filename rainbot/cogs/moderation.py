@@ -1400,23 +1400,6 @@ class Moderation(commands.Cog):
         *,
         time: UserFriendlyTime(assume_reason=True) = None,
     ) -> None:
-        if getattr(ctx, "_dummy", False):
-            duration = None
-            reason = None
-            if time:
-                if time.dt:
-                    duration = time.dt - ctx.message.created_at
-                if time.arg:
-                    reason = time.arg
-            if not isinstance(member, discord.Member):
-                member_obj = ctx.guild.get_member(getattr(member, "id", member))
-                if not member_obj:
-                    self.logger.warning(
-                        f"Attempted to auto-mute user not in guild: {getattr(member, 'id', member)}"
-                    )
-                    return
-                member = member_obj
-            return await self._perform_mute(ctx, member, reason, duration)
         """**Mute a member**
 
         This command prevents a member from sending messages and speaking in voice channels.
@@ -1439,7 +1422,35 @@ class Moderation(commands.Cog):
         - `{prefix}mute @TestUser 1h Spamming.`
         - `{prefix}mute @TestUser Being disruptive.`
         """
-        # Check permission level only if they're in the server
+        # Handle auto-punishment calls
+        if getattr(ctx, "_dummy", False):
+            duration = None
+            reason = None
+            if time:
+                if time.dt:
+                    duration = time.dt - ctx.message.created_at
+                if time.arg:
+                    reason = time.arg
+            if not isinstance(member, discord.Member):
+                member_obj = ctx.guild.get_member(getattr(member, "id", member))
+                if not member_obj:
+                    self.logger.warning(
+                        f"Attempted to auto-mute user not in guild: {getattr(member, 'id', member)}"
+                    )
+                    return
+                member = member_obj
+            return await self._perform_mute(ctx, member, reason, duration)
+
+        # Parse duration and reason from time parameter
+        duration = None
+        reason = "No reason provided"
+        if time:
+            if time.dt:
+                duration = time.dt - ctx.message.created_at
+            if time.arg:
+                reason = time.arg
+
+        # Check permission level
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         if (
             get_perm_level(self.bot, member, guild_config)[0]
@@ -1455,23 +1466,27 @@ class Moderation(commands.Cog):
         else:
             member_obj = ctx.guild.get_member(getattr(member, "id", member))
 
-        duration = None
-        reason = None
-        if time:
-            if time.dt:
-                duration = time.dt - ctx.message.created_at
-            if time.arg:
-                reason = time.arg
-
         # If member is in server, mute them directly
         if member_obj:
-            await self.bot.mute(ctx.author, member_obj, duration, reason=reason)
+            try:
+                await self.bot.mute(ctx.author, member_obj, duration, reason=reason)
+                user_mention = member_obj.mention
+                if duration:
+                    await ctx.send(
+                        f"{user_mention} has been muted for {format_timedelta(duration)}. Reason: {reason}"
+                    )
+                else:
+                    await ctx.send(f"{user_mention} has been muted indefinitely. Reason: {reason}")
+                await self.send_log(ctx, member_obj, reason, duration)
+            except Exception as e:
+                await ctx.send(f"Failed to mute {member_obj.mention}: {e}")
         else:
             # Store sticky mute for when they join
             user_id = str(getattr(member, "id", member))
             mute_time = None
-            if duration and hasattr(duration, 'total_seconds'):
-                mute_time = time.time() + duration.total_seconds()
+            if duration:
+                import time as time_module
+                mute_time = time_module.time() + duration.total_seconds()
 
             await self.bot.db.update_guild_config(
                 ctx.guild.id,
@@ -1486,16 +1501,14 @@ class Moderation(commands.Cog):
                     }
                 },
             )
-
-        user_mention = getattr(member, "mention", f"<@{getattr(member, 'id', member)}>")
-        if duration and hasattr(duration, 'total_seconds'):
-            await ctx.send(
-                f"{user_mention} has been muted for {format_timedelta(duration)}. Reason: {reason}"
-            )
+            user_mention = f"<@{user_id}>"
+            if duration:
+                await ctx.send(
+                    f"{user_mention} has been muted for {format_timedelta(duration)} (will be applied when they join). Reason: {reason}"
+                )
+            else:
+                await ctx.send(f"{user_mention} has been muted indefinitely (will be applied when they join). Reason: {reason}")
             await self.send_log(ctx, member, reason, duration)
-        else:
-            await ctx.send(f"{user_mention} has been muted indefinitely. Reason: {reason}")
-            await self.send_log(ctx, member, reason, None)
 
     @command(6, name="muted")
     async def muted(self, ctx: commands.Context) -> None:
