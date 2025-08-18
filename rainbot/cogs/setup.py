@@ -845,7 +845,7 @@ class Setup(commands.Cog):
             await self.bot.db.update_guild_config(
                 ctx.guild.id, {"$set": {"modlog": DEFAULT["modlog"]}}
             )
-        
+
         valid_logs = DEFAULT["modlog"].keys()
         if log_name == "all":
             for i in valid_logs:
