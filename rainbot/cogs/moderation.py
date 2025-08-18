@@ -1,7 +1,7 @@
 import asyncio
 import re
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Union
 
 import discord
@@ -1428,7 +1428,15 @@ class Moderation(commands.Cog):
             reason = None
             if time:
                 if time.dt:
-                    duration = time.dt - ctx.message.created_at
+                    # Ensure both datetimes have the same timezone info
+                    msg_time = ctx.message.created_at
+                    if msg_time.tzinfo is None:
+                        msg_time = msg_time.replace(tzinfo=timezone.utc)
+                    if time.dt.tzinfo is None:
+                        time_dt = time.dt.replace(tzinfo=timezone.utc)
+                    else:
+                        time_dt = time.dt
+                    duration = time_dt - msg_time
                 if time.arg:
                     reason = time.arg
             if not isinstance(member, discord.Member):
@@ -1446,7 +1454,15 @@ class Moderation(commands.Cog):
         reason = "No reason provided"
         if time:
             if time.dt:
-                duration = time.dt - ctx.message.created_at
+                # Ensure both datetimes have the same timezone info
+                msg_time = ctx.message.created_at
+                if msg_time.tzinfo is None:
+                    msg_time = msg_time.replace(tzinfo=timezone.utc)
+                if time.dt.tzinfo is None:
+                    time_dt = time.dt.replace(tzinfo=timezone.utc)
+                else:
+                    time_dt = time.dt
+                duration = time_dt - msg_time
             if time.arg:
                 reason = time.arg
 
