@@ -19,12 +19,41 @@ class AIModeration(commands.Cog):
         await ctx.invoke(self.bot.get_command("help"), command_or_cog="aimoderation")
 
     @aimoderation.command(name="enable")
-    async def ai_enable(self, ctx: commands.Context) -> None:
-        """Enable AI moderation."""
+    async def ai_enable(self, ctx: commands.Context, category: str = "all") -> None:
+        """Enable AI moderation for all categories or a specific category."""
+        valid_categories = [
+            "hate",
+            "hate/threatening",
+            "self-harm",
+            "sexual",
+            "sexual/minors",
+            "violence",
+            "violence/graphic",
+        ]
+
         await self.bot.db.update_guild_config(
             ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": True}}
         )
-        await ctx.send("AI moderation enabled.")
+
+        if category == "all":
+            await ctx.send("AI moderation enabled for all categories.")
+        elif category in valid_categories:
+            # Disable all categories first
+            for cat in valid_categories:
+                await self.bot.db.update_guild_config(
+                    ctx.guild.id, {"$set": {f"detections.ai_moderation.categories.{cat}": False}}
+                )
+
+            # Enable only the specified category
+            await self.bot.db.update_guild_config(
+                ctx.guild.id, {"$set": {f"detections.ai_moderation.categories.{category}": True}}
+            )
+
+            await ctx.send(f"AI moderation enabled for only '{category}' category.")
+        else:
+            await ctx.send(
+                f"Invalid category. Valid categories: {', '.join(valid_categories)} or 'all'"
+            )
 
     @aimoderation.command(name="disable")
     async def ai_disable(self, ctx: commands.Context) -> None:
@@ -55,8 +84,14 @@ class AIModeration(commands.Cog):
         await ctx.send(f"AI moderation sensitivity set to {level}.")
 
     @aimoderation.command(name="category")
-    async def ai_category(self, ctx: commands.Context, category: str, enabled: bool) -> None:
-        """Enable or disable specific AI moderation categories."""
+    async def ai_category(
+        self, ctx: commands.Context, category: str = None, enabled: bool = None
+    ) -> None:
+        """Enable or disable specific AI moderation categories.
+
+        Usage: aimoderation category [category] [true/false]
+        Run without arguments to see available categories.
+        """
         valid_categories = [
             "hate",
             "hate/threatening",
@@ -67,8 +102,18 @@ class AIModeration(commands.Cog):
             "violence/graphic",
         ]
 
+        if category is None:
+            await ctx.send(
+                f"**Available AI moderation categories:**\n{chr(10).join(f'• {cat}' for cat in valid_categories)}\n\nUsage: `aimoderation category <category> <true/false>`\n\nExamples:\n`aimoderation category hate true` - Enable hate detection\n`aimoderation category violence false` - Disable violence detection"
+            )
+            return
+
         if category not in valid_categories:
             await ctx.send(f"Invalid category. Valid categories: {', '.join(valid_categories)}")
+            return
+
+        if enabled is None:
+            await ctx.send(f"Please specify true or false for category '{category}'.")
             return
 
         await self.bot.db.update_guild_config(
