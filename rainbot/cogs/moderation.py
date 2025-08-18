@@ -1825,24 +1825,26 @@ class Moderation(commands.Cog):
     ) -> None:
         """Helper to mute a member without user confirmation."""
         try:
+            duration_text = format_timedelta(duration) if duration else "indefinitely"
             await self.alert_user(
                 ctx,
                 member,
                 reason,
                 action_name="muted",
-                duration=format_timedelta(duration) if duration else "indefinitely",
+                duration=duration_text,
             )
             await self.bot.mute(ctx.author, member, duration, reason=reason)
 
             if duration:
                 await ctx.send(
-                    f"{member.mention} has been muted for {format_timedelta(duration)}. Reason: {reason}"
+                    f"{member.mention} has been muted for {duration_text}. Reason: {reason}"
                 )
                 await self.send_log(ctx, member, reason, duration)
             else:
                 await ctx.send(f"{member.mention} has been muted indefinitely. Reason: {reason}")
                 await self.send_log(ctx, member, reason, None)
         except Exception as e:
+            self.logger.error(f"Error in mute: {e}")
             await ctx.send(f"Failed to mute {member.mention}: {e}", delete_after=10)
 
     @command(7)

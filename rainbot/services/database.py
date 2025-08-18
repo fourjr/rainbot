@@ -33,7 +33,6 @@ DEFAULT: Dict[str, Any] = {
         "member_kick": None,
         "member_ban": None,
         "member_unban": None,
-        "member_mute": None,
         "member_softban": None,
         "message_purge": None,
         "channel_lockdown": None,

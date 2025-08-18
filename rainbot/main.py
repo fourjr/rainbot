@@ -237,8 +237,9 @@ class RainBot(commands.Bot):
         try:
             guild_config = await self.db.get_guild_config(message.guild.id)
             return commands.when_mentioned_or(guild_config.prefix)(self, message)
-        except Exception:
-            # Fallback to default prefix
+        except Exception as e:
+            # Log the error and fallback to default prefix
+            self.logger.debug(f"Failed to get guild prefix for {message.guild.id}: {e}")
             return commands.when_mentioned_or(config.DEFAULT_PREFIX)(self, message)
 
     async def on_connect(self) -> None:
@@ -586,9 +587,12 @@ class RainBot(commands.Bot):
                         user_mute = mute
 
                 if user_mute:
-                    await self.mute(
-                        m.guild.me, m, user_mute["time"] - time(), "Mute evasion", modify_db=False
-                    )
+                    remaining_time = user_mute.get("time")
+                    if remaining_time and remaining_time > time():
+                        duration = timedelta(seconds=remaining_time - time())
+                        await self.mute(
+                            m.guild.me, m, duration, "Mute evasion", modify_db=False
+                        )
             except Exception as e:
                 self.logger.error(f"Error during member join mute evasion for {m.id}: {e}")
 
@@ -596,7 +600,7 @@ class RainBot(commands.Bot):
         self,
         actor: discord.Member,
         member: discord.Member,
-        delta: timedelta,
+        delta: Optional[timedelta],
         reason: str,
         modify_db: bool = True,
     ) -> None:
@@ -648,7 +652,7 @@ class RainBot(commands.Bot):
                 f"{current_time_fmt} {actor} has muted {member} ({member.id}), reason: {reason} for {format_timedelta(delta)}"
             )
 
-        if delta:
+        if delta and hasattr(delta, 'total_seconds'):
             duration = delta.total_seconds()
             # log complete, save to DB
             if duration is not None:
