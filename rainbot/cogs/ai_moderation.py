@@ -31,24 +31,30 @@ class AIModeration(commands.Cog):
             "violence/graphic",
         ]
 
-        await self.bot.db.update_guild_config(
-            ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": True}}
-        )
-
         if category is None or category == "all":
+            # Enable the main AI moderation
+            await self.bot.db.update_guild_config(
+                ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": True}}
+            )
+            # Enable all categories
             for cat in valid_categories:
                 await self.bot.db.update_guild_config(
                     ctx.guild.id, {"$set": {f"detections.ai_moderation.categories.{cat}": True}}
                 )
-            await ctx.send("AI moderation enabled for all categories.")
+            await ctx.send("✅ AI moderation **enabled** for all categories.")
         elif category in valid_categories:
+            # Enable the main AI moderation if not already enabled
+            await self.bot.db.update_guild_config(
+                ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": True}}
+            )
+            # Enable the specific category
             await self.bot.db.update_guild_config(
                 ctx.guild.id, {"$set": {f"detections.ai_moderation.categories.{category}": True}}
             )
-            await ctx.send(f"AI moderation enabled for '{category}' category.")
+            await ctx.send(f"✅ AI moderation **enabled** for '{category}' category.")
         else:
             await ctx.send(
-                f"Invalid category. Valid categories: {', '.join(valid_categories)} or 'all'"
+                f"❌ Invalid category. Valid categories: {', '.join(valid_categories)} or 'all'"
             )
 
     @aimoderation.command(name="disable")
@@ -65,18 +71,23 @@ class AIModeration(commands.Cog):
         ]
 
         if category is None or category == "all":
+            # Disable the main AI moderation and all categories
             await self.bot.db.update_guild_config(
                 ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": False}}
             )
-            await ctx.send("AI moderation disabled for all categories.")
+            for cat in valid_categories:
+                await self.bot.db.update_guild_config(
+                    ctx.guild.id, {"$set": {f"detections.ai_moderation.categories.{cat}": False}}
+                )
+            await ctx.send("❌ AI moderation **disabled** for all categories.")
         elif category in valid_categories:
             await self.bot.db.update_guild_config(
                 ctx.guild.id, {"$set": {f"detections.ai_moderation.categories.{category}": False}}
             )
-            await ctx.send(f"AI moderation disabled for '{category}' category.")
+            await ctx.send(f"❌ AI moderation **disabled** for '{category}' category.")
         else:
             await ctx.send(
-                f"Invalid category. Valid categories: {', '.join(valid_categories)} or 'all'"
+                f"❌ Invalid category. Valid categories: {', '.join(valid_categories)} or 'all'"
             )
 
     @command(5, parent="aimoderation")
@@ -202,6 +213,56 @@ class AIModeration(commands.Cog):
 
         punishment_text = "\n".join([f"{action}: {value}" for action, value in punishments.items()])
         embed.add_field(name="Punishments", value=punishment_text, inline=False)
+
+        await ctx.send(embed=embed)
+
+    @aimoderation.command(name="status")
+    async def ai_status(self, ctx: commands.Context) -> None:
+        """View current AI moderation status."""
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        ai_config = guild_config.detections.ai_moderation
+        punishments = guild_config.detection_punishments.ai_moderation
+
+        enabled_categories = [k for k, v in ai_config.categories.items() if v]
+        disabled_categories = [k for k, v in ai_config.categories.items() if not v]
+
+        embed = discord.Embed(
+            title="🤖 AI Moderation Status",
+            color=discord.Color.green() if ai_config.enabled else discord.Color.red()
+        )
+        
+        embed.add_field(
+            name="Status", 
+            value=f"{'🟢 Enabled' if ai_config.enabled else '🔴 Disabled'}", 
+            inline=True
+        )
+        embed.add_field(
+            name="Sensitivity", 
+            value=f"{ai_config.sensitivity}%", 
+            inline=True
+        )
+        
+        if enabled_categories:
+            embed.add_field(
+                name="✅ Enabled Categories", 
+                value="\n".join([f"• {cat}" for cat in enabled_categories]), 
+                inline=False
+            )
+        
+        if disabled_categories:
+            embed.add_field(
+                name="❌ Disabled Categories", 
+                value="\n".join([f"• {cat}" for cat in disabled_categories]), 
+                inline=False
+            )
+
+        punishment_text = "\n".join([f"• {action}: {value}" for action, value in punishments.items() if value])
+        if punishment_text:
+            embed.add_field(
+                name="🛡️ Active Punishments", 
+                value=punishment_text, 
+                inline=False
+            )
 
         await ctx.send(embed=embed)
 
