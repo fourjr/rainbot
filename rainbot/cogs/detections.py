@@ -1,3 +1,5 @@
+"""This cog contains all the message content detections."""
+
 import asyncio
 import functools
 import datetime
@@ -20,15 +22,15 @@ from PIL import Image, UnidentifiedImageError
 import logging
 
 
-from bot import rainbot
-from ext.utility import UNICODE_EMOJI, Detection, detection, MessageWrapper
+from rainbot.main import RainBot
+from ..ext.utility import UNICODE_EMOJI, Detection, detection, MessageWrapper
 
 
 # Removed TensorFlow dependency
 
 
 class Detections(commands.Cog):
-    def __init__(self, bot: rainbot) -> None:
+    def __init__(self, bot: RainBot) -> None:
         self.bot = bot
         self._cd = commands.CooldownMapping.from_cooldown(1, 10, commands.BucketType.user)
         self.logger = logging.getLogger("rainbot.detections")
@@ -62,19 +64,8 @@ class Detections(commands.Cog):
 
     @Cog.listener()
     async def on_message(self, m: MessageWrapper) -> None:
-        if m.author.id == self.bot.user.id:
-            return
-
-        if self.bot.dev_mode:
-            dev_guild_id = getattr(self.bot, "dev_guild_id", None)
-            if dev_guild_id and m.guild and m.guild.id != dev_guild_id:
-                return
         if (
-            (
-                self.bot.dev_mode
-                and getattr(self.bot, "dev_guild_id", None)
-                and (m.guild and m.guild.id != getattr(self.bot, "dev_guild_id", None))
-            )
+            m.author.id == self.bot.user.id
             or m.type not in (discord.MessageType.default, discord.MessageType.reply)
             or not m.guild
         ):
@@ -265,10 +256,15 @@ class Detections(commands.Cog):
     @detection("ai_moderation")
     async def ai_moderation(self, m: MessageWrapper, guild_config) -> None:
         """Use the new API for text and image moderation based on apidocs.MD"""
+        self.logger.info(
+            f"AI moderation check for message from {m.author} in {m.guild}: enabled={guild_config.detections.ai_moderation.enabled}"
+        )
+
         if not guild_config.detections.ai_moderation.enabled:
             return
 
         api_url = os.getenv("MODERATION_API_URL")
+        self.logger.info(f"MODERATION_API_URL: {api_url}")
         if not api_url:
             self.logger.warning("MODERATION_API_URL is not set, AI moderation is disabled.")
             return
@@ -431,6 +427,40 @@ class Detections(commands.Cog):
         await self.bot.db.update_guild_config(ctx.guild.id, {"$set": update_payload})
         await ctx.send(f"Set punishment for `{detection}` to `{action}`.")
 
+    @commands.command()
+    async def testaimod(self, ctx: commands.Context, *, text: str = "This is a test message"):
+        """Test AI moderation manually"""
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
 
-async def setup(bot: rainbot) -> None:
+        if not guild_config.detections.ai_moderation.enabled:
+            await ctx.send("❌ AI moderation is not enabled in this server.")
+            return
+
+        api_url = os.getenv("MODERATION_API_URL")
+        if not api_url:
+            await ctx.send("❌ MODERATION_API_URL is not configured.")
+            return
+
+        await ctx.send(f"🔍 Testing AI moderation with text: `{text}`")
+
+        try:
+            payload = {"content": text}
+            async with aiohttp.ClientSession() as session:
+                async with session.post(f"{api_url}/moderate/text", json=payload) as resp:
+                    if resp.status == 200:
+                        result = await resp.json()
+                        decision = result.get("decision", "unknown")
+                        categories = result.get("categories", [])
+                        await ctx.send(
+                            f"✅ API Response: Decision=`{decision}`, Categories=`{categories}`"
+                        )
+                    else:
+                        await ctx.send(
+                            f"❌ API request failed with status {resp.status}: {await resp.text()}"
+                        )
+        except Exception as e:
+            await ctx.send(f"❌ Error calling API: {e}")
+
+
+async def setup(bot: RainBot) -> None:
     await bot.add_cog(Detections(bot))

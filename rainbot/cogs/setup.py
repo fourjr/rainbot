@@ -12,21 +12,20 @@ import asyncio
 import aiohttp
 from discord.ext import commands
 
-from bot import rainbot
-from ext.command import command, group, RainGroup
-from ext.database import DEFAULT, DBDict, RECOMMENDED_DETECTIONS
-from ext.time import UserFriendlyTime
-from ext.utility import (
+from rainbot.main import RainBot
+from ..ext.command import command, group, RainGroup
+from ..services.database import DEFAULT, DBDict, RECOMMENDED_DETECTIONS
+from ..ext.time import UserFriendlyTime
+from ..ext.utility import (
     format_timedelta,
-    get_perm_level,
     tryint,
     SafeFormat,
     CannedStr,
-    get_command_level,
 )
-from ext.errors import BotMissingPermissionsInChannel
-from ext.paginator import Paginator
-import config
+from ..ext.permissions import get_perm_level, get_command_level
+from ..ext.errors import BotMissingPermissionsInChannel
+from ..ext.paginator import Paginator
+from rainbot import config
 from PIL import Image
 from imagehash import average_hash
 
@@ -34,7 +33,7 @@ from imagehash import average_hash
 class Setup(commands.Cog):
     """Enhanced server configuration and setup commands"""
 
-    def __init__(self, bot: rainbot) -> None:
+    def __init__(self, bot: RainBot) -> None:
         self.bot = bot
         self.order = 1
         self.logger = logging.getLogger("rainbot.setup")
@@ -385,7 +384,7 @@ class Setup(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @setup.command(10, name="quick")
+    @setup.command(name="quick")
     async def setup_quick(self, ctx: commands.Context) -> None:
         """**Quick setup wizard for basic configuration**
 
@@ -556,7 +555,7 @@ class Setup(commands.Cog):
             )
             await ctx.send(embed=embed)
 
-    @setup.command(10, name="automod")
+    @setup.command(name="automod")
     async def setup_automod(self, ctx: commands.Context) -> None:
         """**Interactive auto-moderation setup**
 
@@ -598,7 +597,7 @@ class Setup(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-    @setup.command(10, name="logging")
+    @setup.command(name="logging")
     async def setup_logging(self, ctx: commands.Context) -> None:
         """**Interactive logging setup**
 
@@ -639,7 +638,7 @@ class Setup(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-    @setup.command(10, name="permissions")
+    @setup.command(name="permissions")
     async def setup_permissions(self, ctx: commands.Context) -> None:
         """Interactive permission level setup"""
         embed = discord.Embed(
@@ -882,7 +881,7 @@ class Setup(commands.Cog):
         - `{prefix}setpermlevel 2 @Moderator`
         - `{prefix}setpermlevel 0 @Muted`
         """
-        from ext.utility import select_role
+        from ..ext.utility import select_role
 
         role_obj = await select_role(ctx, role)
         if not role_obj:
@@ -1267,7 +1266,7 @@ class Setup(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-    @setaimoderation.command(10, name="enable")
+    @setaimoderation.command(name="enable")
     async def aimod_enable(self, ctx: commands.Context) -> None:
         """**Enable AI-powered auto-moderation**
 
@@ -1308,7 +1307,7 @@ class Setup(commands.Cog):
         except asyncio.TimeoutError:
             await ctx.send("Confirmation timed out. AI moderation remains disabled.")
 
-    @setaimoderation.command(10, name="disable")
+    @setaimoderation.command(name="disable")
     async def aimod_disable(self, ctx: commands.Context) -> None:
         """**Disable AI-powered auto-moderation**
 
@@ -1322,7 +1321,7 @@ class Setup(commands.Cog):
         )
         await ctx.send("AI moderation has been disabled.")
 
-    @setaimoderation.command(10, name="sensitivity")
+    @setaimoderation.command(name="sensitivity")
     async def aimod_sensitivity(self, ctx: commands.Context, sensitivity: int) -> None:
         """**Set the sensitivity of the AI moderation**
 
@@ -1347,7 +1346,7 @@ class Setup(commands.Cog):
         )
         await ctx.send(f"AI moderation sensitivity set to {sensitivity}%.")
 
-    @setaimoderation.command(10, name="category")
+    @setaimoderation.command(name="category")
     async def aimod_category(self, ctx: commands.Context, category: str, value: bool) -> None:
         """**Enable or disable a specific AI moderation category**
 
@@ -1565,7 +1564,7 @@ class Setup(commands.Cog):
         """
         await ctx.invoke(self.bot.get_command("help"), command_or_cog="regexfilter")
 
-    @regexfilter.command(8, name="add")
+    @regexfilter.command(name="add")
     async def re_add(self, ctx: commands.Context, *, pattern) -> None:
         """**Adds a regex pattern to the filter**
 
@@ -1592,7 +1591,7 @@ class Setup(commands.Cog):
         )
         await ctx.send(f"Regex pattern `{pattern}` added to filter.")
 
-    @regexfilter.command(8, name="remove")
+    @regexfilter.command(name="remove")
     async def re_remove(self, ctx: commands.Context, *, pattern) -> None:
         """**Removes a regex pattern from the filter**
 
@@ -1612,7 +1611,7 @@ class Setup(commands.Cog):
         )
         await ctx.send(f"Regex pattern `{pattern}` removed from filter.")
 
-    @regexfilter.command(8, name="list")
+    @regexfilter.command(name="list")
     async def re_list_(self, ctx: commands.Context) -> None:
         """**Lists all regex patterns in the filter**
 
@@ -1639,7 +1638,7 @@ class Setup(commands.Cog):
         """
         await ctx.invoke(self.bot.get_command("help"), command_or_cog="filter")
 
-    @filter_.command(8)
+    @filter_.command()
     async def add(self, ctx: commands.Context, *, word: str = None) -> None:
         """**Adds a word or image to the filter**
 
@@ -1690,7 +1689,7 @@ class Setup(commands.Cog):
                     "word has to be provided or an image has to be attached."
                 )
 
-    @filter_.command(8)
+    @filter_.command()
     async def remove(self, ctx: commands.Context, *, word: str = None) -> None:
         """**Removes a word or image from the filter**
 
@@ -1739,7 +1738,7 @@ class Setup(commands.Cog):
                     "word has to be provided or an image has to be attached."
                 )
 
-    @filter_.command(8, name="list")
+    @filter_.command(name="list")
     async def list_(self, ctx: commands.Context) -> None:
         """**Lists all words in the filter**
 
@@ -1882,7 +1881,7 @@ class Setup(commands.Cog):
         `{prefix}setautorole 123456789012345678`
         `{prefix}setautorole Member`
         """
-        from ext.utility import select_role
+        from ..ext.utility import select_role
 
         role_obj = await select_role(ctx, role)
         if not role_obj:
@@ -1909,7 +1908,7 @@ class Setup(commands.Cog):
         `{prefix}setselfrole 123456789012345678`
         `{prefix}setselfrole Updates`
         """
-        from ext.utility import select_role
+        from ..ext.utility import select_role
 
         role_obj = await select_role(ctx, role)
         if not role_obj:
@@ -1938,7 +1937,7 @@ class Setup(commands.Cog):
         `{prefix}setreactionrole 123456789012345678`
         `{prefix}setreactionrole Color`
         """
-        from ext.utility import select_role
+        from ..ext.utility import select_role
 
         role_obj = await select_role(ctx, role)
         if not role_obj:
@@ -1967,7 +1966,7 @@ class Setup(commands.Cog):
         `{prefix}setmuterole 123456789012345678`
         `{prefix}setmuterole Muted`
         """
-        from ext.utility import select_role
+        from ..ext.utility import select_role
 
         role_obj = await select_role(ctx, role)
         if not role_obj:
@@ -1976,5 +1975,5 @@ class Setup(commands.Cog):
         await ctx.send(f"Mute role set to {role_obj.mention}.")
 
 
-async def setup(bot: rainbot) -> None:
+async def setup(bot: RainBot) -> None:
     await bot.add_cog(Setup(bot))

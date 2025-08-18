@@ -3,15 +3,15 @@ from typing import Any, Callable
 import discord
 from discord.ext import commands
 
-from ext.utility import get_perm_level, get_command_level
-from ext.errors import Underleveled
+from ..ext.permissions import get_perm_level, get_command_level
+from ..ext.errors import Underleveled
 
 
 async def check_perm_level(ctx: commands.Context, *, command_level: int = None) -> bool:
     guild_config = await ctx.bot.db.get_guild_config(ctx.guild.id)
 
     if isinstance(ctx.author, discord.Member):
-        perm_level = get_perm_level(ctx.author, guild_config)[0]
+        perm_level = get_perm_level(ctx.bot, ctx.author, guild_config)[0]
     else:
         perm_level = 10
 
@@ -83,7 +83,9 @@ class RainGroup(commands.Group):
 
         def decorator(func: Callable) -> bool:
             kwargs.setdefault("parent", self)
-            result = command(*args, **kwargs)(func)
+            # Use the group's permission level if no level is provided
+            level = self.perm_level if self.perm_level is not None else 0
+            result = command(level, *args, **kwargs)(func)
             self.add_command(result)
             return result
 

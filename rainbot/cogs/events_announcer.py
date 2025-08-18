@@ -1,3 +1,5 @@
+"""This cog is for guild events announcement."""
+
 import json
 import string
 from collections import defaultdict
@@ -17,9 +19,9 @@ except ImportError:
 
 from discord.ext import commands
 
-from ext.command import command
-from ext.database import DEFAULT
-from ext.utility import SafeFormat, SafeString
+from ..ext.command import command
+from ..services.database import DEFAULT
+from ..ext.utility import SafeFormat, SafeString
 
 
 class EventsAnnouncer(commands.Cog):
@@ -122,10 +124,9 @@ class EventsAnnouncer(commands.Cog):
         See documentation for advanced embeds and variables.
         """
 
-        if event_type not in DEFAULT["events_announce"].keys():
-            raise commands.BadArgument(
-                f'Invalid event, pick from {", ".join(DEFAULT["events_announce"].keys())}'
-            )
+        if event_type not in DEFAULT["events_announce"]:
+            valid_events = ", ".join(DEFAULT["events_announce"].keys())
+            raise commands.BadArgument(f"Invalid event, pick from {valid_events}")
 
         if not isinstance(channel, discord.TextChannel) and channel != "dm":
             raise commands.BadArgument('Invalid channel, #mention a channel or "dm".')
@@ -171,34 +172,32 @@ class EventsAnnouncer(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_join(self, member):
-        if not self.bot.dev_mode:
-            guild_config = await self.bot.db.get_guild_config(member.guild.id)
-            config = guild_config.events_announce.member_join
-            invite = await self.get_used_invite(member.guild)
-            if config:
-                if config["channel_id"] == "dm":
-                    channel = member
-                else:
-                    channel = member.guild.get_channel(int(config["channel_id"]))
-                if channel:
-                    message = self.format_message(member, config["message"], invite)
-                    if message:
-                        await channel.send(**message)
+        guild_config = await self.bot.db.get_guild_config(member.guild.id)
+        config = guild_config.events_announce.member_join
+        invite = await self.get_used_invite(member.guild)
+        if config:
+            if config["channel_id"] == "dm":
+                channel = member
+            else:
+                channel = member.guild.get_channel(int(config["channel_id"]))
+            if channel:
+                message = self.format_message(member, config["message"], invite)
+                if message:
+                    await channel.send(**message)
 
     @commands.Cog.listener()
     async def on_member_remove(self, member):
-        if not self.bot.dev_mode:
-            guild_config = await self.bot.db.get_guild_config(member.guild.id)
-            config = guild_config.events_announce.member_remove
-            if config:
-                if config["channel_id"] == "dm":
-                    channel = member
-                else:
-                    channel = member.guild.get_channel(int(config["channel_id"]))
-                if channel:
-                    message = self.format_message(member, config["message"])
-                    if message:
-                        await channel.send(**message)
+        guild_config = await self.bot.db.get_guild_config(member.guild.id)
+        config = guild_config.events_announce.member_remove
+        if config:
+            if config["channel_id"] == "dm":
+                channel = member
+            else:
+                channel = member.guild.get_channel(int(config["channel_id"]))
+            if channel:
+                message = self.format_message(member, config["message"])
+                if message:
+                    await channel.send(**message)
 
 
 async def setup(bot):

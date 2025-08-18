@@ -12,14 +12,15 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 
 import discord
 from discord.ext import commands
-from ext.command import RainCommand, RainGroup, command
-from ext.paginator import Paginator
-from ext.utility import get_command_level, get_perm_level, owner
+from ..ext.command import RainCommand, RainGroup, command
+from ..ext.paginator import Paginator
+from ..ext.permissions import get_command_level, get_perm_level
+from ..ext.utility import owner
 import logging
-from config import BOT_VERSION, get_emoji
+from rainbot.config import BOT_VERSION, get_emoji
 
 if TYPE_CHECKING:
-    from bot import rainbot
+    from rainbot.main import RainBot
 
 
 class Utility(commands.Cog):
@@ -479,7 +480,7 @@ class Utility(commands.Cog):
                     return
 
                 em = await self.format_cog_help(ctx, prefix, cog)
-                from ext.safe_send import safe_send
+                from ..ext.safe_send import safe_send
 
                 if not em or not em.fields:
                     await safe_send(
@@ -495,7 +496,7 @@ class Utility(commands.Cog):
                     await safe_send(ctx, content=error or None, embed=em)
             else:
                 em = await self.format_command_help(ctx, prefix, cmd)
-                from ext.safe_send import safe_send
+                from ..ext.safe_send import safe_send
 
                 if not em:
                     await safe_send(
@@ -1106,7 +1107,9 @@ class Utility(commands.Cog):
         **Usage:**
         `{prefix}mylevel`
         """
-        perm_level = get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))
+        perm_level = get_perm_level(
+            self.bot, ctx.author, await self.bot.db.get_guild_config(ctx.guild.id)
+        )
 
         embed = discord.Embed(
             title=f"{get_emoji('user')} Your Permission Level", color=discord.Color.blue()

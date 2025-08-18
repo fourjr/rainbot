@@ -7,14 +7,15 @@ from typing import Optional, Union
 import discord
 from discord.ext import commands
 from discord.ext.commands import BucketType, cooldown
-from bot import rainbot
-from ext.database import DBDict, DEFAULT
-from ext.utility import format_timedelta, tryint
-from ext.command import command, group
+from rainbot.main import RainBot
+from ..services.database import DBDict, DEFAULT
+from ..ext.utility import format_timedelta, tryint
+from ..ext.command import command, group
 import time
 
-from ext.time import UserFriendlyTime
-from ext.utility import get_perm_level, CannedStr
+from ..ext.time import UserFriendlyTime
+from ..ext.permissions import get_perm_level
+from ..ext.utility import CannedStr
 
 
 class MemberOrID(commands.IDConverter):
@@ -49,7 +50,7 @@ def validate_user_id(user_id):
 
 
 class Moderation(commands.Cog):
-    def __init__(self, bot: rainbot) -> None:
+    def __init__(self, bot: RainBot) -> None:
         self.bot = bot
         self.order = 2
         self.logger = logging.getLogger("rainbot.moderation")
@@ -301,7 +302,7 @@ class Moderation(commands.Cog):
                 else:
                     await msg.remove_reaction(reaction, user_react)
 
-    @modlogs.command(6, name="all")
+    @modlogs.command(name="all")
     async def modlogs_all(self, ctx: commands.Context) -> None:
         """**View all modlogs in the server**
 
@@ -448,7 +449,7 @@ class Moderation(commands.Cog):
                 except Exception:
                     break
 
-    @modlogs.command(6, name="remove", aliases=["delete", "del"], usage="<case_number>")
+    @modlogs.command(name="remove", aliases=["delete", "del"], usage="<case_number>")
     async def modlogs_remove(self, ctx: commands.Context, case_number: int = None) -> None:
         """**Remove a modlog entry by case number**
 
@@ -617,7 +618,7 @@ class Moderation(commands.Cog):
                 )
             )
 
-    @modlogs.command(9, name="purge")
+    @modlogs.command(name="purge")
     async def modlogs_purge(self, ctx: commands.Context, user: MemberOrID) -> None:
         """**Delete all modlogs for a user**
 
@@ -933,7 +934,7 @@ class Moderation(commands.Cog):
                 return
             await self.add.callback(self, ctx, member=member, note=note)
 
-    @note.command(6)
+    @note.command()
     async def add(self, ctx: commands.Context, member: MemberOrID, *, note: CannedStr):
         """**Add a note to a user**
 
@@ -953,8 +954,10 @@ class Moderation(commands.Cog):
         `{prefix}note add @TestUser Investigating potential alt account.`
         """
         if (
-            get_perm_level(member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
-            >= get_perm_level(ctx.author, await self.bot.db.get_guild_config(ctx.guild.id))[0]
+            get_perm_level(self.bot, member, await self.bot.db.get_guild_config(ctx.guild.id))[0]
+            >= get_perm_level(
+                self.bot, ctx.author, await self.bot.db.get_guild_config(ctx.guild.id)
+            )[0]
         ):
             await ctx.send("You do not have permission to add a note to this user.")
         else:
@@ -978,7 +981,7 @@ class Moderation(commands.Cog):
             await self.bot.db.update_guild_config(ctx.guild.id, {"$push": {"notes": push}})
             await ctx.send(f"Note #{case_number} has been added for {member.mention}: {note}")
 
-    @note.command(6, aliases=["delete", "del"])
+    @note.command(aliases=["delete", "del"])
     async def remove(self, ctx: commands.Context, case_number: int) -> None:
         """**Remove a note from a user**
 
@@ -1008,7 +1011,7 @@ class Moderation(commands.Cog):
             member_id = note_to_remove.get("member_id")
             await ctx.send(f"Note #{case_number} has been removed from <@{member_id}>.")
 
-    @note.command(6, name="list", aliases=["view"])
+    @note.command(name="list", aliases=["view"])
     async def _list(self, ctx: commands.Context, member: MemberOrID) -> None:
         """**View the notes of a user**
 
@@ -1275,7 +1278,7 @@ class Moderation(commands.Cog):
                                 )
                             )
 
-    @warn.command(6, name="remove", aliases=["delete", "del"])
+    @warn.command(name="remove", aliases=["delete", "del"])
     async def remove_(self, ctx: commands.Context, case_number: int) -> None:
         """**Remove a warning from a user**
 
@@ -1305,7 +1308,7 @@ class Moderation(commands.Cog):
             await ctx.send(f"Warn #{case_number} removed from <@{warn['member_id']}>.")
             await self.send_log(ctx, case_number, warn_reason)
 
-    @warn.command(6, name="clear")
+    @warn.command(name="clear")
     async def clear_(self, ctx: commands.Context, member: MemberOrID) -> None:
         """**Clear all warnings from a user**
 
@@ -1347,7 +1350,7 @@ class Moderation(commands.Cog):
             member.guild.id, {"$pull": {"warns": {"member_id": str(member.id)}}}
         )
 
-    @warn.command(6, name="list", aliases=["view"])
+    @warn.command(name="list", aliases=["view"])
     async def list_(self, ctx: commands.Context, member: MemberOrID) -> None:
         """**View the warnings of a user**
 
@@ -2198,8 +2201,7 @@ class Moderation(commands.Cog):
             pass
 
 
-# Extension loader required by discord.py
-async def setup(bot):
+async def setup(bot: RainBot) -> None:
     await bot.add_cog(Moderation(bot))
 
     async def remove_warn(self, ctx, case_number):

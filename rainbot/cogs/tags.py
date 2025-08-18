@@ -4,13 +4,13 @@ from typing import Any, Dict, Union
 import discord
 from discord.ext import commands
 
-from bot import rainbot
-from ext.command import group
-from ext.utility import apply_vars
+from rainbot.main import RainBot
+from ..ext.command import group
+from ..ext.utility import apply_vars
 
 
 class Tags(commands.Cog):
-    def __init__(self, bot: rainbot) -> None:
+    def __init__(self, bot: RainBot) -> None:
         self.bot = bot
 
     @group(6, invoke_without_command=True)
@@ -27,7 +27,7 @@ class Tags(commands.Cog):
         """
         await ctx.invoke(self.bot.get_command("help"), command_or_cog="tag")
 
-    @tag.command(6)
+    @tag.command()
     async def create(
         self, ctx: commands.Context, name: str, *, value: commands.clean_content
     ) -> None:
@@ -65,7 +65,7 @@ class Tags(commands.Cog):
             )
             await ctx.send(f"Tag `{name}` created.")
 
-    @tag.command(6)
+    @tag.command()
     async def remove(self, ctx: commands.Context, name: str) -> None:
         """**Removes a tag**
 
@@ -83,7 +83,7 @@ class Tags(commands.Cog):
         await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"tags": {"name": name}}})
         await ctx.send(f"Tag `{name}` removed.")
 
-    @tag.command(6, name="list")
+    @tag.command(name="list")
     async def list_(self, ctx: commands.Context) -> None:
         """**Lists all tags**
 
@@ -156,5 +156,5 @@ class Tags(commands.Cog):
         return updated_tag
 
 
-async def setup(bot: rainbot) -> None:
+async def setup(bot: RainBot) -> None:
     await bot.add_cog(Tags(bot))

@@ -11,12 +11,13 @@ import discord
 from discord.ext import commands
 from discord.ext.commands import check
 
-from ext.time import UserFriendlyTime
+from .time import UserFriendlyTime
+from .permissions import get_perm_level
 
 if TYPE_CHECKING:
-    from bot import rainbot
-    from ext.database import DBDict
-    from ext.command import RainCommand, RainGroup  # noqa: F401
+    from rainbot.core.bot import rainbot
+    from rainbot.services.database import DBDict
+    from .command import RainCommand, RainGroup  # noqa: F401
 
 
 async def select_role(ctx: commands.Context, role: str) -> Optional[discord.Role]:
@@ -128,48 +129,6 @@ async def select_role(ctx: commands.Context, role: str) -> Optional[discord.Role
 UNICODE_EMOJI = "|".join(re.escape(u) for u in emoji.EMOJI_DATA.keys())
 UNICODE_EMOJI_REGEX = re.compile(UNICODE_EMOJI)
 
-__all__ = ("get_perm_level", "format_timedelta")
-
-
-def get_perm_level(
-    member: discord.Member, guild_config: "DBDict"
-) -> Tuple[int, Union[str, discord.Role, None]]:
-    if not isinstance(member, discord.Member):
-        return (0, None)
-    highest_role: Union[str, discord.Role, None] = "Member"
-    perm_level = 0
-    if not getattr(member, "guild_permissions", None):
-        perm_level = 0
-    elif member.id == member.guild.me.id:
-        perm_level = 100
-        highest_role = "Bot"
-    elif member.guild_permissions.administrator:
-        perm_level = 15
-        highest_role = "Administrator"
-    elif member.guild_permissions.manage_guild:
-        perm_level = 10
-        highest_role = "Manage Server"
-    else:
-        perm_level = 0
-        perm_levels = [int(i.role_id) for i in guild_config.perm_levels]
-        for i in reversed(member.roles):
-            if i.id in perm_levels:
-                new_perm_level = guild_config.perm_levels.get_kv("role_id", str(i.id)).level
-                if new_perm_level > perm_level:
-                    perm_level = new_perm_level
-                    highest_role = i
-
-    return (perm_level, highest_role)
-
-
-def get_command_level(cmd: Union["RainCommand", "RainGroup"], guild_config: "DBDict") -> int:
-    name = cmd.qualified_name
-    try:
-        perm_level = guild_config.command_levels.get_kv("command", name).level
-    except IndexError:
-        perm_level = cmd.perm_level
-    return perm_level
-
 
 def lower(argument: str) -> str:
     return str(argument).lower()
@@ -186,36 +145,32 @@ def random_color() -> int:
     return random.randint(0, 0xFFFFF)
 
 
-def format_timedelta(delta: Union[int, timedelta], *, assume_forever: bool = True) -> str:
-    if not delta:
-        return "forever" if assume_forever else "0 seconds"
-    seconds = int(delta.total_seconds() if isinstance(delta, timedelta) else delta)
+def format_timedelta(delta: timedelta) -> str:
+    """Formats a timedelta object into a human-readable string"""
+    seconds = delta.total_seconds()
+    days, seconds = divmod(seconds, 86400)
+    hours, seconds = divmod(seconds, 3600)
     minutes, seconds = divmod(seconds, 60)
-    hours, minutes = divmod(minutes, 60)
-    days, hours = divmod(hours, 24)
-    months, days = divmod(days, 30)
-    years, months = divmod(months, 12)
-    fmt = ""
-    if seconds:
-        fmt = f"{seconds} seconds " + fmt
-    if minutes:
-        fmt = f"{minutes} minutes " + fmt
-    if hours:
-        fmt = f"{hours} hours " + fmt
-    if days:
-        fmt = f"{days} days " + fmt
-    if months:
-        fmt = f"{months} months " + fmt
-    if years:
-        fmt = f"{years} years " + fmt
-    return fmt.strip()
+
+    parts = []
+    if days > 0:
+        parts.append(f"{int(days)}d")
+    if hours > 0:
+        parts.append(f"{int(hours)}h")
+    if minutes > 0:
+        parts.append(f"{int(minutes)}m")
+    if seconds > 0 or not parts:
+        parts.append(f"{int(seconds)}s")
+
+    return " ".join(parts)
 
 
-def tryint(x: str) -> Union[str, int]:
+def tryint(value: Any) -> Optional[int]:
+    """Tries to convert a value to an int, returns None on failure"""
     try:
-        return int(x)
+        return int(value)
     except (ValueError, TypeError):
-        return x
+        return None
 
 
 class EmojiOrUnicode(commands.Converter):
@@ -308,7 +263,7 @@ class Detection:
                 and str(message.channel.id) in guild_config.ignored_channels_in_prod
             ):
                 return False
-            if get_perm_level(message.author, guild_config)[0] >= 5:
+            if get_perm_level(bot, message.author, guild_config)[0] >= 5:
                 return False
         if self.require_user and message.author.id != self.require_user:
             return False
