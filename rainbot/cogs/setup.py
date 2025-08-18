@@ -343,7 +343,7 @@ class Setup(commands.Cog):
             )
             await msg.edit(embed=embed)
 
-    @group(10, invoke_without_command=True)
+    @group(10, invoke_without_command=False)
     async def setup(self, ctx: commands.Context) -> None:
         """**Interactive server setup wizard**
 
@@ -1221,7 +1221,7 @@ class Setup(commands.Cog):
         await self.bot.db.update_guild_config(ctx.guild.id, {"$set": RECOMMENDED_DETECTIONS})
         await ctx.send("Recommended detections have been set.")
 
-    @group(10, aliases=["set-ai-moderation", "set_ai_moderation"], invoke_without_command=True)
+    @group(10, aliases=["set-ai-moderation", "set_ai_moderation"], invoke_without_command=False)
     async def setaimoderation(self, ctx: commands.Context) -> None:
         """**Manage AI-powered auto-moderation settings**
 
@@ -1662,7 +1662,7 @@ class Setup(commands.Cog):
             f"Log ignore for `{detection_type}` updated for channel {channel.mention if channel else 'all channels cleared'}."
         )
 
-    @group(8, invoke_without_command=True)
+    @group(8, invoke_without_command=False)
     async def regexfilter(self, ctx: commands.Context) -> None:
         """**Manages the regex filter**
 
@@ -1736,7 +1736,7 @@ class Setup(commands.Cog):
             f"Regex Filters: {', '.join([f'`{i}`' for i in guild_config.detections.regex_filters])}"
         )
 
-    @group(8, name="filter", invoke_without_command=True)
+    @group(8, name="filter", invoke_without_command=False)
     async def filter_(self, ctx: commands.Context) -> None:
         """**Manages the word and image filter**
 

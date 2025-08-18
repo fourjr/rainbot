@@ -9,7 +9,7 @@ class AIModeration(commands.Cog):
     def __init__(self, bot: RainBot) -> None:
         self.bot = bot
 
-    @group(5, invoke_without_command=True)
+    @group(5, invoke_without_command=False)
     async def aimoderation(self, ctx: commands.Context) -> None:
         """AI moderation management commands.
 
