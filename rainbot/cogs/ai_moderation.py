@@ -17,10 +17,12 @@ class AIModeration(commands.Cog):
         Use the subcommands to configure and use the AI moderation tools.
 
         **Subcommands:**
-        - `toggle` - Enable or disable AI moderation.
+        - `toggle` - Enable or disable both text and image AI moderation.
         - `sensitivity` - Adjust the AI's sensitivity.
         - `punishment` - Set the punishment for AI moderation flags.
         - `categories` - Manage AI moderation categories.
+        - `text` - Toggle text moderation only.
+        - `image` - Toggle image moderation only.
         - `settings` - View the current AI moderation settings.
         - `help` - Show this help message.
         """
@@ -28,14 +30,22 @@ class AIModeration(commands.Cog):
 
     @aimoderation.command()
     async def toggle(self, ctx: commands.Context, state: bool = None) -> None:
-        """Enable or disable AI moderation."""
+        """Enable or disable both text and image AI moderation."""
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         if state is None:
             state = not guild_config.detections.ai_moderation.enabled
         await self.bot.db.update_guild_config(
-            ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": state}}
+            ctx.guild.id,
+            {
+                "$set": {
+                    "detections.ai_moderation.enabled": state,
+                    "detections.image_moderation.enabled": state,
+                }
+            },
         )
-        await ctx.send(f"AI moderation has been {'enabled' if state else 'disabled'}.")
+        await ctx.send(
+            f"AI moderation (text and image) has been {'enabled' if state else 'disabled'}."
+        )
 
     @aimoderation.command()
     async def sensitivity(self, ctx: commands.Context, level: int) -> None:
@@ -132,6 +142,28 @@ class AIModeration(commands.Cog):
         await ctx.send(f"Category `{category}` has been {'enabled' if state else 'disabled'}.")
 
     @aimoderation.command()
+    async def text(self, ctx: commands.Context, state: bool = None) -> None:
+        """Enable or disable AI text moderation only."""
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        if state is None:
+            state = not guild_config.detections.ai_moderation.enabled
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": state}}
+        )
+        await ctx.send(f"AI text moderation has been {'enabled' if state else 'disabled'}.")
+
+    @aimoderation.command()
+    async def image(self, ctx: commands.Context, state: bool = None) -> None:
+        """Enable or disable AI image moderation only."""
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        if state is None:
+            state = not guild_config.detections.image_moderation.enabled
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {"$set": {"detections.image_moderation.enabled": state}}
+        )
+        await ctx.send(f"AI image moderation has been {'enabled' if state else 'disabled'}.")
+
+    @aimoderation.command()
     async def settings(self, ctx: commands.Context) -> None:
         """View the current AI moderation settings."""
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
@@ -139,7 +171,16 @@ class AIModeration(commands.Cog):
         punishments = guild_config.detection_punishments.ai_moderation
 
         embed = discord.Embed(title="AI Moderation Settings", color=discord.Color.blue())
-        embed.add_field(name="Enabled", value=settings.enabled, inline=False)
+        embed.add_field(
+            name="Text Moderation",
+            value="Enabled" if settings.enabled else "Disabled",
+            inline=False,
+        )
+        embed.add_field(
+            name="Image Moderation",
+            value="Enabled" if guild_config.detections.image_moderation.enabled else "Disabled",
+            inline=False,
+        )
         embed.add_field(name="Sensitivity", value=settings.sensitivity, inline=False)
 
         punishment_text = ""

@@ -346,7 +346,9 @@ class Detections(commands.Cog):
             await process_text_moderation(m.content)
 
         # --- Image Moderation ---
-        if not flagged:  # Don't process images if text was already flagged
+        if (
+            not flagged and m.attachments and guild_config.detections.image_moderation.enabled
+        ):  # Process images if enabled
             for attachment in m.attachments:
                 if any(
                     attachment.filename.lower().endswith(ext)
