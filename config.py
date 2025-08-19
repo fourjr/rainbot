@@ -1,4 +1,7 @@
-"""This file contains all the configurable settings for rainbot."""
+"""
+rainbot Configuration File
+This file contains all the configurable settings for rainbot.
+"""
 
 import os
 from typing import List, Optional
@@ -9,7 +12,7 @@ BOT_VERSION = "2.5.3"
 BOT_DESCRIPTION = "A powerful moderation bot with automod and logging features"
 
 # Default Settings
-DEFAULT_PREFIX = "!!"
+DEFAULT_PREFIX = "!"
 DEFAULT_TIME_OFFSET = 0
 DEFAULT_MUTE_ROLE = "Muted"
 

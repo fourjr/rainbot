@@ -1,5 +1,3 @@
-"""A paginator for a list of embeds."""
-
 import asyncio
 from typing import Any
 
@@ -91,12 +89,13 @@ class Paginator:
 
     def _reaction_check(self, reaction: discord.Reaction, user: discord.Member) -> bool:
         """Checks if the reaction is from the user message and emoji is correct"""
-        return (
-            not self.running
-            or user.id == self.ctx.author.id
-            and reaction.emoji in self.emojis
-            and reaction.message.id == self.message.id
-        )
+        if not self.running:
+            return True
+        if user.id == self.ctx.author.id:
+            if reaction.emoji in self.emojis:
+                if reaction.message.id == self.message.id:
+                    return True
+        return False
 
     async def _reaction_action(self, reaction: discord.Reaction) -> None:
         """Fires an action based on the reaction"""

@@ -1,26 +1,24 @@
-"""This cog contains all the logging features."""
-
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone  # Add timezone import
 from typing import Any, List, Union
 
 import discord
 from discord.ext import commands
 from discord.ext.commands import Cog
 
-from rainbot.main import RainBot
-from ..ext.utility import QuickId, format_timedelta
+from bot import rainbot
+from ext.utility import QuickId, format_timedelta
 
 
 class Logging(commands.Cog):
-    def __init__(self, bot: RainBot) -> None:
+    def __init__(self, bot: rainbot) -> None:
         self.bot = bot
         # self.bot.loop.create_task(self.fill_message_cache())
 
     async def fill_message_cache(self) -> None:
         await self.bot.wait_until_ready()
 
-        after = datetime.now(timezone.utc) - timedelta(minutes=30)
+        after = datetime.utcnow() - timedelta(minutes=30)
 
         for i in self.bot.get_all_channels():
             if isinstance(i, discord.TextChannel):
@@ -148,7 +146,7 @@ class Logging(commands.Cog):
         mode: str = None,
         extra: Union[discord.Message, bool, discord.VoiceChannel, str] = None,
     ) -> None:
-        current_time = datetime.now(timezone.utc)
+        current_time = datetime.utcnow()
         try:
             guild_id = payload.guild.id
         except AttributeError:
@@ -205,7 +203,7 @@ class Logging(commands.Cog):
                     await log.send(f"```{payload.content}\n```")
             elif mode == "member_join":
                 fmt = f"{current_time} {payload} ({payload.id}) has joined. "
-                delta = datetime.now(timezone.utc) - payload.created_at
+                delta = datetime.utcnow() - payload.created_at  # Make utcnow timezone-aware
                 if delta.total_seconds() < 60 * 60 * 24:
                     # joined in last day
                     fmt += f"Warning: account created {format_timedelta(delta)} ago"
@@ -296,7 +294,7 @@ class Logging(commands.Cog):
 
     @Cog.listener()
     async def on_message_delete(self, message: discord.Message) -> None:
-        if not message.guild or message.author.bot:
+        if not message.guild or message.author.bot or self.bot.dev_mode:
             return
         log_channel = await self.check_enabled(
             message.guild.id, "message_delete", message.channel.id
@@ -311,13 +309,13 @@ class Logging(commands.Cog):
             log_channel = await self.check_enabled(
                 payload.guild_id, "message_delete", payload.channel_id
             )
-            if not payload.guild_id or not log_channel:
+            if not payload.guild_id or not log_channel or self.bot.dev_mode:
                 return
             await self.send_log(log_channel, payload, True, "deleted")
 
     @Cog.listener()
     async def on_message_edit(self, before: discord.Message, after: discord.Message) -> None:
-        if not before.guild or before.author.bot:
+        if not before.guild or before.author.bot or self.bot.dev_mode:
             return
         # Proceed only if something material changed (content, embeds, attachments)
         content_changed = (before.content or "") != (after.content or "")
@@ -346,7 +344,7 @@ class Logging(commands.Cog):
             log_channel = await self.check_enabled(
                 payload.data.get("guild_id"), "message_edit", payload.channel_id
             )
-            if not payload.data.get("guild_id") or not log_channel:
+            if not payload.data.get("guild_id") or not log_channel or self.bot.dev_mode:
                 return
 
             # Build a summary for raw edits including content and embed diffs
@@ -372,7 +370,7 @@ class Logging(commands.Cog):
         log_channel = await self.check_enabled(
             payload.guild_id, "message_delete", payload.channel_id
         )
-        if not payload.guild_id or not log_channel:
+        if not payload.guild_id or not log_channel or self.bot.dev_mode:
             return
 
         found = [i.id for i in payload.cached_messages]
@@ -386,7 +384,7 @@ class Logging(commands.Cog):
     async def on_bulk_message_delete(self, payload: List[discord.Message]) -> None:
         guild_id = payload[0].guild.id
         log_channel = await self.check_enabled(guild_id, "message_delete", payload[0].channel.id)
-        if not guild_id or not log_channel:
+        if not guild_id or not log_channel or self.bot.dev_mode:
             return
 
         for message in payload:
@@ -394,7 +392,7 @@ class Logging(commands.Cog):
 
     @Cog.listener()
     async def on_member_join(self, member: discord.Member) -> None:
-        if not member.guild or member.bot:
+        if not member.guild or member.bot or self.bot.dev_mode:
             return
         log_channel = await self.check_enabled(member.guild.id, "member_join")
         if not log_channel:
@@ -403,7 +401,7 @@ class Logging(commands.Cog):
 
     @Cog.listener()
     async def on_member_remove(self, member: discord.Member) -> None:
-        if not member.guild or member.bot:
+        if not member.guild or member.bot or self.bot.dev_mode:
             return
         log_channel = await self.check_enabled(member.guild.id, "member_remove")
         if not log_channel:
@@ -414,7 +412,7 @@ class Logging(commands.Cog):
     async def on_voice_state_update(
         self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState
     ) -> None:
-        if member.bot:
+        if member.bot or self.bot.dev_mode:
             return
         log_channel = await self.check_enabled(member.guild.id, "vc_state_change")
         if not log_channel:
@@ -435,6 +433,8 @@ class Logging(commands.Cog):
 
     @Cog.listener()
     async def on_guild_channel_create(self, channel: discord.abc.GuildChannel) -> None:
+        if self.bot.dev_mode:
+            return
         log_channel = await self.check_enabled(channel.guild.id, "channel_create")
         if log_channel:
             await self.send_log(
@@ -455,6 +455,8 @@ class Logging(commands.Cog):
 
     @Cog.listener()
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel) -> None:
+        if self.bot.dev_mode:
+            return
         log_channel = await self.check_enabled(channel.guild.id, "channel_delete", channel.id)
         if log_channel:
             await self.send_log(
@@ -463,16 +465,20 @@ class Logging(commands.Cog):
 
     @Cog.listener()
     async def on_guild_role_create(self, role: discord.Role) -> None:
+        if self.bot.dev_mode:
+            return
         log_channel = await self.check_enabled(role.guild.id, "role_create")
         if log_channel:
             await self.send_log(log_channel, role, False, mode="channel_role_create", extra="Role")
 
     @Cog.listener()
     async def on_guild_role_delete(self, role: discord.Role) -> None:
+        if self.bot.dev_mode:
+            return
         log_channel = await self.check_enabled(role.guild.id, "role_delete")
         if log_channel:
             await self.send_log(log_channel, role, False, mode="channel_role_delete", extra="Role")
 
 
-async def setup(bot: RainBot) -> None:
+async def setup(bot: rainbot) -> None:
     await bot.add_cog(Logging(bot))

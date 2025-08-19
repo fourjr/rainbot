@@ -3,15 +3,15 @@ from typing import Any, Callable
 import discord
 from discord.ext import commands
 
-from ..ext.permissions import get_perm_level, get_command_level
-from ..ext.errors import Underleveled
+from ext.utility import get_perm_level, get_command_level
+from ext.errors import Underleveled
 
 
 async def check_perm_level(ctx: commands.Context, *, command_level: int = None) -> bool:
     guild_config = await ctx.bot.db.get_guild_config(ctx.guild.id)
 
     if isinstance(ctx.author, discord.Member):
-        perm_level = get_perm_level(ctx.bot, ctx.author, guild_config)[0]
+        perm_level = get_perm_level(ctx.author, guild_config)[0]
     else:
         perm_level = 10
 
@@ -32,18 +32,6 @@ class RainCommand(commands.Command):
         super().__init__(callback, **kwargs)
         self.perm_level = kwargs.get("perm_level", 0)
         self.checks.append(check_perm_level)
-
-    async def invoke(self, ctx):
-        """Override invoke to show help when required parameters are missing"""
-        try:
-            await super().invoke(ctx)
-        except commands.MissingRequiredArgument:
-            await ctx.send_help(self)
-        except commands.BadArgument as e:
-            if "is a required argument that is missing" in str(e):
-                await ctx.send_help(self)
-            else:
-                raise
 
     @property
     def signature(self) -> str:
@@ -90,52 +78,12 @@ class RainGroup(commands.Group):
         if self.perm_level:
             self.checks.append(check_perm_level)
 
-    async def invoke(self, ctx):
-        """Override invoke to show formatted help when no subcommand is provided"""
-        if ctx.invoked_subcommand is None:
-            if ctx.subcommand_passed is not None:
-                # Try to find the subcommand case-insensitively
-                subcommand = discord.utils.get(self.commands, name=ctx.subcommand_passed.lower())
-                if subcommand:
-                    ctx.invoked_subcommand = subcommand
-                    await subcommand.invoke(ctx)
-                else:
-                    await ctx.send_help(self)
-            else:
-                await self.send_group_help(ctx)
-        else:
-            await super().invoke(ctx)
-
-    async def send_group_help(self, ctx):
-        """Send formatted help for group commands"""
-        embed = discord.Embed(
-            title=f"🔧 {self.name.title()} Commands",
-            description=self.help or f"Commands for {self.name}",
-            color=discord.Color.blue(),
-        )
-
-        if self.commands:
-            commands_text = ""
-            for cmd in self.commands:
-                commands_text += f"`{cmd.name}` - {cmd.short_doc or 'No description'}\n"
-            embed.add_field(name="📋 Available Commands", value=commands_text, inline=False)
-
-        embed.add_field(
-            name="💡 Usage",
-            value=f"Use `{ctx.prefix}{self.name} <command>` to run a specific command.",
-            inline=False,
-        )
-
-        await ctx.send(embed=embed)
-
     def command(self, *args: Any, **kwargs: Any) -> Callable:
         """Overwrites GroupMixin.command to use RainCommand"""
 
         def decorator(func: Callable) -> bool:
             kwargs.setdefault("parent", self)
-            # Use the group's permission level if no level is provided
-            level = self.perm_level if self.perm_level is not None else 0
-            result = command(level, *args, **kwargs)(func)
+            result = command(*args, **kwargs)(func)
             self.add_command(result)
             return result
 

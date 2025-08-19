@@ -1,5 +1,3 @@
-"""Database manager for the bot."""
-
 from __future__ import annotations
 
 import asyncio
@@ -33,6 +31,7 @@ DEFAULT: Dict[str, Any] = {
         "member_kick": None,
         "member_ban": None,
         "member_unban": None,
+        "member_mute": None,
         "member_softban": None,
         "message_purge": None,
         "channel_lockdown": None,
@@ -126,7 +125,7 @@ DEFAULT: Dict[str, Any] = {
         "max_characters": {"warn": 0, "mute": None, "kick": False, "ban": False, "delete": True},
         "caps_message": {"warn": 0, "mute": None, "kick": False, "ban": False, "delete": True},
         "ai_moderation": {
-            "warn": 0,
+            "warn": 1,
             "mute": None,
             "kick": False,
             "ban": False,

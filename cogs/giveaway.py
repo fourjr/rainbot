@@ -6,11 +6,11 @@ import discord
 from discord.ext import commands
 from discord.mentions import AllowedMentions
 
-from rainbot.main import RainBot
-from ..ext.command import command, group
-from ..services.database import DBDict
-from ..ext.time import UserFriendlyTime
-from ..ext.utility import EmojiOrUnicode
+from bot import rainbot
+from ext.command import command, group
+from ext.database import DBDict
+from ext.time import UserFriendlyTime
+from ext.utility import EmojiOrUnicode
 
 
 ACTIVE_COLOR = 0x01DC5A
@@ -20,7 +20,7 @@ INACTIVE_COLOR = 0xE8330F
 class Giveaways(commands.Cog):
     """Sets up giveaways!"""
 
-    def __init__(self, bot: RainBot) -> None:
+    def __init__(self, bot: rainbot) -> None:
         self.bot = bot
         bot.loop.create_task(self.__ainit__())
         self.order = 3
@@ -241,13 +241,12 @@ class Giveaways(commands.Cog):
                 "$set": {
                     "giveaway.emoji_id": str(emoji.id),
                     "giveaway.channel_id": str(channel.id),
-                    "giveaway.role_id": str(role_id),
+                    "giveaway.role_id": role_id,
                 }
             },
         )
-        role_mention = role_obj.mention if role_obj else role_id if role_id else "None"
         await ctx.send(
-            f"Giveaway config set: Emoji `{emoji}` | Channel {channel.mention} | Role {role_mention}."
+            f"Giveaway config set: Emoji `{emoji}` | Channel {channel.mention} | Role {role_obj.mention if role_obj else role_id if role_id else 'None'}."
         )
 
     @group(6, invoke_without_command=True, aliases=["give"])
@@ -266,7 +265,7 @@ class Giveaways(commands.Cog):
         """
         await ctx.invoke(self.bot.get_command("help"), command_or_cog="giveaway")
 
-    @giveaway.command(usage="<endtime> <winners> <description>")
+    @giveaway.command(8, usage="<endtime> <winners> <description>")
     async def create(self, ctx: commands.Context, *, time: UserFriendlyTime) -> None:
         """**Create a new giveaway**
 
@@ -364,7 +363,7 @@ class Giveaways(commands.Cog):
                     "A giveaway already exists. Please wait until the current one expires."
                 )
 
-    @giveaway.command(aliases=["stat", "statistics"])
+    @giveaway.command(6, aliases=["stat", "statistics"])
     async def stats(self, ctx: commands.Context) -> None:
         """**View statistics of the latest giveaway**
 
@@ -427,7 +426,7 @@ class Giveaways(commands.Cog):
             else:
                 await ctx.send("No giveaway found")
 
-    @giveaway.command(aliases=["edit-description"])
+    @giveaway.command(8, aliases=["edit-description"])
     async def edit_description(self, ctx: commands.Context, *, description: str) -> None:
         """**Edit the description of the current giveaway**
 
@@ -451,7 +450,7 @@ class Giveaways(commands.Cog):
         else:
             await ctx.send("No active giveaway")
 
-    @giveaway.command(aliases=["edit-winners"])
+    @giveaway.command(8, aliases=["edit-winners"])
     async def edit_winners(self, ctx: commands.Context, *, winners: int) -> None:
         """**Edit the number of winners for the current giveaway**
 
@@ -470,7 +469,8 @@ class Giveaways(commands.Cog):
         if latest_giveaway:
             new_embed = latest_giveaway.embeds[0]
             new_embed.description = (
-                f"__{winners} winner{'s' if winners > 1 else ''}__\n"
+                f"__{winners} winner{'s' if winners > 1 else ''}__"
+                + "\n"
                 + "\n".join(new_embed.description.split("\n")[1:])
             )
             await latest_giveaway.edit(embed=new_embed)
@@ -478,7 +478,7 @@ class Giveaways(commands.Cog):
         else:
             await ctx.send("No active giveaway")
 
-    @giveaway.command(aliases=["roll"])
+    @giveaway.command(8, aliases=["roll"])
     async def reroll(self, ctx: commands.Context, nwinners: int = None) -> None:
         """**Reroll winners for the last giveaway**
 
@@ -515,7 +515,7 @@ class Giveaways(commands.Cog):
                     "No previous giveaway to reroll. To end a giveaway, use `giveaway stop`."
                 )
 
-    @giveaway.command()
+    @giveaway.command(6)
     async def stop(self, ctx: commands.Context) -> None:
         """**Stop the current giveaway**
 
@@ -537,5 +537,5 @@ class Giveaways(commands.Cog):
             await ctx.send("No active giveaway")
 
 
-async def setup(bot: RainBot) -> None:
+async def setup(bot: rainbot) -> None:
     await bot.add_cog(Giveaways(bot))

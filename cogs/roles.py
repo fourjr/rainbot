@@ -2,9 +2,9 @@ import discord
 from discord.ext import commands
 from discord.ext.commands import Cog
 
-from rainbot.main import RainBot
-from ..ext.command import group, check_perm_level
-from ..ext.utility import EmojiOrUnicode, tryint
+from bot import rainbot
+from ext.command import group, check_perm_level
+from ext.utility import EmojiOrUnicode, tryint
 
 
 async def selfrole_check(ctx: commands.Context) -> bool:
@@ -15,7 +15,7 @@ async def selfrole_check(ctx: commands.Context) -> bool:
 class Roles(commands.Cog):
     """Set up roles that users can get"""
 
-    def __init__(self, bot: RainBot) -> None:
+    def __init__(self, bot: rainbot) -> None:
         self.bot = bot
         self.order = 5
 
@@ -51,7 +51,7 @@ class Roles(commands.Cog):
             await ctx.author.add_roles(role, reason="Selfrole")
             await ctx.send(f"Added role {self.bot.accept}")
 
-    @selfrole.command()
+    @selfrole.command(10)
     async def add(self, ctx: commands.Context, *, role: discord.Role) -> None:
         """**Add a self-assignable role**
 
@@ -76,7 +76,7 @@ class Roles(commands.Cog):
         )
         await ctx.send(f"Added {role.mention} as a selfrole.")
 
-    @selfrole.command(aliases=["del", "delete"])
+    @selfrole.command(10, aliases=["del", "delete"])
     async def remove(self, ctx: commands.Context, *, role: discord.Role) -> None:
         """**Remove a self-assignable role**
 
@@ -97,7 +97,7 @@ class Roles(commands.Cog):
         await ctx.send(f"Removed {role.mention} from selfroles.")
 
     @commands.check(selfrole_check)
-    @selfrole.command(name="list")
+    @selfrole.command(0, name="list")
     async def _list(self, ctx: commands.Context) -> None:
         """**Lists all self-assignable roles**
 
@@ -126,7 +126,7 @@ class Roles(commands.Cog):
         """
         await ctx.invoke(self.bot.get_command("help"), command_or_cog="autorole")
 
-    @autorole.command(name="add")
+    @autorole.command(10, name="add")
     async def _add(self, ctx: commands.Context, *, role: discord.Role) -> None:
         """**Add an autorole**
 
@@ -151,7 +151,7 @@ class Roles(commands.Cog):
         )
         await ctx.send(f"Added {role.mention} as an autorole.")
 
-    @autorole.command(name="remove", aliases=["del", "delete"])
+    @autorole.command(10, name="remove", aliases=["del", "delete"])
     async def _remove(self, ctx: commands.Context, *, role: discord.Role) -> None:
         """**Remove an autorole**
 
@@ -171,7 +171,7 @@ class Roles(commands.Cog):
         await self.bot.db.update_guild_config(ctx.guild.id, {"$pull": {"autoroles": str(role.id)}})
         await ctx.send(f"Removed {role.mention} from autoroles.")
 
-    @autorole.command(name="list")
+    @autorole.command(10, name="list")
     async def __list(self, ctx: commands.Context) -> None:
         """**Lists all autoroles**
 
@@ -199,7 +199,7 @@ class Roles(commands.Cog):
         """
         await ctx.invoke(self.bot.get_command("help"), command_or_cog="reactionrole")
 
-    @reactionrole.command(name="add")
+    @reactionrole.command(10, name="add")
     async def add_(
         self,
         ctx: commands.Context,
@@ -272,7 +272,7 @@ class Roles(commands.Cog):
             f"Added reaction role: {role.mention} with emoji {emoji.id} to message {message_id}."
         )
 
-    @reactionrole.command(name="remove", aliases=["del", "delete"])
+    @reactionrole.command(10, name="remove", aliases=["del", "delete"])
     async def remove_(self, ctx: commands.Context, message_id: int, role: discord.Role) -> None:
         """**Remove a reaction role from a message**
 
@@ -359,5 +359,5 @@ class Roles(commands.Cog):
                 await self.bot.db.update_guild_config(role.guild.id, {"$pull": {k: str(role.id)}})
 
 
-async def setup(bot: RainBot) -> None:
+async def setup(bot: rainbot) -> None:
     await bot.add_cog(Roles(bot))

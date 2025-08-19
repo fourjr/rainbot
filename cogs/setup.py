@@ -12,20 +12,21 @@ import asyncio
 import aiohttp
 from discord.ext import commands
 
-from rainbot.main import RainBot
-from ..ext.command import command, group, RainGroup
-from ..services.database import DEFAULT, DBDict, RECOMMENDED_DETECTIONS
-from ..ext.time import UserFriendlyTime
-from ..ext.utility import (
+from bot import rainbot
+from ext.command import command, group, RainGroup
+from ext.database import DEFAULT, DBDict, RECOMMENDED_DETECTIONS
+from ext.time import UserFriendlyTime
+from ext.utility import (
     format_timedelta,
+    get_perm_level,
     tryint,
     SafeFormat,
     CannedStr,
+    get_command_level,
 )
-from ..ext.permissions import get_perm_level, get_command_level
-from ..ext.errors import BotMissingPermissionsInChannel
-from ..ext.paginator import Paginator
-from rainbot import config
+from ext.errors import BotMissingPermissionsInChannel
+from ext.paginator import Paginator
+import config
 from PIL import Image
 from imagehash import average_hash
 
@@ -33,7 +34,7 @@ from imagehash import average_hash
 class Setup(commands.Cog):
     """Enhanced server configuration and setup commands"""
 
-    def __init__(self, bot: RainBot) -> None:
+    def __init__(self, bot: rainbot) -> None:
         self.bot = bot
         self.order = 1
         self.logger = logging.getLogger("rainbot.setup")
@@ -384,7 +385,7 @@ class Setup(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @setup.command(name="quick")
+    @setup.command(10, name="quick")
     async def setup_quick(self, ctx: commands.Context) -> None:
         """**Quick setup wizard for basic configuration**
 
@@ -555,7 +556,7 @@ class Setup(commands.Cog):
             )
             await ctx.send(embed=embed)
 
-    @setup.command(name="automod")
+    @setup.command(10, name="automod")
     async def setup_automod(self, ctx: commands.Context) -> None:
         """**Interactive auto-moderation setup**
 
@@ -597,7 +598,7 @@ class Setup(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-    @setup.command(name="logging")
+    @setup.command(10, name="logging")
     async def setup_logging(self, ctx: commands.Context) -> None:
         """**Interactive logging setup**
 
@@ -638,7 +639,7 @@ class Setup(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-    @setup.command(name="permissions")
+    @setup.command(10, name="permissions")
     async def setup_permissions(self, ctx: commands.Context) -> None:
         """Interactive permission level setup"""
         embed = discord.Embed(
@@ -839,13 +840,6 @@ class Setup(commands.Cog):
         elif channel and channel.lower() in ("off", "none"):
             channel_id = None
 
-        # Check if modlog is an array and convert to object
-        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-        if isinstance(guild_config.get("modlog"), list):
-            await self.bot.db.update_guild_config(
-                ctx.guild.id, {"$set": {"modlog": DEFAULT["modlog"]}}
-            )
-
         valid_logs = DEFAULT["modlog"].keys()
         if log_name == "all":
             for i in valid_logs:
@@ -888,7 +882,7 @@ class Setup(commands.Cog):
         - `{prefix}setpermlevel 2 @Moderator`
         - `{prefix}setpermlevel 0 @Muted`
         """
-        from ..ext.utility import select_role
+        from ext.utility import select_role
 
         role_obj = await select_role(ctx, role)
         if not role_obj:
@@ -1228,14 +1222,10 @@ class Setup(commands.Cog):
         This command group allows you to configure the AI-based content moderation features.
 
         **Subcommands:**
-        - `enable` - Enable AI moderation (with confirmation).
+        - `enable` - Enable AI moderation.
         - `disable` - Disable AI moderation.
-        - `toggle <on|off>` - Quickly toggle AI moderation.
-        - `category <name|all> <on|off>` - Enable or disable specific moderation categories.
-        - `status` - View current AI moderation settings.
-
-        **Related Commands:**
-        - `aisensitivity <1-100>` - Set the AI sensitivity level.
+        - `sensitivity` - Set the sensitivity of the AI.
+        - `category` - Enable or disable specific moderation categories.
         """
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         enabled_categories = [
@@ -1245,21 +1235,12 @@ class Setup(commands.Cog):
         embed = discord.Embed(
             title="AI Moderation Settings",
             description="Control the AI-powered automoderation features for text and images.",
-            color=(
-                discord.Color.green()
-                if guild_config.detections.ai_moderation.enabled
-                else discord.Color.red()
-            ),
+            color=discord.Color.blue(),
         )
         embed.add_field(
             name="Status",
-            value=f"{'🟢 Enabled' if guild_config.detections.ai_moderation.enabled else '🔴 Disabled'}",
-            inline=True,
-        )
-        embed.add_field(
-            name="Sensitivity",
-            value=f"{guild_config.detections.ai_moderation.sensitivity}%",
-            inline=True,
+            value="Enabled" if guild_config.detections.ai_moderation.enabled else "Disabled",
+            inline=False,
         )
         embed.add_field(
             name="Enabled Categories",
@@ -1267,12 +1248,11 @@ class Setup(commands.Cog):
             inline=False,
         )
         embed.add_field(
-            name="Quick Commands",
+            name="Usage",
             value=(
-                "`setaimoderation toggle on` - Quick enable\n"
-                "`setaimoderation toggle off` - Quick disable\n"
-                "`setaimoderation category all on` - Enable all categories\n"
-                "`setaimoderation category all off` - Disable all categories"
+                "`setaimoderation enable` - Enable AI moderation\n"
+                "`setaimoderation disable` - Disable AI moderation\n"
+                "`setaimoderation category <name | all> <on|off>` - Toggle a category"
             ),
             inline=False,
         )
@@ -1287,7 +1267,7 @@ class Setup(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-    @setaimoderation.command(name="enable")
+    @setaimoderation.command(10, name="enable")
     async def aimod_enable(self, ctx: commands.Context) -> None:
         """**Enable AI-powered auto-moderation**
 
@@ -1319,31 +1299,16 @@ class Setup(commands.Cog):
         try:
             reaction, user = await self.bot.wait_for("reaction_add", timeout=30.0, check=check)
             if str(reaction.emoji) == "✅":
-                # Enable AI moderation and ensure at least one category is enabled
-                valid_categories = [
-                    "hate",
-                    "hate/threatening",
-                    "self-harm",
-                    "sexual",
-                    "sexual/minors",
-                    "violence",
-                    "violence/graphic",
-                ]
                 await self.bot.db.update_guild_config(
                     ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": True}}
                 )
-                # Enable all categories by default
-                for cat in valid_categories:
-                    await self.bot.db.update_guild_config(
-                        ctx.guild.id, {"$set": {f"detections.ai_moderation.categories.{cat}": True}}
-                    )
-                await ctx.send("AI moderation has been enabled with all categories.")
+                await ctx.send("AI moderation has been enabled.")
             else:
                 await ctx.send("AI moderation setup cancelled.")
         except asyncio.TimeoutError:
             await ctx.send("Confirmation timed out. AI moderation remains disabled.")
 
-    @setaimoderation.command(name="disable")
+    @setaimoderation.command(10, name="disable")
     async def aimod_disable(self, ctx: commands.Context) -> None:
         """**Disable AI-powered auto-moderation**
 
@@ -1352,26 +1317,37 @@ class Setup(commands.Cog):
         **Usage:**
         `{prefix}setaimoderation disable`
         """
-        # Disable AI moderation and all categories
-        valid_categories = [
-            "hate",
-            "hate/threatening",
-            "self-harm",
-            "sexual",
-            "sexual/minors",
-            "violence",
-            "violence/graphic",
-        ]
         await self.bot.db.update_guild_config(
             ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": False}}
         )
-        for cat in valid_categories:
-            await self.bot.db.update_guild_config(
-                ctx.guild.id, {"$set": {f"detections.ai_moderation.categories.{cat}": False}}
-            )
-        await ctx.send("AI moderation has been disabled for all categories.")
+        await ctx.send("AI moderation has been disabled.")
 
-    @setaimoderation.command(name="category")
+    @setaimoderation.command(10, name="sensitivity")
+    async def aimod_sensitivity(self, ctx: commands.Context, sensitivity: int) -> None:
+        """**Set the sensitivity of the AI moderation**
+
+        This command adjusts how strict the AI moderation is.
+        A higher sensitivity means the AI is more likely to flag content.
+
+        **Usage:**
+        `{prefix}setaimoderation sensitivity <percentage>`
+
+        **<percentage>:**
+        - An integer between 1 and 100.
+
+        **Example:**
+        `{prefix}setaimoderation sensitivity 80`
+        """
+        if not 1 <= sensitivity <= 100:
+            await ctx.send("Sensitivity must be between 1 and 100.")
+            return
+
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {"$set": {"detections.ai_moderation.sensitivity": sensitivity}}
+        )
+        await ctx.send(f"AI moderation sensitivity set to {sensitivity}%.")
+
+    @setaimoderation.command(10, name="category")
     async def aimod_category(self, ctx: commands.Context, category: str, value: bool) -> None:
         """**Enable or disable a specific AI moderation category**
 
@@ -1425,115 +1401,6 @@ class Setup(commands.Cog):
             ctx.guild.id, {"$set": {f"detections.ai_moderation.categories.{category}": value}}
         )
         await ctx.send(f"Category `{category}` has been {'enabled' if value else 'disabled'}.")
-
-    @setaimoderation.command(name="toggle")
-    async def aimod_toggle(self, ctx: commands.Context, state: bool) -> None:
-        """**Quickly toggle AI moderation on or off**
-
-        This command allows you to quickly enable or disable AI moderation without confirmation.
-
-        **Usage:**
-        `{prefix}setaimoderation toggle <on|off>`
-
-        **<on|off>:**
-        - `on` or `true` to enable AI moderation.
-        - `off` or `false` to disable AI moderation.
-
-        **Examples:**
-        - `{prefix}setaimoderation toggle on`
-        - `{prefix}setaimoderation toggle off`
-        """
-        valid_categories = [
-            "hate",
-            "hate/threatening",
-            "self-harm",
-            "sexual",
-            "sexual/minors",
-            "violence",
-            "violence/graphic",
-        ]
-
-        if state:
-            # Enable AI moderation and all categories
-            await self.bot.db.update_guild_config(
-                ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": True}}
-            )
-            for cat in valid_categories:
-                await self.bot.db.update_guild_config(
-                    ctx.guild.id, {"$set": {f"detections.ai_moderation.categories.{cat}": True}}
-                )
-            await ctx.send("✅ AI moderation has been **enabled** with all categories.")
-        else:
-            # Disable AI moderation and all categories
-            await self.bot.db.update_guild_config(
-                ctx.guild.id, {"$set": {"detections.ai_moderation.enabled": False}}
-            )
-            for cat in valid_categories:
-                await self.bot.db.update_guild_config(
-                    ctx.guild.id, {"$set": {f"detections.ai_moderation.categories.{cat}": False}}
-                )
-            await ctx.send("❌ AI moderation has been **disabled** for all categories.")
-
-    @setaimoderation.command(name="status")
-    async def aimod_status(self, ctx: commands.Context) -> None:
-        """**View current AI moderation status and settings**
-
-        This command displays the current AI moderation configuration.
-
-        **Usage:**
-        `{prefix}setaimoderation status`
-        """
-        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
-        ai_config = guild_config.detections.ai_moderation
-
-        enabled_categories = [k for k, v in ai_config.categories.items() if v]
-        disabled_categories = [k for k, v in ai_config.categories.items() if not v]
-
-        embed = discord.Embed(
-            title="🤖 AI Moderation Status",
-            color=discord.Color.green() if ai_config.enabled else discord.Color.red(),
-        )
-
-        embed.add_field(
-            name="🔋 Overall Status",
-            value=f"{'🟢 **Enabled**' if ai_config.enabled else '🔴 **Disabled**'}",
-            inline=True,
-        )
-
-        embed.add_field(
-            name="🎯 Sensitivity Level",
-            value=f"**{ai_config.sensitivity}%**",
-            inline=True,
-        )
-
-        embed.add_field(
-            name="✅ Enabled Categories",
-            value=(
-                "\n".join([f"• {cat}" for cat in enabled_categories])
-                if enabled_categories
-                else "None"
-            ),
-            inline=False,
-        )
-
-        if disabled_categories:
-            embed.add_field(
-                name="❌ Disabled Categories",
-                value="\n".join([f"• {cat}" for cat in disabled_categories]),
-                inline=False,
-            )
-
-        embed.add_field(
-            name="🛠️ Quick Actions",
-            value=(
-                f"`{ctx.prefix}setaimoderation toggle {'off' if ai_config.enabled else 'on'}` - {'Disable' if ai_config.enabled else 'Enable'} AI moderation\n"
-                f"`{ctx.prefix}aisensitivity <1-100>` - Adjust sensitivity\n"
-                f"`{ctx.prefix}setaimoderation category <name> <on|off>` - Toggle specific categories"
-            ),
-            inline=False,
-        )
-
-        await ctx.send(embed=embed)
 
     @command(10, aliases=["set-guild-whitelist", "set_guild_whitelist"])
     async def setguildwhitelist(self, ctx: commands.Context, guild_id: int = None) -> None:
@@ -1698,7 +1565,7 @@ class Setup(commands.Cog):
         """
         await ctx.invoke(self.bot.get_command("help"), command_or_cog="regexfilter")
 
-    @regexfilter.command(name="add")
+    @regexfilter.command(8, name="add")
     async def re_add(self, ctx: commands.Context, *, pattern) -> None:
         """**Adds a regex pattern to the filter**
 
@@ -1725,7 +1592,7 @@ class Setup(commands.Cog):
         )
         await ctx.send(f"Regex pattern `{pattern}` added to filter.")
 
-    @regexfilter.command(name="remove")
+    @regexfilter.command(8, name="remove")
     async def re_remove(self, ctx: commands.Context, *, pattern) -> None:
         """**Removes a regex pattern from the filter**
 
@@ -1745,7 +1612,7 @@ class Setup(commands.Cog):
         )
         await ctx.send(f"Regex pattern `{pattern}` removed from filter.")
 
-    @regexfilter.command(name="list")
+    @regexfilter.command(8, name="list")
     async def re_list_(self, ctx: commands.Context) -> None:
         """**Lists all regex patterns in the filter**
 
@@ -1772,7 +1639,7 @@ class Setup(commands.Cog):
         """
         await ctx.invoke(self.bot.get_command("help"), command_or_cog="filter")
 
-    @filter_.command()
+    @filter_.command(8)
     async def add(self, ctx: commands.Context, *, word: str = None) -> None:
         """**Adds a word or image to the filter**
 
@@ -1823,7 +1690,7 @@ class Setup(commands.Cog):
                     "word has to be provided or an image has to be attached."
                 )
 
-    @filter_.command()
+    @filter_.command(8)
     async def remove(self, ctx: commands.Context, *, word: str = None) -> None:
         """**Removes a word or image from the filter**
 
@@ -1872,7 +1739,7 @@ class Setup(commands.Cog):
                     "word has to be provided or an image has to be attached."
                 )
 
-    @filter_.command(name="list")
+    @filter_.command(8, name="list")
     async def list_(self, ctx: commands.Context) -> None:
         """**Lists all words in the filter**
 
@@ -2015,7 +1882,7 @@ class Setup(commands.Cog):
         `{prefix}setautorole 123456789012345678`
         `{prefix}setautorole Member`
         """
-        from ..ext.utility import select_role
+        from ext.utility import select_role
 
         role_obj = await select_role(ctx, role)
         if not role_obj:
@@ -2042,7 +1909,7 @@ class Setup(commands.Cog):
         `{prefix}setselfrole 123456789012345678`
         `{prefix}setselfrole Updates`
         """
-        from ..ext.utility import select_role
+        from ext.utility import select_role
 
         role_obj = await select_role(ctx, role)
         if not role_obj:
@@ -2071,7 +1938,7 @@ class Setup(commands.Cog):
         `{prefix}setreactionrole 123456789012345678`
         `{prefix}setreactionrole Color`
         """
-        from ..ext.utility import select_role
+        from ext.utility import select_role
 
         role_obj = await select_role(ctx, role)
         if not role_obj:
@@ -2100,7 +1967,7 @@ class Setup(commands.Cog):
         `{prefix}setmuterole 123456789012345678`
         `{prefix}setmuterole Muted`
         """
-        from ..ext.utility import select_role
+        from ext.utility import select_role
 
         role_obj = await select_role(ctx, role)
         if not role_obj:
@@ -2109,5 +1976,5 @@ class Setup(commands.Cog):
         await ctx.send(f"Mute role set to {role_obj.mention}.")
 
 
-async def setup(bot: RainBot) -> None:
+async def setup(bot: rainbot) -> None:
     await bot.add_cog(Setup(bot))
