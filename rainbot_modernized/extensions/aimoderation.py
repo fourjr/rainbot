@@ -1,0 +1,545 @@
+"""
+AI Moderation Extension
+
+Provides AI-powered content moderation using external APIs for text and image analysis.
+"""
+
+import os
+import logging
+from typing import Dict, Any, Optional, List
+from datetime import datetime
+
+import discord
+import aiohttp
+from discord.ext import commands
+
+from core.bot import RainBot
+from utils.decorators import has_permissions
+from utils.helpers import create_embed
+from config.config import config
+
+
+class AIModerationExtension(commands.Cog, name="AI Moderation"):
+    """AI-powered content moderation system"""
+
+    def __init__(self, bot: RainBot):
+        self.bot = bot
+        self.logger = logging.getLogger("rainbot.aimoderation")
+        self.api_url = config.api.moderation_api_url
+
+        if not self.api_url:
+            self.logger.warning("MODERATION_API_URL not set - AI moderation disabled")
+
+    @commands.group(invoke_without_command=True, aliases=["aimod"])
+    @has_permissions(level=5)
+    async def aimoderation(self, ctx: commands.Context):
+        """
+        **AI Moderation Management**
+
+        Configure and manage AI-powered content moderation.
+
+        **Subcommands:**
+        • `enable` - Enable AI moderation
+        • `disable` - Disable AI moderation
+        • `config` - View current configuration
+        • `test` - Test AI moderation with sample content
+        • `sensitivity` - Set detection sensitivity
+        • `action` - Set moderation actions
+        • `category` - Enable/disable specific categories
+        """
+        if ctx.invoked_subcommand is None:
+            await self._show_status(ctx)
+
+    async def _show_status(self, ctx: commands.Context):
+        """Show AI moderation status"""
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        ai_config = guild_config.get("ai_moderation", {})
+
+        embed = create_embed(
+            title="🤖 AI Moderation Status", color=discord.Color.blue()
+        )
+
+        # Status
+        enabled = ai_config.get("enabled", False)
+        embed.add_field(
+            name="Status", value="🟢 Enabled" if enabled else "🔴 Disabled", inline=True
+        )
+
+        # API Status
+        api_status = "🟢 Connected" if self.api_url else "🔴 Not Configured"
+        embed.add_field(name="API Status", value=api_status, inline=True)
+
+        # Features
+        features = []
+        if ai_config.get("text_moderation", True):
+            features.append("📝 Text Analysis")
+        if ai_config.get("image_moderation", True):
+            features.append("🖼️ Image Analysis")
+
+        embed.add_field(
+            name="Features",
+            value="\n".join(features) if features else "None",
+            inline=False,
+        )
+
+        await ctx.send(embed=embed)
+
+    @aimoderation.command(name="enable")
+    @has_permissions(level=5)
+    async def enable(self, ctx: commands.Context):
+        """
+        **Enable AI moderation**
+
+        Activates AI-powered content moderation for this server.
+        """
+        if not self.api_url:
+            embed = create_embed(
+                title="❌ Configuration Required",
+                description="AI moderation API URL is not configured. Please contact the bot administrator.",
+                color=discord.Color.red(),
+            )
+            await ctx.send(embed=embed)
+            return
+
+        await self.bot.db.update_guild_config(
+            ctx.guild.id,
+            {
+                "ai_moderation.enabled": True,
+                "ai_moderation.text_moderation": True,
+                "ai_moderation.image_moderation": True,
+            },
+        )
+
+        embed = create_embed(
+            title="✅ AI Moderation Enabled",
+            description="AI-powered content moderation is now active for this server.",
+            color=discord.Color.green(),
+        )
+        await ctx.send(embed=embed)
+
+    @aimoderation.command(name="disable")
+    @has_permissions(level=5)
+    async def disable(self, ctx: commands.Context):
+        """
+        **Disable AI moderation**
+
+        Deactivates AI-powered content moderation for this server.
+        """
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {"ai_moderation.enabled": False}
+        )
+
+        embed = create_embed(
+            title="🔴 AI Moderation Disabled",
+            description="AI-powered content moderation has been deactivated.",
+            color=discord.Color.orange(),
+        )
+        await ctx.send(embed=embed)
+
+    @aimoderation.command(name="config")
+    @has_permissions(level=5)
+    async def config(self, ctx: commands.Context):
+        """
+        **View AI moderation configuration**
+
+        Shows detailed configuration settings for AI moderation.
+        """
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        ai_config = guild_config.get("ai_moderation", {})
+
+        embed = create_embed(
+            title="⚙️ AI Moderation Configuration", color=discord.Color.blue()
+        )
+
+        # Basic settings
+        embed.add_field(
+            name="Enabled",
+            value="✅ Yes" if ai_config.get("enabled", False) else "❌ No",
+            inline=True,
+        )
+
+        embed.add_field(
+            name="Text Moderation",
+            value="✅ Yes" if ai_config.get("text_moderation", True) else "❌ No",
+            inline=True,
+        )
+
+        embed.add_field(
+            name="Image Moderation",
+            value="✅ Yes" if ai_config.get("image_moderation", True) else "❌ No",
+            inline=True,
+        )
+
+        # Categories
+        categories = ai_config.get("categories", {})
+        if categories:
+            enabled_cats = []
+            disabled_cats = []
+            for cat, enabled in categories.items():
+                if enabled:
+                    enabled_cats.append(cat.title())
+                else:
+                    disabled_cats.append(cat.title())
+
+            if enabled_cats:
+                embed.add_field(
+                    name="Enabled Categories",
+                    value=", ".join(enabled_cats),
+                    inline=False,
+                )
+
+            if disabled_cats:
+                embed.add_field(
+                    name="Disabled Categories",
+                    value=", ".join(disabled_cats),
+                    inline=False,
+                )
+
+        await ctx.send(embed=embed)
+
+    @aimoderation.command(name="test")
+    @has_permissions(level=5)
+    async def test(self, ctx: commands.Context, *, content: str):
+        """
+        **Test AI moderation**
+
+        Test the AI moderation system with sample content.
+
+        **Usage:**
+        `!!aimoderation test <content>`
+
+        **Example:**
+        `!!aimoderation test This is a test message`
+        """
+        if not self.api_url:
+            embed = create_embed(
+                title="❌ API Not Configured",
+                description="AI moderation API URL is not configured.",
+                color=discord.Color.red(),
+            )
+            await ctx.send(embed=embed)
+            return
+
+        async with ctx.typing():
+            try:
+                result = await self._moderate_text(content)
+
+                embed = create_embed(
+                    title="🧪 AI Moderation Test Results", color=discord.Color.blue()
+                )
+
+                embed.add_field(
+                    name="Content",
+                    value=f"```{content[:100]}{'...' if len(content) > 100 else ''}```",
+                    inline=False,
+                )
+
+                embed.add_field(
+                    name="Decision",
+                    value=result.get("decision", "unknown").title(),
+                    inline=True,
+                )
+
+                categories = result.get("categories", [])
+                if categories:
+                    embed.add_field(
+                        name="Flagged Categories",
+                        value=", ".join(categories),
+                        inline=True,
+                    )
+
+                scores = result.get("category_scores", {})
+                if scores:
+                    score_text = "\n".join(
+                        [
+                            f"• {cat.title()}: {int(score * 100)}%"
+                            for cat, score in scores.items()
+                        ]
+                    )
+                    embed.add_field(
+                        name="Confidence Scores", value=score_text, inline=False
+                    )
+
+                await ctx.send(embed=embed)
+
+            except Exception as e:
+                self.logger.error(f"AI moderation test failed: {e}")
+                embed = create_embed(
+                    title="❌ Test Failed",
+                    description=f"Failed to test AI moderation: {str(e)}",
+                    color=discord.Color.red(),
+                )
+                await ctx.send(embed=embed)
+
+    @aimoderation.command(name="sensitivity")
+    @has_permissions(level=5)
+    async def sensitivity(self, ctx: commands.Context, category: str, sensitivity: int):
+        """
+        **Set detection sensitivity**
+
+        Set the detection sensitivity for a specific category.
+
+        **Usage:**
+        `!!aimoderation sensitivity <category> <sensitivity>`
+
+        **Categories:** hate, violence, sexual, harassment, self-harm
+        **Sensitivity:** 1-100% (higher = more strict)
+
+        **Example:**
+        `!!aimoderation sensitivity hate 80`
+        """
+        if not 1 <= sensitivity <= 100:
+            embed = create_embed(
+                title="❌ Invalid Sensitivity",
+                description="Sensitivity must be between 1 and 100",
+                color=discord.Color.red(),
+            )
+            await ctx.send(embed=embed)
+            return
+
+        valid_categories = ["hate", "violence", "sexual", "harassment", "self-harm"]
+        if category.lower() not in valid_categories:
+            embed = create_embed(
+                title="❌ Invalid Category",
+                description=f"Valid categories: {', '.join(valid_categories)}",
+                color=discord.Color.red(),
+            )
+            await ctx.send(embed=embed)
+            return
+
+        # Convert percentage to 0.0-1.0 for storage
+        threshold = sensitivity / 100.0
+
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {f"ai_moderation.thresholds.{category.lower()}": threshold}
+        )
+
+        embed = create_embed(
+            title="✅ Sensitivity Updated",
+            description=f"Set {category} sensitivity to {sensitivity}%",
+            color=discord.Color.green(),
+        )
+        await ctx.send(embed=embed)
+
+    @aimoderation.command(name="category")
+    @has_permissions(level=5)
+    async def category(self, ctx: commands.Context, category: str, enabled: bool):
+        """
+        **Enable/disable specific categories**
+
+        Enable or disable AI moderation for specific content categories.
+
+        **Usage:**
+        `!!aimoderation category <category> <true/false>`
+
+        **Categories:** hate, violence, sexual, harassment, self-harm
+
+        **Example:**
+        `!!aimoderation category hate true`
+        `!!aimoderation category violence false`
+        """
+        valid_categories = ["hate", "violence", "sexual", "harassment", "self-harm"]
+
+        if category.lower() not in valid_categories:
+            embed = create_embed(
+                title="❌ Invalid Category",
+                description=f"Valid categories: {', '.join(valid_categories)}",
+                color=discord.Color.red(),
+            )
+            await ctx.send(embed=embed)
+            return
+
+        update_data = {f"ai_moderation.categories.{category.lower()}": enabled}
+
+        await self.bot.db.update_guild_config(ctx.guild.id, update_data)
+
+        status = "enabled" if enabled else "disabled"
+
+        embed = create_embed(
+            title="✅ Category Updated",
+            description=f"{category.title()} detection {status}",
+            color=discord.Color.green(),
+        )
+        await ctx.send(embed=embed)
+
+    @aimoderation.command(name="action")
+    @has_permissions(level=5)
+    async def action(self, ctx: commands.Context, category: str, action: str):
+        """
+        **Set moderation action**
+
+        Set the action to take when AI detects content in a category.
+
+        **Usage:**
+        `!!aimoderation action <category> <action>`
+
+        **Categories:** hate, violence, sexual, harassment, self-harm
+        **Actions:** delete, warn, mute, kick, ban
+
+        **Example:**
+        `!!aimoderation action hate delete`
+        """
+        valid_categories = ["hate", "violence", "sexual", "harassment", "self-harm"]
+        valid_actions = ["delete", "warn", "mute", "kick", "ban"]
+
+        if category.lower() not in valid_categories:
+            embed = create_embed(
+                title="❌ Invalid Category",
+                description=f"Valid categories: {', '.join(valid_categories)}",
+                color=discord.Color.red(),
+            )
+            await ctx.send(embed=embed)
+            return
+
+        if action.lower() not in valid_actions:
+            embed = create_embed(
+                title="❌ Invalid Action",
+                description=f"Valid actions: {', '.join(valid_actions)}",
+                color=discord.Color.red(),
+            )
+            await ctx.send(embed=embed)
+            return
+
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {f"ai_moderation.actions.{category.lower()}": action.lower()}
+        )
+
+        embed = create_embed(
+            title="✅ Action Updated",
+            description=f"Set {category} action to {action}",
+            color=discord.Color.green(),
+        )
+        await ctx.send(embed=embed)
+
+    async def _moderate_text(self, content: str) -> Dict[str, Any]:
+        """Moderate text content using external API"""
+        if not self.api_url:
+            raise ValueError("API URL not configured")
+
+        payload = {"content": content}
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{self.api_url}/moderate/text", json=payload
+            ) as resp:
+                if resp.status != 200:
+                    raise ValueError(f"API request failed with status {resp.status}")
+                return await resp.json()
+
+    async def _moderate_image(self, attachment: discord.Attachment) -> Dict[str, Any]:
+        """Moderate image content using external API"""
+        if not self.api_url:
+            raise ValueError("API URL not configured")
+
+        form = aiohttp.FormData()
+        form.add_field("file", await attachment.read(), filename=attachment.filename)
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{self.api_url}/moderate/image", data=form
+            ) as resp:
+                if resp.status != 200:
+                    raise ValueError(f"API request failed with status {resp.status}")
+                return await resp.json()
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        """Process messages for AI moderation"""
+        if not message.guild or message.author.bot:
+            return
+
+        guild_config = await self.bot.db.get_guild_config(message.guild.id)
+        ai_config = guild_config.get("ai_moderation", {})
+
+        if not ai_config.get("enabled", False):
+            return
+
+        if not self.api_url:
+            return
+
+        try:
+            # Text moderation
+            if message.content and ai_config.get("text_moderation", True):
+                await self._process_text_moderation(message, ai_config)
+
+            # Image moderation
+            if message.attachments and ai_config.get("image_moderation", True):
+                await self._process_image_moderation(message, ai_config)
+
+        except Exception as e:
+            self.logger.error(f"AI moderation error: {e}")
+
+    async def _process_text_moderation(self, message: discord.Message, ai_config):
+        """Process text moderation"""
+        try:
+            result = await self._moderate_text(message.content)
+
+            if result.get("decision") == "flag":
+                await self._take_action(message, result, ai_config)
+
+        except Exception as e:
+            self.logger.error(f"Text moderation failed: {e}")
+
+    async def _process_image_moderation(self, message: discord.Message, ai_config):
+        """Process image moderation"""
+        for attachment in message.attachments:
+            if not any(
+                attachment.filename.lower().endswith(ext)
+                for ext in [".png", ".jpg", ".jpeg", ".webp"]
+            ):
+                continue
+
+            try:
+                result = await self._moderate_image(attachment)
+
+                if result.get("decision") in ("block", "flag"):
+                    await self._take_action(message, result, ai_config)
+                    break
+
+            except Exception as e:
+                self.logger.error(f"Image moderation failed: {e}")
+
+    async def _take_action(
+        self, message: discord.Message, result: Dict[str, Any], ai_config
+    ):
+        """Take moderation action based on AI result"""
+        categories = result.get("categories", [])
+        if not categories:
+            return
+
+        enabled_categories = ai_config.get("categories", {})
+        active_categories = [
+            cat for cat in categories if enabled_categories.get(cat, True)
+        ]
+
+        if not active_categories:
+            return
+
+        actions = ai_config.get("actions", {})
+        action = "delete"  # Default
+        for category in active_categories:
+            if category in actions:
+                action = actions[category]
+                break
+
+        reason = f"AI moderation: {', '.join(active_categories)}"
+
+        try:
+            if action == "delete":
+                await message.delete()
+                await message.channel.send(
+                    f"{message.author.mention}, your message was removed for violating our content policy.",
+                    delete_after=10,
+                )
+
+            self.logger.info(
+                f"AI moderation action taken: {action} for {message.author} in {message.guild}"
+            )
+
+        except Exception as e:
+            self.logger.error(f"Failed to take AI moderation action: {e}")
+
+
+async def setup(bot: RainBot):
+    """Load the AI Moderation extension"""
+    await bot.add_cog(AIModerationExtension(bot))
