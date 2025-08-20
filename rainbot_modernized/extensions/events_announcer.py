@@ -83,9 +83,9 @@ class EventsAnnouncer(commands.Cog):
             content = self.apply_vars(member, message, invite)
             return {"content": content}
 
-    @commands.command()
+    @commands.command(name="seteventannouncement")
     @has_permissions(level=5)
-    async def setannouncement(
+    async def set_event_announcement(
         self,
         ctx,
         event_type: str,

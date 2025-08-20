@@ -234,9 +234,15 @@ class Logs(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @logging.command()
+    @logging.command(name="setmodlog")
     @commands.has_permissions(manage_guild=True)
-    async def ignore(self, ctx, log_type: str, channel: discord.TextChannel):
+    async def set_mod_log(self, ctx, channel: discord.TextChannel):
+        """Sets the log channel for moderation actions"""
+        await self.set_log(ctx, "moderation", channel)
+
+    @logging.command(name="ignore", aliases=["setlogignore"])
+    @commands.has_permissions(manage_guild=True)
+    async def ignore_log(self, ctx, log_type: str, channel: discord.TextChannel):
         """Ignore a channel for a specific log type"""
         valid_types = ["message_edit", "message_delete"]
 
@@ -276,9 +282,9 @@ class Logs(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-    @logging.command()
+    @logging.command(name="set", aliases=["setlog"])
     @commands.has_permissions(manage_guild=True)
-    async def set(self, ctx, log_type: str, channel: discord.TextChannel):
+    async def set_log(self, ctx, log_type: str, channel: discord.TextChannel):
         """Set a logging channel"""
         valid_types = [
             "member_join",

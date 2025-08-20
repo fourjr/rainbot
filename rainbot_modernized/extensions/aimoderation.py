@@ -297,16 +297,17 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
         """
         **Set detection sensitivity**
 
-        Set the detection sensitivity for a specific category.
+        Set the detection sensitivity for a specific category, or for all categories.
 
         **Usage:**
-        `!!aimoderation sensitivity <category> <sensitivity>`
+        `!!aimoderation sensitivity <category|all> <sensitivity>`
 
-        **Categories:** hate, violence, sexual, harassment, self-harm
+        **Categories:** harassment, hate, violence, self-harm/instructions, sexual, illicit, harassment/threatening, self-harm, self-harm/intent, illicit/violent, violence/graphic, hate/threatening, sexual/minors
         **Sensitivity:** 1-100% (higher = more strict)
 
-        **Example:**
+        **Examples:**
         `!!aimoderation sensitivity hate 80`
+        `!!aimoderation sensitivity all 75`
         """
         if not 1 <= sensitivity <= 100:
             embed = create_embed(
@@ -317,8 +318,39 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
             await ctx.send(embed=embed)
             return
 
-        valid_categories = ["hate", "violence", "sexual", "harassment", "self-harm"]
-        if category.lower() not in valid_categories:
+        valid_categories = [
+            "harassment",
+            "hate",
+            "violence",
+            "self-harm/instructions",
+            "sexual",
+            "illicit",
+            "harassment/threatening",
+            "self-harm",
+            "self-harm/intent",
+            "illicit/violent",
+            "violence/graphic",
+            "hate/threatening",
+            "sexual/minors",
+        ]
+
+        # Convert percentage to 0.0-1.0 for storage
+        threshold = sensitivity / 100.0
+
+        if category.lower() == "all":
+            update_data = {}
+            for cat in valid_categories:
+                update_data[f"ai_moderation.thresholds.{cat}"] = threshold
+
+            await self.bot.db.update_guild_config(ctx.guild.id, update_data)
+            description = f"Set sensitivity for all categories to {sensitivity}%"
+        elif category.lower() in valid_categories:
+            await self.bot.db.update_guild_config(
+                ctx.guild.id,
+                {f"ai_moderation.thresholds.{category.lower()}": threshold},
+            )
+            description = f"Set {category} sensitivity to {sensitivity}%"
+        else:
             embed = create_embed(
                 title="❌ Invalid Category",
                 description=f"Valid categories: {', '.join(valid_categories)}",
@@ -327,16 +359,9 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
             await ctx.send(embed=embed)
             return
 
-        # Convert percentage to 0.0-1.0 for storage
-        threshold = sensitivity / 100.0
-
-        await self.bot.db.update_guild_config(
-            ctx.guild.id, {f"ai_moderation.thresholds.{category.lower()}": threshold}
-        )
-
         embed = create_embed(
             title="✅ Sensitivity Updated",
-            description=f"Set {category} sensitivity to {sensitivity}%",
+            description=description,
             color=discord.Color.green(),
         )
         await ctx.send(embed=embed)
@@ -347,20 +372,47 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
         """
         **Enable/disable specific categories**
 
-        Enable or disable AI moderation for specific content categories.
+        Enable or disable AI moderation for specific content categories, or for all categories.
 
         **Usage:**
-        `!!aimoderation category <category> <true/false>`
+        `!!aimoderation category <category|all> <true/false>`
 
-        **Categories:** hate, violence, sexual, harassment, self-harm
+        **Categories:** harassment, hate, violence, self-harm/instructions, sexual, illicit, harassment/threatening, self-harm, self-harm/intent, illicit/violent, violence/graphic, hate/threatening, sexual/minors
 
-        **Example:**
+        **Examples:**
         `!!aimoderation category hate true`
-        `!!aimoderation category violence false`
+        `!!aimoderation category all false`
         """
-        valid_categories = ["hate", "violence", "sexual", "harassment", "self-harm"]
+        valid_categories = [
+            "harassment",
+            "hate",
+            "violence",
+            "self-harm/instructions",
+            "sexual",
+            "illicit",
+            "harassment/threatening",
+            "self-harm",
+            "self-harm/intent",
+            "illicit/violent",
+            "violence/graphic",
+            "hate/threatening",
+            "sexual/minors",
+        ]
 
-        if category.lower() not in valid_categories:
+        status = "enabled" if enabled else "disabled"
+
+        if category.lower() == "all":
+            update_data = {}
+            for cat in valid_categories:
+                update_data[f"ai_moderation.categories.{cat}"] = enabled
+
+            await self.bot.db.update_guild_config(ctx.guild.id, update_data)
+            description = f"All detection categories have been {status}"
+        elif category.lower() in valid_categories:
+            update_data = {f"ai_moderation.categories.{category.lower()}": enabled}
+            await self.bot.db.update_guild_config(ctx.guild.id, update_data)
+            description = f"{category.title()} detection {status}"
+        else:
             embed = create_embed(
                 title="❌ Invalid Category",
                 description=f"Valid categories: {', '.join(valid_categories)}",
@@ -369,15 +421,9 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
             await ctx.send(embed=embed)
             return
 
-        update_data = {f"ai_moderation.categories.{category.lower()}": enabled}
-
-        await self.bot.db.update_guild_config(ctx.guild.id, update_data)
-
-        status = "enabled" if enabled else "disabled"
-
         embed = create_embed(
             title="✅ Category Updated",
-            description=f"{category.title()} detection {status}",
+            description=description,
             color=discord.Color.green(),
         )
         await ctx.send(embed=embed)
@@ -393,13 +439,27 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
         **Usage:**
         `!!aimoderation action <category> <action>`
 
-        **Categories:** hate, violence, sexual, harassment, self-harm
+        **Categories:** harassment, hate, violence, self-harm/instructions, sexual, illicit, harassment/threatening, self-harm, self-harm/intent, illicit/violent, violence/graphic, hate/threatening, sexual/minors
         **Actions:** delete, warn, mute, kick, ban
 
         **Example:**
         `!!aimoderation action hate delete`
         """
-        valid_categories = ["hate", "violence", "sexual", "harassment", "self-harm"]
+        valid_categories = [
+            "harassment",
+            "hate",
+            "violence",
+            "self-harm/instructions",
+            "sexual",
+            "illicit",
+            "harassment/threatening",
+            "self-harm",
+            "self-harm/intent",
+            "illicit/violent",
+            "violence/graphic",
+            "hate/threatening",
+            "sexual/minors",
+        ]
         valid_actions = ["delete", "warn", "mute", "kick", "ban"]
 
         if category.lower() not in valid_categories:
