@@ -36,6 +36,97 @@ class Moderation(commands.Cog):
         self.bot = bot
         self.logger = ModLogger()
 
+    @commands.command(name="setprefix")
+    @require_permission(PermissionLevel.ADMINISTRATOR)
+    async def set_prefix(self, ctx: commands.Context, *, prefix: str):
+        """
+        **Set the bot's prefix for this server**
+
+        **Usage:**
+        `!!setprefix <new_prefix>`
+
+        **Example:**
+        `!!setprefix !`
+        """
+        if len(prefix) > 5:
+            embed = create_embed(
+                title="❌ Prefix Too Long",
+                description="Prefix cannot be longer than 5 characters.",
+                color=discord.Color.red(),
+            )
+            await ctx.send(embed=embed)
+            return
+
+        await self.bot.db.update_guild_config(ctx.guild.id, {"prefix": prefix})
+        self.bot._prefix_cache[ctx.guild.id] = prefix  # Update cache
+
+        embed = create_embed(
+            title="✅ Prefix Updated",
+            description=f"My prefix on this server is now `{prefix}`",
+            color=discord.Color.green(),
+        )
+        await ctx.send(embed=embed)
+
+    @commands.command(name="setmuterole")
+    @require_permission(PermissionLevel.ADMINISTRATOR)
+    async def set_mute_role(self, ctx: commands.Context, role: discord.Role):
+        """
+        **Set an existing role as the mute role**
+
+        **Usage:**
+        `!!setmuterole <role>`
+
+        **Example:**
+        `!!setmuterole @Muted`
+
+        The bot will attempt to configure permissions for this role automatically.
+        """
+        if role >= ctx.guild.me.top_role:
+            embed = create_embed(
+                title=f"{EMOJIS['error']} Permission Error",
+                description=f"I cannot manage the role '{role.name}'. Please make sure my role is higher than the mute role in the role hierarchy.",
+                color="error",
+            )
+            await safe_send(ctx, embed=embed)
+            return
+
+        await self.bot.db.update_guild_config(ctx.guild.id, {"mute_role_id": role.id})
+
+        failed_channels = 0
+        async with ctx.typing():
+            for channel in ctx.guild.channels:
+                try:
+                    if isinstance(channel, discord.TextChannel):
+                        await channel.set_permissions(
+                            role,
+                            send_messages=False,
+                            add_reactions=False,
+                            send_messages_in_threads=False,
+                            create_public_threads=False,
+                            create_private_threads=False,
+                        )
+                    elif isinstance(channel, discord.VoiceChannel):
+                        await channel.set_permissions(
+                            role,
+                            speak=False,
+                            stream=False,
+                        )
+                except discord.Forbidden:
+                    failed_channels += 1
+                except discord.HTTPException:
+                    failed_channels += 1
+
+        description = f"The mute role has been set to {role.mention}."
+        if failed_channels > 0:
+            description += f"\\n\\n{EMOJIS['warning']} I failed to configure permissions for this role in {failed_channels} channels. Please check my permissions."
+
+        embed = create_embed(
+            title="✅ Mute Role Set",
+            description=description,
+            color="success",
+        )
+        await safe_send(ctx, embed=embed)
+
     @commands.command(name="warn")
     @require_permission(PermissionLevel.MODERATOR)
     async def warn_user(
@@ -1222,6 +1313,62 @@ class Moderation(commands.Cog):
         embed = create_embed(
             title="✅ Logs Purged",
             description=f"All moderation logs for {user} have been purged.",
+            color="success",
+        )
+        await safe_send(ctx, embed=embed)
+
+    @commands.command(name="setpermission")
+    @require_permission(PermissionLevel.ADMINISTRATOR)
+    async def set_permission(
+        self, ctx: commands.Context, role: discord.Role, level: str
+    ):
+        """
+        **Assign a permission level to a role**
+
+        **Usage:**
+        `!!setpermission <role> <level>`
+
+        **Example:**
+        `!!setpermission @Moderator MODERATOR`
+
+        **Available Levels:**
+        • HELPER
+        • MODERATOR
+        • SENIOR_MODERATOR
+        • ADMINISTRATOR
+        """
+        level = level.upper()
+        if level not in PermissionLevel.__members__:
+            embed = create_embed(
+                title=f"{EMOJIS['error']} Invalid Level",
+                description="Please provide a valid permission level.",
+                color="error",
+            )
+            await safe_send(ctx, embed=embed)
+            return
+
+        permission_level = PermissionLevel[level]
+
+        if permission_level >= PermissionLevel.SERVER_OWNER:
+            embed = create_embed(
+                title=f"{EMOJIS['error']} Invalid Level",
+                description="You cannot assign a permission level this high.",
+                color="error",
+            )
+            await safe_send(ctx, embed=embed)
+            return
+
+        config = await self.bot.db.get_guild_config(ctx.guild.id)
+        permission_roles = config.get("permission_roles", {})
+        permission_roles[str(role.id)] = permission_level.value
+
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {"permission_roles": permission_roles}
+        )
+
+        embed = create_embed(
+            title="✅ Permission Set",
+            description=f"The permission level for {role.mention} has been set to **{level.title()}**.",
             color="success",
         )
         await safe_send(ctx, embed=embed)

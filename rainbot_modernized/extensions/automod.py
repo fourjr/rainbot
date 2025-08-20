@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from core.database import Database
 from utils.decorators import has_permissions
-from utils.helpers import create_embed
+from utils.helpers import create_embed, confirm_action, safe_send
 import re
 
 
@@ -10,6 +10,44 @@ class AutoMod(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.db = bot.db
+        self.detection_types = [
+            "max_lines",
+            "max_words",
+            "max_characters",
+            "english_only",
+            "repetitive_characters",
+            "caps_message",
+            "image_filters",
+        ]
+        self.recommended_config = {
+            "enabled": True,
+            "detections": {
+                "max_lines": True,
+                "max_words": True,
+                "max_characters": True,
+                "english_only": False,
+                "repetitive_characters": True,
+                "caps_message": True,
+                "image_filters": False,
+            },
+            "punishments": {
+                "max_lines": "delete",
+                "max_words": "delete",
+                "max_characters": "delete",
+                "english_only": "delete",
+                "repetitive_characters": "delete",
+                "caps_message": "delete",
+                "image_filters": "delete",
+            },
+            "config": {
+                "max_lines": 20,
+                "max_words": 300,
+                "max_characters": 2000,
+                "repetitive_characters_threshold": 20,
+                "caps_message_percent": 70,
+                "caps_message_min_length": 50,
+            },
+        }
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -21,104 +59,110 @@ class AutoMod(commands.Cog):
 
         if not automod_config.get("enabled"):
             return
+            
+        ignored_channels = automod_config.get("ignored_channels", [])
+        if message.channel.id in ignored_channels:
+            return
 
-        if await self.max_lines(message, automod_config):
+        detections = automod_config.get("detections", {})
+        config = automod_config.get("config", {})
+
+        if detections.get("max_lines") and await self.max_lines(message, config):
             return
-        if await self.max_words(message, automod_config):
+        if detections.get("max_words") and await self.max_words(message, config):
             return
-        if await self.max_characters(message, automod_config):
+        if detections.get("max_characters") and await self.max_characters(message, config):
             return
-        if await self.english_only(message, automod_config):
+        if detections.get("english_only") and await self.english_only(message, config):
             return
-        if await self.repetitive_characters(message, automod_config):
+        if detections.get("repetitive_characters") and await self.repetitive_characters(
+            message, config
+        ):
             return
-        if await self.caps_message(message, automod_config):
+        if detections.get("caps_message") and await self.caps_message(message, config):
             return
-        if await self.image_filters(message, automod_config):
+        if detections.get("image_filters") and await self.image_filters(message, config):
             return
+
+    async def _handle_punishment(self, message, detection_type):
+        """Handle the punishment for a detected offense"""
+        guild_config = await self.db.get_guild_config(message.guild.id)
+        punishments = guild_config.get("automod", {}).get("punishments", {})
+        punishment = punishments.get(detection_type, "delete") # Default to delete
+
+        if punishment == "delete":
+            try:
+                await message.delete()
+                await safe_send(
+                    message.channel,
+                    f"{message.author.mention}, your message was removed due to `{detection_type}`.",
+                    delete_after=10,
+                )
+            except discord.NotFound:
+                pass
+        elif punishment == "warn":
+            # You would need to call the warn command from the moderation cog
+            # This is a simplified example
+            await safe_send(
+                message.channel,
+                f"{message.author.mention}, you have been warned for `{detection_type}`.",
+                delete_after=10,
+            )
 
     async def max_lines(self, message, config):
         max_lines = config.get("max_lines")
         if max_lines and len(message.content.splitlines()) > max_lines:
-            await message.delete()
-            await message.channel.send(
-                f"{message.author.mention}, your message exceeded the maximum number of lines.",
-                delete_after=5,
-            )
+            await self._handle_punishment(message, "max_lines")
             return True
         return False
 
     async def max_words(self, message, config):
         max_words = config.get("max_words")
         if max_words and len(message.content.split()) > max_words:
-            await message.delete()
-            await message.channel.send(
-                f"{message.author.mention}, your message exceeded the maximum number of words.",
-                delete_after=5,
-            )
+            await self._handle_punishment(message, "max_words")
             return True
         return False
 
     async def max_characters(self, message, config):
         max_characters = config.get("max_characters")
         if max_characters and len(message.content) > max_characters:
-            await message.delete()
-            await message.channel.send(
-                f"{message.author.mention}, your message exceeded the maximum number of characters.",
-                delete_after=5,
-            )
+            await self._handle_punishment(message, "max_characters")
             return True
         return False
 
     async def english_only(self, message, config):
-        if config.get("english_only"):
-            from utils.constants import UNICODE_EMOJI
+        from utils.constants import UNICODE_EMOJI
 
-            english_regex = re.compile(
-                r"(?:\(╯°□°\）╯︵ ┻━┻)|[ -~]|(?:"
-                + UNICODE_EMOJI
-                + r")|(?:‘|’|“|”|\s)|[.!?\\\-\(\)]|ツ|¯|(?:┬─┬ ノ\( ゜-゜ノ\))"
-            )
-            english_text = "".join(english_regex.findall(message.content))
-            if english_text != message.content:
-                await message.delete()
-                await message.channel.send(
-                    f"{message.author.mention}, please speak English.", delete_after=5
-                )
-                return True
+        english_regex = re.compile(
+            r"(?:\(╯°□°\）╯︵ ┻━┻)|[ -~]|(?:"
+            + UNICODE_EMOJI
+            + r")|(?:‘|’|“|”|\s)|[.!?\\\-\(\)]|ツ|¯|(?:┬─┬ ノ\( ゜-゜ノ\))"
+        )
+        english_text = "".join(english_regex.findall(message.content))
+        if english_text != message.content:
+            await self._handle_punishment(message, "english_only")
+            return True
         return False
 
     async def repetitive_characters(self, message, config):
-        repetitive_characters_threshold = config.get("repetitive_characters_threshold")
-        if repetitive_characters_threshold:
+        threshold = config.get("repetitive_characters_threshold")
+        if threshold:
             from collections import Counter
 
             counter = Counter(message.content)
             for char, count in counter.most_common(1):
-                if count > repetitive_characters_threshold:
-                    await message.delete()
-                    await message.channel.send(
-                        f"{message.author.mention}, your message contains too many repetitive characters.",
-                        delete_after=5,
-                    )
+                if count > threshold:
+                    await self._handle_punishment(message, "repetitive_characters")
                     return True
         return False
 
     async def caps_message(self, message, config):
-        caps_message_percent = config.get("caps_message_percent")
-        caps_message_min_length = config.get("caps_message_min_length")
-        if (
-            caps_message_percent
-            and caps_message_min_length
-            and len(message.content) >= caps_message_min_length
-        ):
+        percent = config.get("caps_message_percent")
+        min_length = config.get("caps_message_min_length")
+        if percent and min_length and len(message.content) >= min_length:
             caps = sum(1 for c in message.content if c.isupper())
-            if (caps / len(message.content)) * 100 > caps_message_percent:
-                await message.delete()
-                await message.channel.send(
-                    f"{message.author.mention}, your message contains too many capital letters.",
-                    delete_after=5,
-                )
+            if (caps / len(message.content)) * 100 > percent:
+                await self._handle_punishment(message, "caps_message")
                 return True
         return False
 
@@ -135,11 +179,7 @@ class AutoMod(commands.Cog):
                         image = Image.open(io.BytesIO(image_bytes))
                         image_hash = str(imagehash.average_hash(image))
                         if image_hash in config.get("image_filters", []):
-                            await message.delete()
-                            await message.channel.send(
-                                f"{message.author.mention}, your message contains a filtered image.",
-                                delete_after=5,
-                            )
+                            await self._handle_punishment(message, "image_filters")
                             return True
                     except Exception as e:
                         print(e)
@@ -148,17 +188,6 @@ class AutoMod(commands.Cog):
     @commands.group(invoke_without_command=True)
     @has_permissions(level=4)
     async def automod(self, ctx):
-        f"""Configure automatic moderation filters and settings
-        
-        **Usage:** `{ctx.prefix}automod <subcommand>`
-        **Examples:**
-        • `{ctx.prefix}automod enable` (turn on automod)
-        • `{ctx.prefix}automod disable` (turn off automod)
-        • `{ctx.prefix}automod config max_lines 10`
-        • `{ctx.prefix}automod config caps_message_percent 70`
-        
-        Automatically moderates spam, caps, repetitive text, and more.
-        """
         embed = create_embed(
             title="🤖 Automod",
             description="Use `!automod <subcommand>` to configure automod settings.",
@@ -169,7 +198,6 @@ class AutoMod(commands.Cog):
     @automod.command()
     @has_permissions(level=4)
     async def enable(self, ctx):
-        """Turn on automatic moderation for the server"""
         await self.db.update_guild_config(ctx.guild.id, {"automod.enabled": True})
         embed = create_embed(
             title="✅ Automod Enabled",
@@ -181,7 +209,6 @@ class AutoMod(commands.Cog):
     @automod.command()
     @has_permissions(level=4)
     async def disable(self, ctx):
-        """Turn off automatic moderation for the server"""
         await self.db.update_guild_config(ctx.guild.id, {"automod.enabled": False})
         embed = create_embed(
             title="🔴 Automod Disabled",
@@ -193,63 +220,84 @@ class AutoMod(commands.Cog):
     @automod.command()
     @has_permissions(level=4)
     async def config(self, ctx, setting: str, value: str):
-        f"""Modify specific automod settings like limits and thresholds
-        
-        **Usage:** `{ctx.prefix}automod config <setting> <value>`
-        **Available Settings:**
-        • `max_lines` - Maximum lines per message
-        • `max_words` - Maximum words per message
-        • `max_characters` - Maximum characters per message
-        • `caps_message_percent` - Max % of caps (0-100)
-        • `repetitive_characters_threshold` - Max repeated chars
-        
-        **Examples:** `{ctx.prefix}automod config max_lines 5`
-        """
         valid_settings = [
             "max_lines",
             "max_words",
             "max_characters",
-            "english_only",
             "repetitive_characters_threshold",
             "caps_message_percent",
             "caps_message_min_length",
-            "image_filters",
         ]
-
         if setting not in valid_settings:
-            embed = create_embed(
-                title="❌ Invalid Setting",
-                description=f"Valid settings are: {', '.join(valid_settings)}",
-                color="error",
-            )
-            await ctx.send(embed=embed)
+            await safe_send(ctx, f"Invalid setting. Valid settings: {', '.join(valid_settings)}")
+            return
+        
+        try:
+            value = int(value)
+        except ValueError:
+            await safe_send(ctx, "Value must be a number.")
             return
 
-        if setting == "image_filters":
-            # For image_filters, we expect a list of hashes
-            # For simplicity, we'll just take a space-separated string of hashes
-            value = value.split()
-        elif setting == "english_only":
-            value = value.lower() in ["true", "yes", "1"]
-        else:
-            try:
-                value = int(value)
-            except ValueError:
-                embed = create_embed(
-                    title="❌ Invalid Value",
-                    description="Value must be a number for this setting.",
-                    color="error",
-                )
-                await ctx.send(embed=embed)
-                return
+        await self.db.update_guild_config(ctx.guild.id, {f"automod.config.{setting}": value})
+        await safe_send(ctx, f"Set `{setting}` to `{value}`.")
 
-        await self.db.update_guild_config(ctx.guild.id, {f"automod.{setting}": value})
-        embed = create_embed(
-            title="✅ Setting Updated",
-            description=f"Automod setting `{setting}` has been updated to `{value}`.",
-            color="success",
+    @automod.command(name="setdetection")
+    @has_permissions(level=4)
+    async def set_detection(self, ctx, detection_type: str, enabled: bool):
+        if detection_type not in self.detection_types:
+            await safe_send(ctx, f"Invalid detection type. Valid types: {', '.join(self.detection_types)}")
+            return
+        
+        await self.db.update_guild_config(ctx.guild.id, {f"automod.detections.{detection_type}": enabled})
+        status = "enabled" if enabled else "disabled"
+        await safe_send(ctx, f"Detection for `{detection_type}` has been {status}.")
+
+    @automod.command(name="setdetectionpunishments")
+    @has_permissions(level=4)
+    async def set_detection_punishments(self, ctx, detection_type: str, punishment: str):
+        if detection_type not in self.detection_types:
+            await safe_send(ctx, f"Invalid detection type. Valid types: {', '.join(self.detection_types)}")
+            return
+        
+        valid_punishments = ["delete", "warn"]
+        if punishment not in valid_punishments:
+            await safe_send(ctx, f"Invalid punishment. Valid punishments: {', '.join(valid_punishments)}")
+            return
+
+        await self.db.update_guild_config(ctx.guild.id, {f"automod.punishments.{detection_type}": punishment})
+        await safe_send(ctx, f"Punishment for `{detection_type}` set to `{punishment}`.")
+
+    @automod.command(name="setrecommended")
+    @has_permissions(level=4)
+    async def set_recommended(self, ctx):
+        confirmed = await confirm_action(
+            ctx,
+            "Are you sure you want to apply the recommended automod configuration?",
+            "This will overwrite your current automod settings.",
         )
-        await ctx.send(embed=embed)
+        if not confirmed:
+            await safe_send(ctx, "Action cancelled.")
+            return
+
+        await self.db.update_guild_config(
+            ctx.guild.id, {"automod": self.recommended_config}
+        )
+        await safe_send(ctx, "Recommended automod configuration has been applied.")
+
+    @automod.command(name="setdetectionignore")
+    @has_permissions(level=4)
+    async def set_detection_ignore(self, ctx, channel: discord.TextChannel):
+        config = await self.db.get_guild_config(ctx.guild.id)
+        ignored_channels = config.get("automod", {}).get("ignored_channels", [])
+
+        if channel.id in ignored_channels:
+            ignored_channels.remove(channel.id)
+            await self.db.update_guild_config(ctx.guild.id, {"automod.ignored_channels": ignored_channels})
+            await safe_send(ctx, f"Removed {channel.mention} from the automod ignore list.")
+        else:
+            ignored_channels.append(channel.id)
+            await self.db.update_guild_config(ctx.guild.id, {"automod.ignored_channels": ignored_channels})
+            await safe_send(ctx, f"Added {channel.mention} to the automod ignore list.")
 
 
 async def setup(bot):
