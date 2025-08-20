@@ -41,7 +41,11 @@ class Notes(commands.Cog):
     @note.command(name="add")
     @has_permissions(level=2)
     async def add_note(self, ctx, member: MemberOrUser, *, note_text: str):
-        """Create a new moderator note for a specific user"""
+        """Adds a note to a user.
+
+        **Usage:** `{prefix}note add <user> <note_text>`
+        **Example:** `{prefix}note add @user very helpful`
+        """
         config = await self.db.get_guild_config(ctx.guild.id)
         notes = config.get("notes", [])
 
@@ -68,7 +72,11 @@ class Notes(commands.Cog):
     @note.command(name="remove", aliases=["delete", "del"])
     @has_permissions(level=2)
     async def remove_note(self, ctx, case_number: int):
-        """Delete a specific note using its case number"""
+        """Removes a note by its case number.
+
+        **Usage:** `{prefix}note remove <case_number>`
+        **Example:** `{prefix}note remove 123`
+        """
         config = await self.db.get_guild_config(ctx.guild.id)
         notes = config.get("notes", [])
 
@@ -99,7 +107,11 @@ class Notes(commands.Cog):
     @note.command(name="list", aliases=["view"])
     @has_permissions(level=2)
     async def list_notes(self, ctx, member: MemberOrUser):
-        """Display all moderator notes for a specific user"""
+        """Lists all notes for a user.
+
+        **Usage:** `{prefix}note list <user>`
+        **Example:** `{prefix}note list @user`
+        """
         config = await self.db.get_guild_config(ctx.guild.id)
         notes = config.get("notes", [])
 

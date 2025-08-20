@@ -98,10 +98,9 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
     @aimoderation.command(name="enable")
     @has_permissions(level=5)
     async def enable(self, ctx: commands.Context):
-        """
-        **Enable AI moderation**
+        """Enables the AI moderation system for the server.
 
-        Activates AI-powered content moderation for this server.
+        **Usage:** `{prefix}aimod enable`
         """
         if not self.api_url:
             embed = create_embed(
@@ -131,10 +130,9 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
     @aimoderation.command(name="disable")
     @has_permissions(level=5)
     async def disable(self, ctx: commands.Context):
-        """
-        **Disable AI moderation**
+        """Disables the AI moderation system for the server.
 
-        Deactivates AI-powered content moderation for this server.
+        **Usage:** `{prefix}aimod disable`
         """
         await self.bot.db.update_guild_config(
             ctx.guild.id, {"ai_moderation.enabled": False}
@@ -150,10 +148,9 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
     @aimoderation.command(name="config")
     @has_permissions(level=5)
     async def config(self, ctx: commands.Context):
-        """
-        **View AI moderation configuration**
+        """Displays the current AI moderation configuration.
 
-        Shows detailed configuration settings for AI moderation.
+        **Usage:** `{prefix}aimod config`
         """
         guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
         ai_config = guild_config.get("ai_moderation", {})
@@ -220,16 +217,10 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
     @aimoderation.command(name="test")
     @has_permissions(level=5)
     async def test(self, ctx: commands.Context, *, content: str):
-        """
-        **Test AI moderation**
+        """Tests the AI moderation with sample content.
 
-        Test the AI moderation system with sample content.
-
-        **Usage:**
-        `!!aimoderation test <content>`
-
-        **Example:**
-        `!!aimoderation test This is a test message`
+        **Usage:** `{prefix}aimoderation test <content>`
+        **Example:** `{prefix}aimoderation test This is a test message`
         """
         if not self.api_url:
             embed = create_embed(
@@ -294,20 +285,12 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
     @aimoderation.command(name="sensitivity")
     @has_permissions(level=5)
     async def sensitivity(self, ctx: commands.Context, category: str, sensitivity: int):
-        """
-        **Set detection sensitivity**
+        """Sets the detection sensitivity for a category.
 
-        Set the detection sensitivity for a specific category, or for all categories.
-
-        **Usage:**
-        `!!aimoderation sensitivity <category|all> <sensitivity>`
-
-        **Categories:** harassment, hate, violence, self-harm/instructions, sexual, illicit, harassment/threatening, self-harm, self-harm/intent, illicit/violent, violence/graphic, hate/threatening, sexual/minors
-        **Sensitivity:** 1-100% (higher = more strict)
-
+        **Usage:** `{prefix}aimoderation sensitivity <category|all> <sensitivity>`
         **Examples:**
-        `!!aimoderation sensitivity hate 80`
-        `!!aimoderation sensitivity all 75`
+        - `{prefix}aimoderation sensitivity hate 80`
+        - `{prefix}aimoderation sensitivity all 75`
         """
         if not 1 <= sensitivity <= 100:
             embed = create_embed(
@@ -369,19 +352,12 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
     @aimoderation.command(name="category")
     @has_permissions(level=5)
     async def category(self, ctx: commands.Context, category: str, enabled: bool):
-        """
-        **Enable/disable specific categories**
+        """Enables or disables a specific moderation category.
 
-        Enable or disable AI moderation for specific content categories, or for all categories.
-
-        **Usage:**
-        `!!aimoderation category <category|all> <true/false>`
-
-        **Categories:** harassment, hate, violence, self-harm/instructions, sexual, illicit, harassment/threatening, self-harm, self-harm/intent, illicit/violent, violence/graphic, hate/threatening, sexual/minors
-
+        **Usage:** `{prefix}aimoderation category <category|all> <true/false>`
         **Examples:**
-        `!!aimoderation category hate true`
-        `!!aimoderation category all false`
+        - `{prefix}aimoderation category hate true`
+        - `{prefix}aimoderation category all false`
         """
         valid_categories = [
             "harassment",
@@ -431,19 +407,20 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
     @aimoderation.command(name="action")
     @has_permissions(level=5)
     async def action(self, ctx: commands.Context, category: str, action: str):
-        """
-        **Set moderation action**
+        """Sets the moderation action for a category.
 
-        Set the action to take when AI detects content in a category.
+        **Usage:** `{prefix}aimoderation action <category|all> <action>`
 
-        **Usage:**
-        `!!aimoderation action <category> <action>`
+        **Actions:**
+        - `delete`
+        - `warn`
+        - `mute`
+        - `kick`
+        - `ban`
 
-        **Categories:** harassment, hate, violence, self-harm/instructions, sexual, illicit, harassment/threatening, self-harm, self-harm/intent, illicit/violent, violence/graphic, hate/threatening, sexual/minors
-        **Actions:** delete, warn, mute, kick, ban
-
-        **Example:**
-        `!!aimoderation action hate delete`
+        **Examples:**
+        - `{prefix}aimoderation action hate delete`
+        - `{prefix}aimoderation action all warn`
         """
         valid_categories = [
             "harassment",
@@ -462,15 +439,6 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
         ]
         valid_actions = ["delete", "warn", "mute", "kick", "ban"]
 
-        if category.lower() not in valid_categories:
-            embed = create_embed(
-                title="❌ Invalid Category",
-                description=f"Valid categories: {', '.join(valid_categories)}",
-                color=discord.Color.red(),
-            )
-            await ctx.send(embed=embed)
-            return
-
         if action.lower() not in valid_actions:
             embed = create_embed(
                 title="❌ Invalid Action",
@@ -480,13 +448,31 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
             await ctx.send(embed=embed)
             return
 
-        await self.bot.db.update_guild_config(
-            ctx.guild.id, {f"ai_moderation.actions.{category.lower()}": action.lower()}
-        )
+        if category.lower() == "all":
+            update_data = {}
+            for cat in valid_categories:
+                update_data[f"ai_moderation.actions.{cat}"] = action.lower()
+
+            await self.bot.db.update_guild_config(ctx.guild.id, update_data)
+            description = f"Set action for all categories to {action}"
+        elif category.lower() in valid_categories:
+            await self.bot.db.update_guild_config(
+                ctx.guild.id,
+                {f"ai_moderation.actions.{category.lower()}": action.lower()},
+            )
+            description = f"Set {category} action to {action}"
+        else:
+            embed = create_embed(
+                title="❌ Invalid Category",
+                description=f"Valid categories: {', '.join(valid_categories)}",
+                color=discord.Color.red(),
+            )
+            await ctx.send(embed=embed)
+            return
 
         embed = create_embed(
             title="✅ Action Updated",
-            description=f"Set {category} action to {action}",
+            description=description,
             color=discord.Color.green(),
         )
         await ctx.send(embed=embed)
@@ -496,13 +482,9 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
     async def set_log_channel(
         self, ctx: commands.Context, channel: discord.TextChannel
     ):
-        """
-        **Set AI moderation log channel**
+        """Sets the log channel for AI moderation actions.
 
-        Sets the channel where AI moderation actions will be logged.
-
-        **Usage:**
-        `!!aimod setlogchannel <#channel>`
+        **Usage:** `{prefix}aimod setlogchannel <#channel>`
         """
         await self.bot.db.update_guild_config(
             ctx.guild.id, {"ai_moderation.log_channel": channel.id}
@@ -518,10 +500,9 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
     @aimoderation.command(name="removelogchannel")
     @has_permissions(level=5)
     async def remove_log_channel(self, ctx: commands.Context):
-        """
-        **Remove AI moderation log channel**
+        """Removes the AI moderation log channel.
 
-        Disables logging of AI moderation actions to a specific channel.
+        **Usage:** `{prefix}aimod removelogchannel`
         """
         await self.bot.db.update_guild_config(
             ctx.guild.id, {"ai_moderation.log_channel": None}

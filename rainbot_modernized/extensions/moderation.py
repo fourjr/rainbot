@@ -1355,6 +1355,38 @@ class Moderation(commands.Cog):
         """Check and apply automatic punishments based on warning count"""
         pass
 
+    @commands.Cog.listener()
+    async def on_member_join(self, member: discord.Member):
+        """Handles sticky mutes when a member rejoins."""
+        # Check for active mute punishments in the database
+        active_mutes = await self.bot.db.get_active_punishments(
+            member.guild.id, "mute", member.id
+        )
+
+        if active_mutes:
+            # Get the mute role for the server
+            mute_role = await self._get_mute_role(member.guild)
+            if mute_role:
+                try:
+                    await member.add_roles(
+                        mute_role, reason="Sticky Mute: User rejoined"
+                    )
+                    self.logger.moderation_action(
+                        "sticky_mute",
+                        member.id,
+                        self.bot.user.id,
+                        member.guild.id,
+                        "User rejoined while muted.",
+                    )
+                except discord.Forbidden:
+                    self.logger.error(
+                        f"Failed to re-apply sticky mute to {member.id} in {member.guild.id} due to permissions."
+                    )
+                except discord.HTTPException as e:
+                    self.logger.error(
+                        f"Failed to re-apply sticky mute to {member.id} in {member.guild.id}: {e}"
+                    )
+
 
 async def setup(bot):
     """Load the moderation extension"""
