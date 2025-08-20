@@ -192,9 +192,15 @@ class Help(commands.Cog):
         # Check if query is a command
         if query_lower in available_commands:
             cmd = available_commands[query_lower]
+
+            # Format the help string with the correct prefix
+            help_text = (cmd.help or "No description available.").format(
+                prefix=ctx.prefix
+            )
+
             embed = create_embed(
                 title=f"{ctx.prefix}{cmd.qualified_name} {cmd.signature}",
-                description=cmd.help or "No description available.",
+                description=help_text,
                 color="info",
             )
             if cmd.aliases:
@@ -203,6 +209,28 @@ class Help(commands.Cog):
                     value=", ".join(f"`{a}`" for a in cmd.aliases),
                     inline=False,
                 )
+
+            # Show required permission level
+            if (
+                hasattr(cmd, "__original_kwargs__")
+                and "level" in cmd.__original_kwargs__
+            ):
+                level = cmd.__original_kwargs__["level"]
+                perm_name = PermissionLevel(level).name.replace("_", " ").title()
+                embed.add_field(
+                    name="Permissions", value=f"`{perm_name}`", inline=False
+                )
+            elif hasattr(cmd, "all_commands"):  # For command groups
+                # This is a bit more complex, we'll just show the parent's permission
+                if (
+                    hasattr(cmd, "__original_kwargs__")
+                    and "level" in cmd.__original_kwargs__
+                ):
+                    level = cmd.__original_kwargs__["level"]
+                    perm_name = PermissionLevel(level).name.replace("_", " ").title()
+                    embed.add_field(
+                        name="Permissions", value=f"`{perm_name}`", inline=False
+                    )
 
             await ctx.send(embed=embed)
             return

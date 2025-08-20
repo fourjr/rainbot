@@ -55,16 +55,13 @@ class Giveaways(commands.Cog):
 
     @commands.group(invoke_without_command=True)
     async def giveaway(self, ctx):
-        f"""Manage server giveaways and prize distributions
-        
-        **Usage:** `{ctx.prefix}giveaway <subcommand>`
-        **Quick Commands:**
-        • `{ctx.prefix}gstart 1h 1 Discord Nitro` (start giveaway)
-        • `{ctx.prefix}gend 123456789` (end early)
-        • `{ctx.prefix}greroll 123456789` (reroll winners)
-        • `{ctx.prefix}giveaway list` (show active giveaways)
-        
-        First set up with `{ctx.prefix}setgiveaway #channel 🎉`
+        """Manages giveaways on the server.
+
+        **Usage:** `{prefix}giveaway <subcommand>`
+        **Examples:**
+        - `{prefix}gstart 1h 1 Discord Nitro`
+        - `{prefix}gend 123456789`
+        - `{prefix}greroll 123456789`
         """
         embed = create_embed(
             title="🎉 Giveaway System",
@@ -83,15 +80,12 @@ class Giveaways(commands.Cog):
     @commands.command(aliases=["gstart"])
     @has_permissions(level=2)
     async def giveaway_start(self, ctx, duration: str, winners: int, *, prize: str):
-        f"""Start a new giveaway with specified duration, winner count, and prize
-        
-        **Usage:** `{ctx.prefix}gstart <duration> <winners> <prize>`
+        """Starts a new giveaway.
+
+        **Usage:** `{prefix}gstart <duration> <winners> <prize>`
         **Examples:**
-        • `{ctx.prefix}gstart 1h 1 Discord Nitro`
-        • `{ctx.prefix}gstart 3d 2 $50 Steam Gift Cards`
-        • `{ctx.prefix}gstart 1w 5 Custom Discord Bot`
-        
-        Duration: 30s, 5m, 2h, 1d, 1w | Winners: 1-20
+        - `{prefix}gstart 1h 1 Discord Nitro`
+        - `{prefix}gstart 3d 2 $50 Steam Gift Card`
         """
         guild_config = await self.db.get_guild_config(ctx.guild.id)
         giveaway_config = guild_config.get("giveaway_config", {})
@@ -169,7 +163,11 @@ class Giveaways(commands.Cog):
     @commands.command(aliases=["gend"])
     @has_permissions(level=2)
     async def giveaway_end(self, ctx, message_id: int):
-        """End an active giveaway before its scheduled time"""
+        """Ends a giveaway early.
+
+        **Usage:** `{prefix}gend <message_id>`
+        **Example:** `{prefix}gend 123456789012345678`
+        """
         giveaway = await self.db.get_giveaway(message_id)
 
         if not giveaway:
@@ -202,7 +200,11 @@ class Giveaways(commands.Cog):
     @commands.command(aliases=["greroll"])
     @has_permissions(level=2)
     async def giveaway_reroll(self, ctx, message_id: int):
-        """Select new random winners for a completed giveaway"""
+        """Rerolls the winners of a completed giveaway.
+
+        **Usage:** `{prefix}greroll <message_id>`
+        **Example:** `{prefix}greroll 123456789012345678`
+        """
         giveaway = await self.db.get_giveaway(message_id)
 
         if not giveaway:
@@ -334,15 +336,12 @@ class Giveaways(commands.Cog):
     async def setgiveaway(
         self, ctx, channel: discord.TextChannel, emoji: str, role: discord.Role = None
     ):
-        f"""Set the default channel, emoji, and optional role requirement for giveaways
-        
-        **Usage:** `{ctx.prefix}setgiveaway <channel> <emoji> [role]`
+        """Sets the default channel, emoji, and optional role requirement for giveaways.
+
+        **Usage:** `{prefix}setgiveaway <channel> <emoji> [role]`
         **Examples:**
-        • `{ctx.prefix}setgiveaway #giveaways 🎉`
-        • `{ctx.prefix}setgiveaway #events 🎁 @Member`
-        • `{ctx.prefix}setg #contests ✨`
-        
-        Required before starting giveaways. Role requirement is optional.
+        - `{prefix}setgiveaway #giveaways 🎉`
+        - `{prefix}setgiveaway #events 🎁 @Member`
         """
         await self.db.update_guild_config(
             ctx.guild.id,
@@ -363,7 +362,11 @@ class Giveaways(commands.Cog):
     @commands.command(aliases=["gstats"])
     @has_permissions(level=1)
     async def giveaway_stats(self, ctx, message_id: int):
-        """Display participant count and other statistics for a giveaway"""
+        """Shows statistics for a giveaway, such as the number of participants.
+
+        **Usage:** `{prefix}gstats <message_id>`
+        **Example:** `{prefix}gstats 123456789012345678`
+        """
         giveaway = await self.db.get_giveaway(message_id)
 
         if not giveaway or giveaway["guild_id"] != ctx.guild.id:
@@ -418,7 +421,11 @@ class Giveaways(commands.Cog):
     async def giveaway_edit_description(
         self, ctx, message_id: int, *, new_description: str
     ):
-        """Change the prize description of an active giveaway"""
+        """Edits the prize description of an active giveaway.
+
+        **Usage:** `{prefix}geditdesc <message_id> <new_description>`
+        **Example:** `{prefix}geditdesc 123456789012345678 A new prize!`
+        """
         giveaway = await self.db.get_giveaway(message_id)
 
         if (
@@ -455,7 +462,11 @@ class Giveaways(commands.Cog):
     @commands.command(aliases=["geditwinners"])
     @has_permissions(level=2)
     async def giveaway_edit_winners(self, ctx, message_id: int, new_winners: int):
-        """Change how many winners will be selected for an active giveaway"""
+        """Edits the number of winners for an active giveaway.
+
+        **Usage:** `{prefix}geditwinners <message_id> <new_winner_count>`
+        **Example:** `{prefix}geditwinners 123456789012345678 2`
+        """
         giveaway = await self.db.get_giveaway(message_id)
 
         if (
@@ -501,7 +512,11 @@ class Giveaways(commands.Cog):
     @commands.command(aliases=["gstop"])
     @has_permissions(level=2)
     async def giveaway_stop(self, ctx, message_id: int):
-        """Stop an active giveaway and immediately draw winners"""
+        """Stops a giveaway and draws the winners immediately.
+
+        **Usage:** `{prefix}gstop <message_id>`
+        **Example:** `{prefix}gstop 123456789012345678`
+        """
         giveaway = await self.db.get_giveaway(message_id)
 
         if (
@@ -529,7 +544,10 @@ class Giveaways(commands.Cog):
     @giveaway.command(name="list")
     @has_permissions(level=1)
     async def giveaway_list(self, ctx):
-        """Show all currently running giveaways in the server"""
+        """Lists all active giveaways on the server.
+
+        **Usage:** `{prefix}giveaway list`
+        """
         giveaways = await self.db.get_guild_giveaways(ctx.guild.id)
 
         if not giveaways:

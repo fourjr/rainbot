@@ -39,14 +39,12 @@ class Moderation(commands.Cog):
     @commands.command(name="setprefix")
     @require_permission(PermissionLevel.ADMINISTRATOR)
     async def set_prefix(self, ctx: commands.Context, *, prefix: str):
-        """
-        **Set the bot's prefix for this server**
+        """Sets the bot's command prefix for this server.
 
-        **Usage:**
-        `!!setprefix <new_prefix>`
+        **Usage:** `{prefix}setprefix <new_prefix>`
+        **Example:** `{prefix}setprefix !`
 
-        **Example:**
-        `!!setprefix !`
+        Changes the prefix used to invoke bot commands on this server.
         """
         if len(prefix) > 5:
             embed = create_embed(
@@ -70,14 +68,10 @@ class Moderation(commands.Cog):
     @commands.command(name="setmuterole")
     @require_permission(PermissionLevel.ADMINISTRATOR)
     async def set_mute_role(self, ctx: commands.Context, role: discord.Role):
-        """
-        **Set an existing role as the mute role**
+        """Sets an existing role as the mute role for this server.
 
-        **Usage:**
-        `!!setmuterole <role>`
-
-        **Example:**
-        `!!setmuterole @Muted`
+        **Usage:** `{prefix}setmuterole <role>`
+        **Example:** `{prefix}setmuterole @Muted`
 
         The bot will attempt to configure permissions for this role automatically.
         """
@@ -136,14 +130,14 @@ class Moderation(commands.Cog):
         *,
         reason: str = "No reason provided",
     ):
-        f"""Issue a warning to a user for rule violations
-        
-        **Usage:** `{ctx.prefix}warn <user> [reason]`
+        """Issues a formal warning to a user.
+
+        **Usage:** `{prefix}warn <user> [reason]`
         **Examples:**
-        • `{ctx.prefix}warn @user Spamming in chat`
-        • `{ctx.prefix}warn 123456789 Breaking server rules`
-        
-        The user will receive a DM notification and the action will be logged.
+        - `{prefix}warn @user Spamming in chat`
+        - `{prefix}warn 123456789 Breaking server rules`
+
+        Warnings are logged and can trigger automatic punishments.
         """
         # Check if user can be moderated
         if isinstance(user, discord.Member):
@@ -192,15 +186,15 @@ class Moderation(commands.Cog):
         *,
         reason: str = "No reason provided",
     ):
-        f"""Mute a user to prevent them from sending messages or speaking
-        
-        **Usage:** `{ctx.prefix}mute <user> [duration] [reason]`
+        """Mutes a user, preventing them from speaking or sending messages.
+
+        **Usage:** `{prefix}mute <user> [duration] [reason]`
         **Examples:**
-        • `{ctx.prefix}mute @user 1h Spamming`
-        • `{ctx.prefix}mute @user 30m Excessive caps`
-        • `{ctx.prefix}mute @user Inappropriate behavior` (permanent)
-        
-        Duration formats: 30s, 5m, 2h, 1d, 1w
+        - `{prefix}mute @user 1h Spamming`
+        - `{prefix}mute @user 30m Excessive caps`
+        - `{prefix}mute @user Inappropriate behavior` (permanent)
+
+        Duration formats: `30s`, `5m`, `2h`, `1d`, `1w`.
         """
         # Ensure user is a member if they're in the server
         if isinstance(user, discord.Member):
@@ -301,14 +295,12 @@ class Moderation(commands.Cog):
         *,
         reason: str = "No reason provided",
     ):
-        f"""Remove mute from a user to restore their messaging privileges
-        
-        **Usage:** `{ctx.prefix}unmute <user> [reason]`
+        """Unmutes a user, allowing them to speak and send messages again.
+
+        **Usage:** `{prefix}unmute <user> [reason]`
         **Examples:**
-        • `{ctx.prefix}unmute @user Appeal accepted`
-        • `{ctx.prefix}unmute 123456789 Time served`
-        
-        This will remove the mute role and allow the user to speak again.
+        - `{prefix}unmute @user Appeal accepted`
+        - `{prefix}unmute 123456789 Time served`
         """
         # Get member object
         if isinstance(user, discord.Member):
@@ -416,14 +408,12 @@ class Moderation(commands.Cog):
         *,
         reason: str = "No reason provided",
     ):
-        f"""Kick a member from the server (they can rejoin with an invite)
-        
-        **Usage:** `{ctx.prefix}kick <member> [reason]`
+        """Kicks a member from the server. They can rejoin with an invite.
+
+        **Usage:** `{prefix}kick <member> [reason]`
         **Examples:**
-        • `{ctx.prefix}kick @member Violating server rules`
-        • `{ctx.prefix}kick @member Inappropriate behavior`
-        
-        ⚠️ Requires confirmation. The member can rejoin with a valid invite.
+        - `{prefix}kick @member Violating server rules`
+        - `{prefix}kick @member Inappropriate behavior`
         """
         if not await self._can_moderate(ctx, member):
             return
@@ -497,15 +487,13 @@ class Moderation(commands.Cog):
         *,
         reason: str = "No reason provided",
     ):
-        f"""Ban a user from the server permanently or temporarily
-        
-        **Usage:** `{ctx.prefix}ban <user> [duration] [delete_days] [reason]`
+        """Bans a user from the server, permanently or temporarily.
+
+        **Usage:** `{prefix}ban <user> [duration] [delete_days] [reason]`
         **Examples:**
-        • `{ctx.prefix}ban @user Serious rule violation` (permanent)
-        • `{ctx.prefix}ban @user 7d Temporary ban for harassment`
-        • `{ctx.prefix}ban @user 1w 3 Ban with 3 days of message deletion`
-        
-        ⚠️ Requires confirmation. Delete days: 0-7 (default: 1)
+        - `{prefix}ban @user Serious rule violation` (permanent)
+        - `{prefix}ban @user 7d Temporary ban for harassment`
+        - `{prefix}ban @user 1w 3` (deletes 3 days of messages)
         """
         # Validate delete_days
         if delete_days is not None and not (0 <= delete_days <= 7):
@@ -839,14 +827,12 @@ class Moderation(commands.Cog):
         *,
         reason: str = "No reason provided",
     ):
-        f"""Remove a ban from a user to allow them to rejoin the server
-        
-        **Usage:** `{ctx.prefix}unban <user_id> [reason]`
+        """Unbans a user, allowing them to rejoin the server.
+
+        **Usage:** `{prefix}unban <user_id> [reason]`
         **Examples:**
-        • `{ctx.prefix}unban 123456789 Appeal accepted`
-        • `{ctx.prefix}unban 987654321 Ban period expired`
-        
-        Use the user's ID since they're not in the server.
+        - `{prefix}unban 123456789 Appeal accepted`
+        - `{prefix}unban 987654321 Ban period expired`
         """
         try:
             await ctx.guild.fetch_ban(user)
@@ -889,15 +875,13 @@ class Moderation(commands.Cog):
     @commands.group(invoke_without_command=True)
     @require_permission(PermissionLevel.MODERATOR)
     async def modlogs(self, ctx: commands.Context, user: MemberOrID = None):
-        f"""View moderation logs for a user or the entire server
-        
-        **Usage:** `{ctx.prefix}modlogs [user]`
+        """Views moderation logs for a user or the entire server.
+
+        **Usage:** `{prefix}modlogs [user]`
         **Examples:**
-        • `{ctx.prefix}modlogs` (recent server logs)
-        • `{ctx.prefix}modlogs @user` (all logs for user)
-        • `{ctx.prefix}modlogs 123456789` (logs for user ID)
-        
-        Shows warnings, mutes, kicks, bans, and other moderation actions.
+        - `{prefix}modlogs` (shows recent server logs)
+        - `{prefix}modlogs @user` (shows all logs for a user)
+        - `{prefix}modlogs 123456789` (shows logs for a user by ID)
         """
         if user:
             logs = await self.bot.db.get_user_moderation_logs(ctx.guild.id, user.id)
@@ -938,14 +922,12 @@ class Moderation(commands.Cog):
         *,
         reason: str = "No reason provided",
     ):
-        f"""Ban and immediately unban a member to delete their recent messages
-        
-        **Usage:** `{ctx.prefix}softban <member> [reason]`
+        """Bans and immediately unbans a member to delete their recent messages.
+
+        **Usage:** `{prefix}softban <member> [reason]`
         **Examples:**
-        • `{ctx.prefix}softban @member Spam cleanup`
-        • `{ctx.prefix}softban @member Message purge needed`
-        
-        ⚠️ Requires confirmation. Deletes 1 day of messages then unbans.
+        - `{prefix}softban @member Spam cleanup`
+        - `{prefix}softban @member Message purge needed`
         """
         if not await self._can_moderate(ctx, member):
             return
@@ -1008,12 +990,10 @@ class Moderation(commands.Cog):
     @commands.command(name="muted")
     @require_permission(PermissionLevel.MODERATOR)
     async def list_muted(self, ctx: commands.Context):
-        f"""Show all currently muted members in the server
-        
-        **Usage:** `{ctx.prefix}muted`
-        **Example:** `{ctx.prefix}muted`
-        
-        Displays all members with the mute role and their unmute times.
+        """Shows a list of all currently muted members.
+
+        **Usage:** `{prefix}muted`
+        **Example:** `{prefix}muted`
         """
         config = await self.bot.db.get_guild_config(ctx.guild.id)
         mutes = config.get("mutes", [])
@@ -1053,15 +1033,13 @@ class Moderation(commands.Cog):
         punishment: str,
         duration: str = None,
     ):
-        f"""Configure automatic punishments when users reach warning thresholds
-        
-        **Usage:** `{ctx.prefix}setwarnpunishment <warnings> <punishment> [duration]`
+        """Sets an automatic punishment when a user reaches a certain number of warnings.
+
+        **Usage:** `{prefix}setwarnpunishment <warnings> <punishment> [duration]`
         **Examples:**
-        • `{ctx.prefix}setwarnpunishment 3 mute 1h`
-        • `{ctx.prefix}setwarnpunishment 5 kick`
-        • `{ctx.prefix}setwarnpunishment 7 ban 7d`
-        
-        Punishments: mute, kick, softban, ban, tempban
+        - `{prefix}setwarnpunishment 3 mute 1h`
+        - `{prefix}setwarnpunishment 5 kick`
+        - `{prefix}setwarnpunishment 7 ban 7d`
         """
         valid_punishments = ["mute", "kick", "softban", "ban", "tempban"]
 
@@ -1106,15 +1084,12 @@ class Moderation(commands.Cog):
     async def purge_messages(
         self, ctx: commands.Context, limit: int, member: discord.Member = None
     ):
-        f"""Delete multiple messages at once, optionally from a specific user
-        
-        **Usage:** `{ctx.prefix}purge <amount> [user]`
+        """Deletes a specified number of messages from a channel.
+
+        **Usage:** `{prefix}purge <amount> [user]`
         **Examples:**
-        • `{ctx.prefix}purge 10` (delete last 10 messages)
-        • `{ctx.prefix}purge 50 @user` (delete last 50 messages from user)
-        • `{ctx.prefix}clean 25` (alias for purge)
-        
-        Maximum: 2000 messages. Only deletes messages from last 14 days.
+        - `{prefix}purge 10` (deletes the last 10 messages)
+        - `{prefix}purge 50 @user` (deletes the last 50 messages from a specific user)
         """
         if limit > 2000:
             embed = create_embed(
@@ -1156,15 +1131,12 @@ class Moderation(commands.Cog):
     async def lockdown_channel(
         self, ctx: commands.Context, channel: discord.TextChannel = None
     ):
-        f"""Lock or unlock a channel to prevent/allow members from sending messages
-        
-        **Usage:** `{ctx.prefix}lockdown [channel]`
+        """Toggles the ability for @everyone to send messages in a channel.
+
+        **Usage:** `{prefix}lockdown [channel]`
         **Examples:**
-        • `{ctx.prefix}lockdown` (lock current channel)
-        • `{ctx.prefix}lockdown #general` (lock specific channel)
-        • `{ctx.prefix}lockdown` (unlock if already locked)
-        
-        Toggles the channel's lock status. Locked channels prevent @everyone from typing.
+        - `{prefix}lockdown` (locks the current channel)
+        - `{prefix}lockdown #general` (locks the #general channel)
         """
         channel = channel or ctx.channel
         overwrite = channel.overwrites_for(ctx.guild.default_role)
@@ -1192,15 +1164,13 @@ class Moderation(commands.Cog):
     async def slowmode_channel(
         self, ctx: commands.Context, duration: str, channel: discord.TextChannel = None
     ):
-        f"""Set a delay between messages in a channel
-        
-        **Usage:** `{ctx.prefix}slowmode <duration> [channel]`
+        """Sets a slowmode delay for a channel.
+
+        **Usage:** `{prefix}slowmode <duration> [channel]`
         **Examples:**
-        • `{ctx.prefix}slowmode 5s` (5 second delay)
-        • `{ctx.prefix}slowmode 1m #general` (1 minute delay in #general)
-        • `{ctx.prefix}slowmode off` (disable slowmode)
-        
-        Duration formats: 5s, 30s, 1m, 5m, 1h (max: 6h)
+        - `{prefix}slowmode 5s` (sets a 5-second delay)
+        - `{prefix}slowmode 1m #general` (sets a 1-minute delay in #general)
+        - `{prefix}slowmode off` (disables slowmode)
         """
         channel = channel or ctx.channel
 
@@ -1245,7 +1215,10 @@ class Moderation(commands.Cog):
     @modlogs.command(name="all")
     @require_permission(PermissionLevel.MODERATOR)
     async def modlogs_all(self, ctx: commands.Context):
-        """Display all moderation logs for the server"""
+        """Shows all moderation logs for the server.
+
+        **Usage:** `{prefix}modlogs all`
+        """
         logs = await self.bot.db.get_guild_moderation_logs(ctx.guild.id, limit=50)
 
         if not logs:
@@ -1276,7 +1249,11 @@ class Moderation(commands.Cog):
     @modlogs.command(name="remove")
     @require_permission(PermissionLevel.ADMINISTRATOR)
     async def modlogs_remove(self, ctx: commands.Context, case_id: str):
-        """Delete a specific moderation log entry by case ID"""
+        """Removes a specific moderation log entry by its case ID.
+
+        **Usage:** `{prefix}modlogs remove <case_id>`
+        **Example:** `{prefix}modlogs remove 123`
+        """
         await self.bot.db.deactivate_punishment(case_id)
         embed = create_embed(
             title="✅ Log Removed",
@@ -1288,7 +1265,11 @@ class Moderation(commands.Cog):
     @modlogs.command(name="purge")
     @require_permission(PermissionLevel.ADMINISTRATOR)
     async def modlogs_purge(self, ctx: commands.Context, user: MemberOrID):
-        """Delete all moderation logs for a specific user"""
+        """Removes all moderation logs for a specific user.
+
+        **Usage:** `{prefix}modlogs purge <user>`
+        **Example:** `{prefix}modlogs purge @user`
+        """
         confirmed = await confirm_action(
             ctx,
             f"Are you sure you want to purge all moderation logs for {user}?\n"
@@ -1322,20 +1303,12 @@ class Moderation(commands.Cog):
     async def set_permission(
         self, ctx: commands.Context, role: discord.Role, level: str
     ):
-        """
-        **Assign a permission level to a role**
+        """Assigns a permission level to a role.
 
-        **Usage:**
-        `!!setpermission <role> <level>`
+        **Usage:** `{prefix}setpermission <role> <level>`
+        **Example:** `{prefix}setpermission @Moderator MODERATOR`
 
-        **Example:**
-        `!!setpermission @Moderator MODERATOR`
-
-        **Available Levels:**
-        • HELPER
-        • MODERATOR
-        • SENIOR_MODERATOR
-        • ADMINISTRATOR
+        Available levels: HELPER, MODERATOR, SENIOR_MODERATOR, ADMINISTRATOR.
         """
         level = level.upper()
         if level not in PermissionLevel.__members__:

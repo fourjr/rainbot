@@ -13,17 +13,24 @@ class Tags(commands.Cog):
 
     @commands.group(invoke_without_command=True)
     async def tag(self, ctx, *, name: str = None):
-        f"""Create and use custom text responses (tags) for quick replies
-        
-        **Usage:** `{ctx.prefix}tag [name]` or `{ctx.prefix}tag <subcommand>`
+        """Manages custom text commands (tags).
+
+        Use this command to create, edit, and use custom text responses.
+
+        **Usage:**
+        - To list all tags: `{prefix}tag`
+        - To use a tag: `{prefix}tag <tag_name>`
+        - For subcommands: `{prefix}tag <subcommand>`
+
         **Examples:**
-        • `{ctx.prefix}tag` (list all tags)
-        • `{ctx.prefix}tag rules` (use the 'rules' tag)
-        • `{ctx.prefix}tag add welcome Welcome to our server!`
-        • `{ctx.prefix}tag edit rules Updated server rules here`
-        • `{ctx.prefix}tag delete oldtag`
-        
-        Tags support variables like {{user}}, {{server}}, {{channel}}.
+        - `{prefix}tag` (shows a list of all tags)
+        - `{prefix}tag rules` (displays the 'rules' tag)
+        - `{prefix}tag add welcome Welcome, {author.mention}, to our server!`
+
+        **Available Variables:**
+        - `{{author}}`: The user who invoked the tag.
+        - `{{guild}}`: The name of the server.
+        - `{{channel}}`: The channel where the tag was invoked.
         """
         if name is None:
             # List all tags
@@ -72,7 +79,11 @@ class Tags(commands.Cog):
     @tag.command(name="add", aliases=["create"])
     @has_permissions(level=2)
     async def tag_add(self, ctx, name: str, *, content: str):
-        """Create a new tag with the specified name and content"""
+        """Creates a new tag.
+
+        **Usage:** `{prefix}tag add <name> <content>`
+        **Example:** `{prefix}tag add welcome Welcome to our server!`
+        """
         if len(name) > 50:
             embed = create_embed(
                 title="❌ Name Too Long",
@@ -114,7 +125,11 @@ class Tags(commands.Cog):
     @tag.command(name="edit", aliases=["update"])
     @has_permissions(level=2)
     async def tag_edit(self, ctx, name: str, *, content: str):
-        """Modify the content of an existing tag"""
+        """Edits an existing tag.
+
+        **Usage:** `{prefix}tag edit <name> <new_content>`
+        **Example:** `{prefix}tag edit welcome Welcome to our awesome server!`
+        """
         tags = await self.db.get_tags(ctx.guild.id)
 
         if name.lower() not in tags:
@@ -147,7 +162,11 @@ class Tags(commands.Cog):
     @tag.command(name="delete", aliases=["remove"])
     @has_permissions(level=2)
     async def tag_delete(self, ctx, *, name: str):
-        """Permanently delete a tag from the server"""
+        """Deletes a tag.
+
+        **Usage:** `{prefix}tag delete <name>`
+        **Example:** `{prefix}tag delete oldtag`
+        """
         tags = await self.db.get_tags(ctx.guild.id)
 
         if name.lower() not in tags:
@@ -170,7 +189,11 @@ class Tags(commands.Cog):
 
     @tag.command(name="info")
     async def tag_info(self, ctx, *, name: str):
-        """Show detailed information about a tag (creator, usage count, etc.)"""
+        """Shows information about a tag, such as creator and usage count.
+
+        **Usage:** `{prefix}tag info <name>`
+        **Example:** `{prefix}tag info welcome`
+        """
         tag_info = await self.db.get_tag_info(ctx.guild.id, name.lower())
 
         if not tag_info:
@@ -196,7 +219,11 @@ class Tags(commands.Cog):
 
     @tag.command(name="search")
     async def tag_search(self, ctx, *, query: str):
-        """Find tags that contain the specified text in their name"""
+        """Searches for tags by name.
+
+        **Usage:** `{prefix}tag search <query>`
+        **Example:** `{prefix}tag search wel`
+        """
         tags = await self.db.get_tags(ctx.guild.id)
 
         matching_tags = [name for name in tags.keys() if query.lower() in name.lower()]
@@ -226,7 +253,11 @@ class Tags(commands.Cog):
 
     @tag.command(name="raw")
     async def tag_raw(self, ctx, *, name: str):
-        """Display the raw, unprocessed content of a tag"""
+        """Displays the raw, unformatted content of a tag.
+
+        **Usage:** `{prefix}tag raw <name>`
+        **Example:** `{prefix}tag raw welcome`
+        """
         tags = await self.db.get_tags(ctx.guild.id)
 
         if name.lower() not in tags:
@@ -249,15 +280,12 @@ class Tags(commands.Cog):
     @commands.group(invoke_without_command=True)
     @has_permissions(level=2)
     async def canned(self, ctx):
-        f"""Manage pre-written responses for common moderation situations
-        
-        **Usage:** `{ctx.prefix}canned [subcommand]`
+        """Manages canned responses for moderation.
+
+        **Usage:** `{prefix}canned <subcommand>`
         **Examples:**
-        • `{ctx.prefix}canned` (list all canned responses)
-        • `{ctx.prefix}canned add spam Please don't spam in this server`
-        • `{ctx.prefix}canned use spam` (send the spam response)
-        
-        Perfect for consistent moderation messages and warnings.
+        - `{prefix}canned add spam Please do not spam.`
+        - `{prefix}canned use spam`
         """
         canned = await self.db.get_canned_responses(ctx.guild.id)
 
@@ -280,7 +308,11 @@ class Tags(commands.Cog):
     @canned.command(name="add")
     @has_permissions(level=2)
     async def canned_add(self, ctx, name: str, *, content: str):
-        """Create a new canned response for quick moderation use"""
+        """Adds a new canned response.
+
+        **Usage:** `{prefix}canned add <name> <content>`
+        **Example:** `{prefix}canned add spam Please do not spam.`
+        """
         await self.db.add_canned_response(ctx.guild.id, name.lower(), content)
 
         embed = create_embed(
@@ -293,7 +325,11 @@ class Tags(commands.Cog):
     @canned.command(name="use")
     @has_permissions(level=1)
     async def canned_use(self, ctx, *, name: str):
-        """Send a canned response by name"""
+        """Uses a canned response.
+
+        **Usage:** `{prefix}canned use <name>`
+        **Example:** `{prefix}canned use spam`
+        """
         canned = await self.db.get_canned_responses(ctx.guild.id)
 
         if name.lower() not in canned:
@@ -313,14 +349,12 @@ class Tags(commands.Cog):
     @commands.command()
     @has_permissions(level=2)
     async def addcommand(self, ctx, name: str, *, content: str):
-        f"""Create a custom command that responds with text (same as creating a tag)
-        
-        **Usage:** `{ctx.prefix}addcommand <name> <content>`
-        **Examples:**
-        • `{ctx.prefix}addcommand discord Join our Discord: discord.gg/example`
-        • `{ctx.prefix}addcommand website Visit our website: example.com`
-        
-        Creates a tag that can be used with `{ctx.prefix}<name>`.
+        """Creates a custom command (alias for `tag add`).
+
+        **Usage:** `{prefix}addcommand <name> <content>`
+        **Example:** `{prefix}addcommand discord Join our server: discord.gg/example`
+
+        Note: This creates a tag that must be used with `{prefix}tag <name>`.
         """
         await self.tag_add(ctx, name, content=content)
 

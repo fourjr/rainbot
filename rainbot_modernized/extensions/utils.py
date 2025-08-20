@@ -40,7 +40,11 @@ class Utils(commands.Cog):
 
     @commands.command(aliases=["botinfo"])
     async def about(self, ctx):
-        """Display bot information, version, and basic statistics"""
+        """Shows information about the bot.
+
+        **Usage:** `{prefix}about`
+        **Alias:** `{prefix}botinfo`
+        """
         uptime_seconds = time.time() - self.start_time
         uptime_str = self._format_uptime(uptime_seconds)
 
@@ -65,17 +69,10 @@ class Utils(commands.Cog):
 
     @commands.command(aliases=["serverinfo", "si"])
     async def server(self, ctx):
-        f"""Show detailed information about the current server
-        
-        **Usage:** `{ctx.prefix}server`
-        **Aliases:** `{ctx.prefix}serverinfo`, `{ctx.prefix}si`
-        **Shows:**
-        • Server name, owner, creation date
-        • Member count, channel count, role count
-        • Verification level, boost status
-        • Server icon and ID
-        
-        Great for getting a quick overview of server statistics.
+        """Displays information about the server.
+
+        **Usage:** `{prefix}server`
+        **Aliases:** `{prefix}serverinfo`, `{prefix}si`
         """
         guild = ctx.guild
 
@@ -118,15 +115,13 @@ class Utils(commands.Cog):
 
     @commands.command(aliases=["userinfo", "ui"])
     async def user(self, ctx, *, user: discord.Member = None):
-        f"""Display detailed information about a user or yourself
-        
-        **Usage:** `{ctx.prefix}user [user]`
+        """Displays information about a user.
+
+        **Usage:** `{prefix}user [user]`
+        **Aliases:** `{prefix}userinfo`, `{prefix}ui`
         **Examples:**
-        • `{ctx.prefix}user` (your own info)
-        • `{ctx.prefix}user @someone` (their info)
-        • `{ctx.prefix}ui @user` (alias)
-        
-        Shows join date, account creation, roles, status, and more.
+        - `{prefix}user` (shows your info)
+        - `{prefix}user @user` (shows another user's info)
         """
         user = user or ctx.author
 
@@ -170,7 +165,10 @@ class Utils(commands.Cog):
 
     @commands.command()
     async def stats(self, ctx):
-        """Show comprehensive bot performance and usage statistics"""
+        """Shows the bot's performance and usage statistics.
+
+        **Usage:** `{prefix}stats`
+        """
         process = psutil.Process()
         memory_usage = process.memory_info().rss / 1024 / 1024  # MB
         cpu_usage = process.cpu_percent()
@@ -206,7 +204,10 @@ class Utils(commands.Cog):
     @commands.command()
     @commands.is_owner()
     async def eval(self, ctx, *, code: str):
-        """Execute Python code for debugging and testing (bot owner only)"""
+        """Executes Python code (bot owner only).
+
+        **Usage:** `{prefix}eval <code>`
+        """
         import textwrap
         import io
         import contextlib
@@ -268,7 +269,11 @@ class Utils(commands.Cog):
     @commands.command()
     @commands.is_owner()
     async def reload(self, ctx, *, extension: str):
-        """Reload a bot extension/module (bot owner only)"""
+        """Reloads a bot extension (bot owner only).
+
+        **Usage:** `{prefix}reload <extension>`
+        **Example:** `{prefix}reload moderation`
+        """
         try:
             await self.bot.reload_extension(f"extensions.{extension}")
             embed = create_embed(
@@ -288,7 +293,11 @@ class Utils(commands.Cog):
     @commands.command()
     @commands.is_owner()
     async def load(self, ctx, *, extension: str):
-        """Load a new bot extension/module (bot owner only)"""
+        """Loads a bot extension (bot owner only).
+
+        **Usage:** `{prefix}load <extension>`
+        **Example:** `{prefix}load moderation`
+        """
         try:
             await self.bot.load_extension(f"extensions.{extension}")
             embed = create_embed(
@@ -308,7 +317,11 @@ class Utils(commands.Cog):
     @commands.command()
     @commands.is_owner()
     async def unload(self, ctx, *, extension: str):
-        """Unload a bot extension/module (bot owner only)"""
+        """Unloads a bot extension (bot owner only).
+
+        **Usage:** `{prefix}unload <extension>`
+        **Example:** `{prefix}unload moderation`
+        """
         try:
             await self.bot.unload_extension(f"extensions.{extension}")
             embed = create_embed(
@@ -328,7 +341,11 @@ class Utils(commands.Cog):
     @commands.command(aliases=["health"])
     @commands.is_owner()
     async def serverhealth(self, ctx):
-        """Display advanced server resource usage and system health (bot owner only)"""
+        """Displays the server's resource usage and health (bot owner only).
+
+        **Usage:** `{prefix}serverhealth`
+        **Alias:** `{prefix}health`
+        """
         async with ctx.typing():
             # System-wide stats
             cpu_percent = psutil.cpu_percent(interval=1)
@@ -432,16 +449,9 @@ class Utils(commands.Cog):
 
     @commands.command()
     async def ping(self, ctx):
-        f"""Test bot responsiveness and show connection latency
-        
-        **Usage:** `{ctx.prefix}ping`
-        **Shows:**
-        • Websocket latency to Discord
-        • Message response time
-        • Database ping time
-        • API response time (if available)
-        
-        Useful for checking if the bot is responding normally.
+        """Checks the bot's responsiveness and latency.
+
+        **Usage:** `{prefix}ping`
         """
         import aiohttp
         from config.config import config
@@ -518,15 +528,9 @@ class Utils(commands.Cog):
 
     @commands.command()
     async def invite(self, ctx):
-        f"""Get a link to invite this bot to your own server
-        
-        **Usage:** `{ctx.prefix}invite`
-        **Provides:**
-        • Direct invite link with proper permissions
-        • All necessary permissions for full functionality
-        • Easy one-click setup for your server
-        
-        Share this with friends who want the bot in their servers!
+        """Shows the bot's invite link.
+
+        **Usage:** `{prefix}invite`
         """
         embed = create_embed(
             title="📨 Invite rainbot",
@@ -538,7 +542,10 @@ class Utils(commands.Cog):
 
     @commands.command()
     async def testperms(self, ctx):
-        """Check your current permission level in the bot's system"""
+        """Checks your permission level.
+
+        **Usage:** `{prefix}testperms`
+        """
         if hasattr(self.bot, "permissions") and self.bot.permissions:
             user_level = await self.bot.permissions.get_user_level(
                 ctx.guild, ctx.author

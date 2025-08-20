@@ -14,15 +14,11 @@ class Setup(commands.Cog):
     @commands.group(invoke_without_command=True)
     @require_permission(PermissionLevel.ADMINISTRATOR)
     async def setup(self, ctx):
-        f"""Configure bot settings with interactive setup wizards
-        
-        **Usage:** `{ctx.prefix}setup [option]`
-        **Available Options:**
-        • `{ctx.prefix}setup quick` - Basic configuration
-        • `{ctx.prefix}setup automod` - Auto-moderation settings
-        • `{ctx.prefix}setup logging` - Logging channels
-        
-        Run without options to see the interactive menu.
+        """Guides you through setting up the bot on your server.
+
+        **Usage:** `{prefix}setup`
+
+        Provides an interactive menu for quick setup, automod, logging, and permissions.
         """
         embed = create_embed(
             title="🛠️ Rainbot Setup",
@@ -59,16 +55,11 @@ class Setup(commands.Cog):
     @setup.command()
     @require_permission(PermissionLevel.ADMINISTRATOR)
     async def quick(self, ctx):
-        f"""Run a quick setup to configure basic bot settings
-        
-        **Usage:** `{ctx.prefix}setup quick`
-        **What it sets up:**
-        • Command prefix
-        • Mute role (creates if needed)
-        • Moderation log channel
-        • Basic logging settings
-        
-        Perfect for getting started quickly with essential features.
+        """Runs a quick setup for the bot's essential features.
+
+        **Usage:** `{prefix}setup quick`
+
+        Configures the command prefix, mute role, and moderation log channel.
         """
         embed = create_embed(
             title="🚀 Quick Setup",
@@ -119,19 +110,11 @@ class Setup(commands.Cog):
     @setup.command()
     @require_permission(PermissionLevel.ADMINISTRATOR)
     async def automod(self, ctx):
-        f"""Configure automatic moderation features and filters
-        
-        **Usage:** `{ctx.prefix}setup automod`
-        **Features you can toggle:**
-        • Spam detection
-        • Invite link blocking
-        • Bad word filtering
-        • Mass mention protection
-        • Caps lock detection
-        • NSFW image detection
-        • Duplicate message prevention
-        
-        Interactive menu with emoji reactions to toggle features.
+        """Configures the automatic moderation features.
+
+        **Usage:** `{prefix}setup automod`
+
+        Provides an interactive menu to toggle features like spam and invite link detection.
         """
         config = await self.db.get_guild_config(ctx.guild.id)
         automod = config.get("automod", {})
@@ -162,7 +145,12 @@ class Setup(commands.Cog):
     @setup.command()
     @require_permission(PermissionLevel.ADMINISTRATOR)
     async def logging(self, ctx):
-        """Set up logging channels for different server events"""
+        """Configures the logging channels for server events.
+
+        **Usage:** `{prefix}setup logging`
+
+        Allows you to set up channels for moderation, member, and message logs.
+        """
         embed = create_embed(
             title="📝 Logging Setup",
             description="Set up logging channels for different events",
@@ -178,17 +166,11 @@ class Setup(commands.Cog):
     @commands.command()
     @require_permission(PermissionLevel.ADMINISTRATOR)
     async def viewconfig(self, ctx):
-        f"""Display the current bot configuration for this server
-        
-        **Usage:** `{ctx.prefix}viewconfig`
-        **Shows:**
-        • Command prefix
-        • Mute role
-        • Log channels
-        • Auto-moderation settings
-        • Permission levels
-        
-        Use this to review your current settings.
+        """Displays the current bot configuration for the server.
+
+        **Usage:** `{prefix}viewconfig`
+
+        Shows the command prefix, mute role, log channels, and other settings.
         """
         config = await self.db.get_guild_config(ctx.guild.id)
 
