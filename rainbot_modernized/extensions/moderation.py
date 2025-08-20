@@ -21,7 +21,7 @@ from utils.helpers import (
     parse_time,
 )
 from utils.constants import EMOJIS
-from core.logging import get_logger
+from core.logging import ModLogger
 
 
 class Moderation(commands.Cog):
@@ -34,7 +34,7 @@ class Moderation(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.logger = get_logger("moderation")
+        self.logger = ModLogger()
 
     @commands.command(name="warn")
     @require_permission(PermissionLevel.MODERATOR)

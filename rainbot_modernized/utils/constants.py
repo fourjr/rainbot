@@ -21,6 +21,7 @@ EMOJIS = {
     "settings": "⚙️",
     "moderation": "🛡️",
     "help": "❓",
+    "bell": "🔔",
 }
 
 COLORS = {
