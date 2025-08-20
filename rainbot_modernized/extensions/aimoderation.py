@@ -618,7 +618,7 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
 
             # Log to channel
             log_embed = create_embed(
-                title=f"AI Moderation Action: {action.title()}",
+                title="AI Moderation Action",
                 color=discord.Color.red(),
             )
             log_embed.add_field(
@@ -626,13 +626,27 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
                 value=f"{message.author.mention} (`{message.author.id}`)",
                 inline=False,
             )
-            log_embed.add_field(name="Reason", value=reason, inline=False)
+            log_embed.add_field(name="Action Taken", value=action.title(), inline=True)
+            log_embed.add_field(name="Reason", value=reason, inline=True)
             if message.content:
                 log_embed.add_field(
                     name="Content",
                     value=f"```{message.content[:1000]}```",
                     inline=False,
                 )
+
+            scores = result.get("category_scores", {})
+            if scores:
+                score_text = "\n".join(
+                    [
+                        f"• {cat.title()}: {int(score * 100)}%"
+                        for cat, score in scores.items()
+                    ]
+                )
+                log_embed.add_field(
+                    name="Confidence Scores", value=score_text, inline=False
+                )
+
             log_embed.add_field(
                 name="Channel", value=message.channel.mention, inline=False
             )
