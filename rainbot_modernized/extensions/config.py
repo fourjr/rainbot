@@ -1,6 +1,7 @@
 """
 Configuration extension for RainBot
 """
+
 import json
 import aiohttp
 import asyncio
@@ -53,7 +54,7 @@ class Config(commands.Cog):
                     )
                     await safe_send(ctx, embed=embed)
                     return
-                
+
                 config_data = await resp.json(content_type=None)
 
         except (aiohttp.ClientError, json.JSONDecodeError, asyncio.TimeoutError) as e:
@@ -78,10 +79,10 @@ class Config(commands.Cog):
         config_data.pop("_id", None)
 
         await self.bot.db.delete_guild_config(ctx.guild.id)
-        
+
         for key, value in config_data.items():
             await self.bot.db.update_guild_config(ctx.guild.id, {key: value})
-        
+
         self.bot._prefix_cache.pop(ctx.guild.id, None)
 
         embed = create_embed(
@@ -122,7 +123,9 @@ class Config(commands.Cog):
 
     @commands.command(name="setcommandlevel")
     @require_permission(PermissionLevel.ADMINISTRATOR)
-    async def set_command_level(self, ctx: commands.Context, command_name: str, level: str):
+    async def set_command_level(
+        self, ctx: commands.Context, command_name: str, level: str
+    ):
         """
         **Changes a command's required permission level**
 
@@ -160,9 +163,10 @@ class Config(commands.Cog):
             )
             await safe_send(ctx, embed=embed)
             return
-        
+
         await self.bot.db.update_guild_config(
-            ctx.guild.id, {f"command_levels.{command.qualified_name}": permission_level.value}
+            ctx.guild.id,
+            {f"command_levels.{command.qualified_name}": permission_level.value},
         )
 
         embed = create_embed(
@@ -195,9 +199,7 @@ class Config(commands.Cog):
             await safe_send(ctx, embed=embed)
             return
 
-        await self.bot.db.update_guild_config(
-            ctx.guild.id, {"time_offset": offset_val}
-        )
+        await self.bot.db.update_guild_config(ctx.guild.id, {"time_offset": offset_val})
 
         embed = create_embed(
             title="✅ Time Offset Set",
@@ -231,6 +233,90 @@ class Config(commands.Cog):
             description="The custom punishment alert message has been updated.",
             color="success",
         )
+        await safe_send(ctx, embed=embed)
+
+    @commands.command(name="exportconfig")
+    @require_permission(PermissionLevel.ADMINISTRATOR)
+    async def export_config(self, ctx: commands.Context):
+        """
+        **Export the server's configuration to a JSON file**
+
+        **Usage:**
+        `!!exportconfig`
+        """
+        async with ctx.typing():
+            config_data = await self.bot.db.get_guild_config(ctx.guild.id)
+
+            # Remove sensitive or unnecessary fields
+            config_data.pop("_id", None)
+            config_data.pop("guild_id", None)
+
+            try:
+                import io
+                import json
+                from datetime import datetime
+
+                def json_serial(obj):
+                    """JSON serializer for objects not serializable by default json code"""
+                    if isinstance(obj, datetime):
+                        return obj.isoformat()
+                    raise TypeError(
+                        f"Object of type {type(obj).__name__} is not JSON serializable"
+                    )
+
+                json_data = json.dumps(config_data, indent=4, default=json_serial)
+                file_data = io.BytesIO(json_data.encode("utf-8"))
+
+                file = discord.File(
+                    file_data, filename=f"rainbot_config_{ctx.guild.id}.json"
+                )
+
+                embed = create_embed(
+                    title="📄 Configuration Exported",
+                    description="Here is the configuration file for this server. You can use this file to back up your settings or import them on another server.",
+                    color="success",
+                )
+                await safe_send(ctx, embed=embed)
+                await safe_send(ctx, file=file)
+
+            except Exception as e:
+                embed = create_embed(
+                    title=f"{EMOJIS['error']} Export Failed",
+                    description=f"An unexpected error occurred while exporting the configuration: `{e}`",
+                    color="error",
+                )
+        await safe_send(ctx, embed=embed)
+
+    @commands.command(name="setannouncement")
+    @require_permission(PermissionLevel.ADMINISTRATOR)
+    async def set_announcement_channel(
+        self, ctx: commands.Context, channel: discord.TextChannel = None
+    ):
+        """
+        **Sets the channel for bot announcements**
+
+        **Usage:**
+        `!!setannouncement <#channel>` or `!!setannouncement` to disable.
+        """
+        if channel:
+            await self.bot.db.update_guild_config(
+                ctx.guild.id, {"announcement_channel": channel.id}
+            )
+            embed = create_embed(
+                title="✅ Announcement Channel Set",
+                description=f"Bot announcements will now be sent to {channel.mention}.",
+                color="success",
+            )
+        else:
+            await self.bot.db.update_guild_config(
+                ctx.guild.id, {"announcement_channel": None}
+            )
+            embed = create_embed(
+                title="✅ Announcement Channel Disabled",
+                description="Bot announcements have been disabled for this server.",
+                color="success",
+            )
+
         await safe_send(ctx, embed=embed)
 
 

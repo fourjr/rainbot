@@ -219,28 +219,6 @@ class Setup(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @commands.command()
-    @require_permission(PermissionLevel.SERVER_MANAGER)
-    async def resetconfig(self, ctx):
-        f"""Reset all bot settings to default values for this server
-        
-        **Usage:** `{ctx.prefix}resetconfig`
-        **⚠️ Warning:** This will reset:
-        • All configuration settings
-        • Auto-moderation settings
-        • Log channel assignments
-        • Permission level assignments
-        
-        This action cannot be undone!
-        """
-        await self.db.reset_guild_config(ctx.guild.id)
-        embed = create_embed(
-            title="🔄 Configuration Reset",
-            description="All settings have been reset to defaults",
-            color=discord.Color.red(),
-        )
-        await ctx.send(embed=embed)
-
 
 async def setup(bot):
     await bot.add_cog(Setup(bot))

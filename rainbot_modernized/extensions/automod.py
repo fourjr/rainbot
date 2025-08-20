@@ -59,7 +59,7 @@ class AutoMod(commands.Cog):
 
         if not automod_config.get("enabled"):
             return
-            
+
         ignored_channels = automod_config.get("ignored_channels", [])
         if message.channel.id in ignored_channels:
             return
@@ -71,7 +71,9 @@ class AutoMod(commands.Cog):
             return
         if detections.get("max_words") and await self.max_words(message, config):
             return
-        if detections.get("max_characters") and await self.max_characters(message, config):
+        if detections.get("max_characters") and await self.max_characters(
+            message, config
+        ):
             return
         if detections.get("english_only") and await self.english_only(message, config):
             return
@@ -81,14 +83,16 @@ class AutoMod(commands.Cog):
             return
         if detections.get("caps_message") and await self.caps_message(message, config):
             return
-        if detections.get("image_filters") and await self.image_filters(message, config):
+        if detections.get("image_filters") and await self.image_filters(
+            message, config
+        ):
             return
 
     async def _handle_punishment(self, message, detection_type):
         """Handle the punishment for a detected offense"""
         guild_config = await self.db.get_guild_config(message.guild.id)
         punishments = guild_config.get("automod", {}).get("punishments", {})
-        punishment = punishments.get(detection_type, "delete") # Default to delete
+        punishment = punishments.get(detection_type, "delete")  # Default to delete
 
         if punishment == "delete":
             try:
@@ -229,43 +233,64 @@ class AutoMod(commands.Cog):
             "caps_message_min_length",
         ]
         if setting not in valid_settings:
-            await safe_send(ctx, f"Invalid setting. Valid settings: {', '.join(valid_settings)}")
+            await safe_send(
+                ctx, f"Invalid setting. Valid settings: {', '.join(valid_settings)}"
+            )
             return
-        
+
         try:
             value = int(value)
         except ValueError:
             await safe_send(ctx, "Value must be a number.")
             return
 
-        await self.db.update_guild_config(ctx.guild.id, {f"automod.config.{setting}": value})
+        await self.db.update_guild_config(
+            ctx.guild.id, {f"automod.config.{setting}": value}
+        )
         await safe_send(ctx, f"Set `{setting}` to `{value}`.")
 
     @automod.command(name="setdetection")
     @has_permissions(level=4)
     async def set_detection(self, ctx, detection_type: str, enabled: bool):
         if detection_type not in self.detection_types:
-            await safe_send(ctx, f"Invalid detection type. Valid types: {', '.join(self.detection_types)}")
+            await safe_send(
+                ctx,
+                f"Invalid detection type. Valid types: {', '.join(self.detection_types)}",
+            )
             return
-        
-        await self.db.update_guild_config(ctx.guild.id, {f"automod.detections.{detection_type}": enabled})
+
+        await self.db.update_guild_config(
+            ctx.guild.id, {f"automod.detections.{detection_type}": enabled}
+        )
         status = "enabled" if enabled else "disabled"
         await safe_send(ctx, f"Detection for `{detection_type}` has been {status}.")
 
     @automod.command(name="setdetectionpunishments")
     @has_permissions(level=4)
-    async def set_detection_punishments(self, ctx, detection_type: str, punishment: str):
+    async def set_detection_punishments(
+        self, ctx, detection_type: str, punishment: str
+    ):
         if detection_type not in self.detection_types:
-            await safe_send(ctx, f"Invalid detection type. Valid types: {', '.join(self.detection_types)}")
-            return
-        
-        valid_punishments = ["delete", "warn"]
-        if punishment not in valid_punishments:
-            await safe_send(ctx, f"Invalid punishment. Valid punishments: {', '.join(valid_punishments)}")
+            await safe_send(
+                ctx,
+                f"Invalid detection type. Valid types: {', '.join(self.detection_types)}",
+            )
             return
 
-        await self.db.update_guild_config(ctx.guild.id, {f"automod.punishments.{detection_type}": punishment})
-        await safe_send(ctx, f"Punishment for `{detection_type}` set to `{punishment}`.")
+        valid_punishments = ["delete", "warn"]
+        if punishment not in valid_punishments:
+            await safe_send(
+                ctx,
+                f"Invalid punishment. Valid punishments: {', '.join(valid_punishments)}",
+            )
+            return
+
+        await self.db.update_guild_config(
+            ctx.guild.id, {f"automod.punishments.{detection_type}": punishment}
+        )
+        await safe_send(
+            ctx, f"Punishment for `{detection_type}` set to `{punishment}`."
+        )
 
     @automod.command(name="setrecommended")
     @has_permissions(level=4)
@@ -292,11 +317,17 @@ class AutoMod(commands.Cog):
 
         if channel.id in ignored_channels:
             ignored_channels.remove(channel.id)
-            await self.db.update_guild_config(ctx.guild.id, {"automod.ignored_channels": ignored_channels})
-            await safe_send(ctx, f"Removed {channel.mention} from the automod ignore list.")
+            await self.db.update_guild_config(
+                ctx.guild.id, {"automod.ignored_channels": ignored_channels}
+            )
+            await safe_send(
+                ctx, f"Removed {channel.mention} from the automod ignore list."
+            )
         else:
             ignored_channels.append(channel.id)
-            await self.db.update_guild_config(ctx.guild.id, {"automod.ignored_channels": ignored_channels})
+            await self.db.update_guild_config(
+                ctx.guild.id, {"automod.ignored_channels": ignored_channels}
+            )
             await safe_send(ctx, f"Added {channel.mention} to the automod ignore list.")
 
 

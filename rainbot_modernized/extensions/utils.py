@@ -15,119 +15,34 @@ class Utils(commands.Cog):
         self.db = bot.db
         self.start_time = time.time()
 
-    @commands.command()
-    async def help(self, ctx, *, command: str = None):
-        f"""Show available commands or get detailed help for a specific command
-        
-        **Usage:** `{ctx.prefix}help [command]`
-        **Examples:**
-        • `{ctx.prefix}help` (show all commands)
-        • `{ctx.prefix}help ban` (detailed help for ban command)
-        • `{ctx.prefix}help setup` (help for setup commands)
-        
-        Commands are organized by category for easy browsing.
-        """
-        if command:
-            # Show help for specific command
-            cmd = self.bot.get_command(command)
-            if not cmd:
-                embed = create_embed(
-                    title="❌ Command Not Found",
-                    description=f"No command named `{command}` found",
-                    color=discord.Color.red(),
-                )
-                await ctx.send(embed=embed)
-                return
+    def _format_uptime(self, uptime_seconds: int) -> str:
+        """Formats uptime in seconds into a human-readable string."""
+        uptime_seconds = int(uptime_seconds)
+        if uptime_seconds < 1:
+            return "0 seconds"
 
-            embed = create_embed(
-                title=f"Help: {cmd.name}",
-                description=cmd.help or "No description available",
-                color=discord.Color.blue(),
-            )
+        days = uptime_seconds // 86400
+        hours = (uptime_seconds // 3600) % 24
+        minutes = (uptime_seconds % 3600) // 60
+        seconds = uptime_seconds % 60
 
-            if cmd.aliases:
-                embed.add_field(
-                    name="Aliases",
-                    value=", ".join(f"`{alias}`" for alias in cmd.aliases),
-                    inline=False,
-                )
+        parts = []
+        if days > 0:
+            parts.append(f"{days} day{'s' if days != 1 else ''}")
+        if hours > 0:
+            parts.append(f"{hours} hour{'s' if hours != 1 else ''}")
+        if minutes > 0:
+            parts.append(f"{minutes} minute{'s' if minutes != 1 else ''}")
+        if seconds > 0 or not parts:
+            parts.append(f"{seconds} second{'s' if seconds != 1 else ''}")
 
-            if hasattr(cmd, "signature"):
-                embed.add_field(
-                    name="Usage",
-                    value=f"`{ctx.prefix}{cmd.name} {cmd.signature}`",
-                    inline=False,
-                )
-
-            await ctx.send(embed=embed)
-        else:
-            # Show main help menu - dynamically discover commands
-            embed = create_embed(
-                title="🤖 Rainbot Help",
-                description="A powerful Discord moderation bot",
-                color=discord.Color.blue(),
-            )
-
-            # Categorize commands by cog
-            categories = {
-                "🛡️ Moderation": [],
-                "⚙️ Setup": [],
-                "🎭 Roles": [],
-                "📝 Tags": [],
-                "🎉 Giveaways": [],
-                "📊 Utility": [],
-                "🔧 Owner": [],
-            }
-
-            # Get all commands and categorize them
-            for cmd in self.bot.commands:
-                if cmd.hidden:
-                    continue
-
-                # Skip subcommands (they'll be shown with their parent)
-                if hasattr(cmd, "parent") and cmd.parent:
-                    continue
-
-                cog_name = cmd.cog.qualified_name if cmd.cog else "No Category"
-
-                if cog_name == "Moderation":
-                    categories["🛡️ Moderation"].append(cmd.name)
-                elif cog_name == "Setup":
-                    categories["⚙️ Setup"].append(cmd.name)
-                elif cog_name == "Roles":
-                    categories["🎭 Roles"].append(cmd.name)
-                elif cog_name == "Tags":
-                    categories["📝 Tags"].append(cmd.name)
-                elif cog_name == "Giveaways":
-                    categories["🎉 Giveaways"].append(cmd.name)
-                elif cog_name == "Utils":
-                    # Skip owner-only commands for regular users
-                    if any(check.__name__ == "is_owner" for check in cmd.checks):
-                        if await self.bot.is_owner(ctx.author):
-                            categories["🔧 Owner"].append(cmd.name)
-                    else:
-                        categories["📊 Utility"].append(cmd.name)
-                elif cog_name == "AutoMod":
-                    categories["⚙️ Setup"].append(cmd.name)
-                elif cog_name == "Notes":
-                    categories["🛡️ Moderation"].append(cmd.name)
-                else:
-                    categories["📊 Utility"].append(cmd.name)
-
-            # Add categories with commands to embed
-            for category, cmds in categories.items():
-                if cmds:  # Only show categories that have commands
-                    cmd_list = ", ".join(f"`{cmd}`" for cmd in sorted(cmds))
-                    embed.add_field(name=category, value=cmd_list, inline=False)
-
-            embed.set_footer(text=f"Use {ctx.prefix}help <command> for detailed help")
-            await ctx.send(embed=embed)
+        return ", ".join(parts)
 
     @commands.command(aliases=["botinfo"])
     async def about(self, ctx):
         """Display bot information, version, and basic statistics"""
-        uptime = time.time() - self.start_time
-        uptime_str = str(datetime.utcfromtimestamp(uptime).strftime("%H:%M:%S"))
+        uptime_seconds = time.time() - self.start_time
+        uptime_str = self._format_uptime(uptime_seconds)
 
         embed = create_embed(
             title="🤖 About Rainbot",
@@ -260,10 +175,8 @@ class Utils(commands.Cog):
         memory_usage = process.memory_info().rss / 1024 / 1024  # MB
         cpu_usage = process.cpu_percent()
 
-        uptime = time.time() - self.start_time
-        uptime_str = str(
-            datetime.utcfromtimestamp(uptime).strftime("%d days, %H:%M:%S")
-        )
+        uptime_seconds = time.time() - self.start_time
+        uptime_str = self._format_uptime(uptime_seconds)
 
         embed = create_embed(title="📊 Bot Statistics", color=discord.Color.blue())
 
@@ -415,27 +328,105 @@ class Utils(commands.Cog):
     @commands.command(aliases=["health"])
     @commands.is_owner()
     async def serverhealth(self, ctx):
-        """Display server resource usage and system health (bot owner only)"""
-        process = psutil.Process()
-        memory_usage = process.memory_info().rss / 1024 / 1024  # MB
-        cpu_usage = process.cpu_percent()
+        """Display advanced server resource usage and system health (bot owner only)"""
+        async with ctx.typing():
+            # System-wide stats
+            cpu_percent = psutil.cpu_percent(interval=1)
+            cpu_cores = psutil.cpu_count(logical=False)
+            cpu_logical_cores = psutil.cpu_count(logical=True)
 
-        uptime = time.time() - self.start_time
-        uptime_str = str(
-            datetime.utcfromtimestamp(uptime).strftime("%d days, %H:%M:%S")
-        )
+            mem = psutil.virtual_memory()
+            mem_total = mem.total / (1024**3)
+            mem_used = mem.used / (1024**3)
+            mem_percent = mem.percent
 
-        embed = create_embed(title="🩺 Server Health", color=discord.Color.green())
+            swap = psutil.swap_memory()
+            swap_total = swap.total / (1024**3)
+            swap_used = swap.used / (1024**3)
+            swap_percent = swap.percent
 
-        embed.add_field(name="CPU Usage", value=f"{cpu_usage:.1f}%", inline=True)
-        embed.add_field(
-            name="Memory Usage", value=f"{memory_usage:.1f} MB", inline=True
-        )
-        embed.add_field(name="Uptime", value=uptime_str, inline=True)
+            # Disk partitions
+            disk_info = ""
+            partitions = psutil.disk_partitions()
+            for partition in partitions:
+                if "rw" in partition.opts and partition.fstype:
+                    try:
+                        usage = psutil.disk_usage(partition.mountpoint)
+                        disk_info += f"**{partition.device}**: {usage.used / (1024**3):.2f}/{usage.total / (1024**3):.2f} GB ({usage.percent}%)\n"
+                    except (PermissionError, FileNotFoundError):
+                        continue
 
-        embed.add_field(name="Python", value=platform.python_version(), inline=True)
-        embed.add_field(name="discord.py", value=discord.__version__, inline=True)
-        embed.add_field(name="Platform", value=platform.system(), inline=True)
+            if not disk_info:
+                disk_info = "No readable disk partitions found."
+
+            net = psutil.net_io_counters()
+            net_sent = net.bytes_sent / (1024**2)
+            net_recv = net.bytes_recv / (1024**2)
+
+            # Bot process stats
+            process = psutil.Process()
+            process_mem_info = process.memory_info()
+            process_mem_rss = process_mem_info.rss / (1024**2)  # MB
+            process_cpu_percent = process.cpu_percent(
+                interval=0.5
+            )  # Use interval for accurate reading
+
+            uptime_seconds = int(time.time() - self.start_time)
+            uptime_str = self._format_uptime(uptime_seconds)
+
+            # Determine embed color based on CPU usage
+            if cpu_percent < 50:
+                color = discord.Color.green()
+            elif cpu_percent < 80:
+                color = discord.Color.orange()
+            else:
+                color = discord.Color.red()
+
+            embed = create_embed(
+                title="🩺 Advanced Server Health", color=color, timestamp=True
+            )
+
+            # System Info
+            embed.add_field(
+                name="🖥️ System-Wide",
+                value=(
+                    f"**CPU:** {cpu_percent}% ({cpu_cores} Cores, {cpu_logical_cores} Threads)\n"
+                    f"**RAM:** {mem_used:.2f}/{mem_total:.2f} GB ({mem_percent}%)\n"
+                    f"**Swap:** {swap_used:.2f}/{swap_total:.2f} GB ({swap_percent}%)"
+                ),
+                inline=False,
+            )
+
+            # Disk Info
+            embed.add_field(name="💽 Disk Partitions", value=disk_info, inline=False)
+
+            # Bot Process Info
+            embed.add_field(
+                name="🤖 Bot Process",
+                value=(
+                    f"**CPU:** {process_cpu_percent:.1f}%\n"
+                    f"**RAM:** {process_mem_rss:.2f} MB\n"
+                    f"**Uptime:** {uptime_str}\n"
+                    f"**Platform:** {platform.system()}"
+                ),
+                inline=False,
+            )
+
+            # Network & Discord Info
+            embed.add_field(
+                name="🌐 Network & Discord",
+                value=(
+                    f"**Sent:** {net_sent:.2f} MB | **Received:** {net_recv:.2f} MB\n"
+                    f"**Latency:** {round(self.bot.latency * 1000)}ms | **Shards:** {self.bot.shard_count or 1}"
+                ),
+                inline=False,
+            )
+
+            footer_text = f"Python {platform.python_version()} | discord.py {discord.__version__}\n"
+            footer_text += (
+                "Note: Stats reflect the bot's environment (e.g., a container)."
+            )
+            embed.set_footer(text=footer_text)
 
         await ctx.send(embed=embed)
 
