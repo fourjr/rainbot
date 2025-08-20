@@ -46,6 +46,8 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
         • `sensitivity` - Set detection sensitivity
         • `action` - Set moderation actions
         • `category` - Enable/disable specific categories
+        • `setlogchannel` - Set the log channel for moderation actions
+        • `removelogchannel` - Remove the log channel
         """
         if ctx.invoked_subcommand is None:
             await self._show_status(ctx)
@@ -68,6 +70,15 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
         # API Status
         api_status = "🟢 Connected" if self.api_url else "🔴 Not Configured"
         embed.add_field(name="API Status", value=api_status, inline=True)
+
+        # Log Channel
+        log_channel_id = ai_config.get("log_channel")
+        if log_channel_id:
+            channel = self.bot.get_channel(log_channel_id)
+            log_channel_status = channel.mention if channel else "Not Found"
+        else:
+            log_channel_status = "Not Set"
+        embed.add_field(name="Log Channel", value=log_channel_status, inline=True)
 
         # Features
         features = []
@@ -169,6 +180,15 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
             value="✅ Yes" if ai_config.get("image_moderation", True) else "❌ No",
             inline=True,
         )
+
+        # Log channel
+        log_channel_id = ai_config.get("log_channel")
+        if log_channel_id:
+            channel = self.bot.get_channel(log_channel_id)
+            log_channel_status = channel.mention if channel else "Not Found"
+        else:
+            log_channel_status = "Not Set"
+        embed.add_field(name="Log Channel", value=log_channel_status, inline=False)
 
         # Categories
         categories = ai_config.get("categories", {})
@@ -411,6 +431,49 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
         )
         await ctx.send(embed=embed)
 
+    @aimoderation.command(name="setlogchannel")
+    @has_permissions(level=5)
+    async def set_log_channel(
+        self, ctx: commands.Context, channel: discord.TextChannel
+    ):
+        """
+        **Set AI moderation log channel**
+
+        Sets the channel where AI moderation actions will be logged.
+
+        **Usage:**
+        `!!aimod setlogchannel <#channel>`
+        """
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {"ai_moderation.log_channel": channel.id}
+        )
+
+        embed = create_embed(
+            title="✅ Log Channel Set",
+            description=f"AI moderation logs will now be sent to {channel.mention}",
+            color=discord.Color.green(),
+        )
+        await ctx.send(embed=embed)
+
+    @aimoderation.command(name="removelogchannel")
+    @has_permissions(level=5)
+    async def remove_log_channel(self, ctx: commands.Context):
+        """
+        **Remove AI moderation log channel**
+
+        Disables logging of AI moderation actions to a specific channel.
+        """
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {"ai_moderation.log_channel": None}
+        )
+
+        embed = create_embed(
+            title="✅ Log Channel Removed",
+            description="AI moderation logs will no longer be sent to a specific channel.",
+            color=discord.Color.green(),
+        )
+        await ctx.send(embed=embed)
+
     async def _moderate_text(self, content: str) -> Dict[str, Any]:
         """Moderate text content using external API"""
         if not self.api_url:
@@ -499,6 +562,23 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
             except Exception as e:
                 self.logger.error(f"Image moderation failed: {e}")
 
+    async def _log_action(self, guild_id: int, embed: discord.Embed):
+        guild_config = await self.bot.db.get_guild_config(guild_id)
+        ai_config = guild_config.get("ai_moderation", {})
+        log_channel_id = ai_config.get("log_channel")
+
+        if log_channel_id:
+            log_channel = self.bot.get_channel(log_channel_id)
+            if log_channel:
+                try:
+                    await log_channel.send(embed=embed)
+                except discord.Forbidden:
+                    self.logger.warning(
+                        f"Missing permissions to send log message to {log_channel_id}"
+                    )
+                except discord.HTTPException as e:
+                    self.logger.error(f"Failed to send log message: {e}")
+
     async def _take_action(
         self, message: discord.Message, result: Dict[str, Any], ai_config
     ):
@@ -535,6 +615,30 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
             self.logger.info(
                 f"AI moderation action taken: {action} for {message.author} in {message.guild}"
             )
+
+            # Log to channel
+            log_embed = create_embed(
+                title=f"AI Moderation Action: {action.title()}",
+                color=discord.Color.red(),
+            )
+            log_embed.add_field(
+                name="Member",
+                value=f"{message.author.mention} (`{message.author.id}`)",
+                inline=False,
+            )
+            log_embed.add_field(name="Reason", value=reason, inline=False)
+            if message.content:
+                log_embed.add_field(
+                    name="Content",
+                    value=f"```{message.content[:1000]}```",
+                    inline=False,
+                )
+            log_embed.add_field(
+                name="Channel", value=message.channel.mention, inline=False
+            )
+            log_embed.timestamp = datetime.utcnow()
+
+            await self._log_action(message.guild.id, log_embed)
 
         except Exception as e:
             self.logger.error(f"Failed to take AI moderation action: {e}")
