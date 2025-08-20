@@ -202,6 +202,10 @@ class AutoMod(commands.Cog):
     @automod.command()
     @has_permissions(level=4)
     async def enable(self, ctx):
+        """Enables the automod system.
+
+        **Usage:** `{prefix}automod enable`
+        """
         await self.db.update_guild_config(ctx.guild.id, {"automod.enabled": True})
         embed = create_embed(
             title="✅ Automod Enabled",
@@ -213,6 +217,10 @@ class AutoMod(commands.Cog):
     @automod.command()
     @has_permissions(level=4)
     async def disable(self, ctx):
+        """Disables the automod system.
+
+        **Usage:** `{prefix}automod disable`
+        """
         await self.db.update_guild_config(ctx.guild.id, {"automod.enabled": False})
         embed = create_embed(
             title="🔴 Automod Disabled",
@@ -224,6 +232,11 @@ class AutoMod(commands.Cog):
     @automod.command()
     @has_permissions(level=4)
     async def config(self, ctx, setting: str, value: str):
+        """Configures a specific automod setting.
+
+        **Usage:** `{prefix}automod config <setting> <value>`
+        **Example:** `{prefix}automod config max_lines 20`
+        """
         valid_settings = [
             "max_lines",
             "max_words",
@@ -252,6 +265,11 @@ class AutoMod(commands.Cog):
     @automod.command(name="setdetection")
     @has_permissions(level=4)
     async def set_detection(self, ctx, detection_type: str, enabled: bool):
+        """Enables or disables a specific automod detection.
+
+        **Usage:** `{prefix}automod setdetection <detection_type> <true/false>`
+        **Example:** `{prefix}automod setdetection max_lines true`
+        """
         if detection_type not in self.detection_types:
             await safe_send(
                 ctx,
@@ -270,6 +288,11 @@ class AutoMod(commands.Cog):
     async def set_detection_punishments(
         self, ctx, detection_type: str, punishment: str
     ):
+        """Sets the punishment for a specific automod detection.
+
+        **Usage:** `{prefix}automod setdetectionpunishments <detection_type> <punishment>`
+        **Example:** `{prefix}automod setdetectionpunishments max_lines delete`
+        """
         if detection_type not in self.detection_types:
             await safe_send(
                 ctx,
@@ -295,6 +318,10 @@ class AutoMod(commands.Cog):
     @automod.command(name="setrecommended")
     @has_permissions(level=4)
     async def set_recommended(self, ctx):
+        """Applies a recommended set of automod settings.
+
+        **Usage:** `{prefix}automod setrecommended`
+        """
         confirmed = await confirm_action(
             ctx,
             "Are you sure you want to apply the recommended automod configuration?",
@@ -312,6 +339,11 @@ class AutoMod(commands.Cog):
     @automod.command(name="setdetectionignore")
     @has_permissions(level=4)
     async def set_detection_ignore(self, ctx, channel: discord.TextChannel):
+        """Toggles a channel in the automod ignore list.
+
+        **Usage:** `{prefix}automod setdetectionignore <#channel>`
+        **Example:** `{prefix}automod setdetectionignore #bots`
+        """
         config = await self.db.get_guild_config(ctx.guild.id)
         ignored_channels = config.get("automod", {}).get("ignored_channels", [])
 

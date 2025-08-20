@@ -162,6 +162,38 @@ class Help(commands.Cog):
     async def send_queried_help(self, ctx, query):
         """Sends a more specific help embed for a category or command."""
         query_lower = query.lower()
+
+        # Handle subcommands
+        parts = query_lower.split()
+        if len(parts) > 1:
+            cmd = self.bot.get_command(query_lower)
+            if cmd and cmd.name != "help":
+                help_text = (cmd.help or "No description available.").format(
+                    prefix=ctx.prefix
+                )
+                embed = create_embed(
+                    title=f"{ctx.prefix}{cmd.qualified_name} {cmd.signature}",
+                    description=help_text,
+                    color="info",
+                )
+                if cmd.aliases:
+                    embed.add_field(
+                        name="Aliases",
+                        value=", ".join(f"`{a}`" for a in cmd.aliases),
+                        inline=False,
+                    )
+                if (
+                    hasattr(cmd, "__original_kwargs__")
+                    and "level" in cmd.__original_kwargs__
+                ):
+                    level = cmd.__original_kwargs__["level"]
+                    perm_name = PermissionLevel(level).name.replace("_", " ").title()
+                    embed.add_field(
+                        name="Permissions", value=f"`{perm_name}`", inline=False
+                    )
+                await ctx.send(embed=embed)
+                return
+
         available_commands = await self.get_filtered_commands(ctx)
 
         # Check if query is a category
