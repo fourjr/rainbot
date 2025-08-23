@@ -191,6 +191,19 @@ class Help(commands.Cog):
                     embed.add_field(
                         name="Permissions", value=f"`{perm_name}`", inline=False
                     )
+
+                # Add available categories for aimod category command
+                if cmd.qualified_name == "aimoderation category":
+                    aimod_cog = self.bot.get_cog("AI Moderation")
+                    if aimod_cog and hasattr(aimod_cog, "VALID_CATEGORIES"):
+                        embed.add_field(
+                            name="Available Categories",
+                            value="\n".join(
+                                [f"• `{cat}`" for cat in aimod_cog.VALID_CATEGORIES]
+                            ),
+                            inline=False,
+                        )
+
                 await ctx.send(embed=embed)
                 return
 
