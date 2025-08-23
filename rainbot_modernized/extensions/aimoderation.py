@@ -432,12 +432,13 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
         - `mute`
         - `kick`
         - `ban`
+        - `none`
 
         **Examples:**
         - `{prefix}aimoderation action hate delete`
         - `{prefix}aimoderation action all warn`
         """
-        valid_actions = ["delete", "warn", "mute", "kick", "ban"]
+        valid_actions = ["delete", "warn", "mute", "kick", "ban", "none"]
 
         if action.lower() not in valid_actions:
             embed = create_embed(
@@ -646,18 +647,7 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
         reason = f"AI moderation: {', '.join(active_categories)}"
 
         try:
-            if action == "delete":
-                await message.delete()
-                await message.channel.send(
-                    f"{message.author.mention}, your message was removed for violating our content policy.",
-                    delete_after=10,
-                )
-
-            self.logger.info(
-                f"AI moderation action taken: {action} for {message.author} in {message.guild}"
-            )
-
-            # Log to channel
+            # Log to channel first
             log_embed = create_embed(
                 title="AI Moderation Action",
                 color=discord.Color.red(),
@@ -694,6 +684,20 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
             log_embed.timestamp = datetime.utcnow()
 
             await self._log_action(message.guild.id, log_embed)
+
+            if action == "none":
+                return  # Only notify, take no action
+
+            if action == "delete":
+                await message.delete()
+                await message.channel.send(
+                    f"{message.author.mention}, your message was removed for violating our content policy.",
+                    delete_after=10,
+                )
+
+            self.logger.info(
+                f"AI moderation action taken: {action} for {message.author} in {message.guild}"
+            )
 
         except Exception as e:
             self.logger.error(f"Failed to take AI moderation action: {e}")
