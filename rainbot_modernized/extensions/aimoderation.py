@@ -127,6 +127,12 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
             await ctx.send(embed=embed)
             return
 
+        if not await confirm_action(
+            ctx, "Are you sure you want to enable AI moderation?"
+        ):
+            await ctx.send("Cancelled.", delete_after=20)
+            return
+
         await self.bot.db.update_guild_config(
             ctx.guild.id,
             {
@@ -150,6 +156,12 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
 
         **Usage:** `{prefix}aimod disable`
         """
+        if not await confirm_action(
+            ctx, "Are you sure you want to disable AI moderation?"
+        ):
+            await ctx.send("Cancelled.", delete_after=20)
+            return
+
         await self.bot.db.update_guild_config(
             ctx.guild.id, {"ai_moderation.enabled": False}
         )
@@ -308,6 +320,13 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
         - `{prefix}aimoderation sensitivity hate 80`
         - `{prefix}aimoderation sensitivity all 75`
         """
+        if not await confirm_action(
+            ctx,
+            f"Are you sure you want to set the sensitivity for `{category}` to `{sensitivity}%`?",
+        ):
+            await ctx.send("Cancelled.", delete_after=20)
+            return
+
         if not 1 <= sensitivity <= 100:
             embed = create_embed(
                 title="❌ Invalid Sensitivity",
@@ -392,6 +411,13 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
 
         status = "enabled" if enabled else "disabled"
 
+        if not await confirm_action(
+            ctx,
+            f"Are you sure you want to set the status for `{category}` to `{status}`?",
+        ):
+            await ctx.send("Cancelled.", delete_after=20)
+            return
+
         if category.lower() == "all":
             update_data = {}
             for cat in self.VALID_CATEGORIES:
@@ -440,6 +466,13 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
         """
         valid_actions = ["delete", "warn", "mute", "kick", "ban", "none"]
 
+        if not await confirm_action(
+            ctx,
+            f"Are you sure you want to set the action for `{category}` to `{action}`?",
+        ):
+            await ctx.send("Cancelled.", delete_after=20)
+            return
+
         if action.lower() not in valid_actions:
             embed = create_embed(
                 title="❌ Invalid Action",
@@ -487,6 +520,12 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
 
         **Usage:** `{prefix}aimod setlogchannel <#channel>`
         """
+        if not await confirm_action(
+            ctx, f"Are you sure you want to set the log channel to {channel.mention}?"
+        ):
+            await ctx.send("Cancelled.", delete_after=20)
+            return
+
         await self.bot.db.update_guild_config(
             ctx.guild.id, {"ai_moderation.log_channel": channel.id}
         )
@@ -505,6 +544,12 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
 
         **Usage:** `{prefix}aimod removelogchannel`
         """
+        if not await confirm_action(
+            ctx, "Are you sure you want to remove the log channel?"
+        ):
+            await ctx.send("Cancelled.", delete_after=20)
+            return
+
         await self.bot.db.update_guild_config(
             ctx.guild.id, {"ai_moderation.log_channel": None}
         )
