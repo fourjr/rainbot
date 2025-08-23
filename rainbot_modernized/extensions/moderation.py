@@ -3,6 +3,8 @@ Modern moderation extension with enhanced features and user experience
 """
 
 import asyncio
+import os
+import re
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Union
 
@@ -883,33 +885,214 @@ class Moderation(commands.Cog):
         - `{prefix}modlogs @user` (shows all logs for a user)
         - `{prefix}modlogs 123456789` (shows logs for a user by ID)
         """
-        if user:
-            logs = await self.bot.db.get_user_moderation_logs(ctx.guild.id, user.id)
-            title = f"Moderation logs for {user}"
-        else:
-            logs = await self.bot.db.get_guild_moderation_logs(ctx.guild.id, limit=20)
-            title = "Recent moderation logs"
+        if ctx.invoked_subcommand is None:
+            if user:
+                await self._show_user_modlogs(ctx, user)
+            else:
+                await self._show_guild_modlogs(ctx)
+
+    async def _show_user_modlogs(self, ctx: commands.Context, user: MemberOrID):
+        """Show moderation logs for a specific user"""
+        logs = await self.bot.db.get_user_moderation_logs(ctx.guild.id, user.id)
 
         if not logs:
+            await safe_send(ctx, "No moderation logs found for this user.")
+            return
+
+        # Sanitize reason to prevent URL embeds
+        def sanitize_reason(reason):
+            return re.sub(r"(https?://\S+)", r"<\1>", reason)
+
+        output = f"**Moderation logs for {user}**\n\n"
+        for log in logs:
+            moderator = self.bot.get_user(log["moderator_id"])
+            mod_name = moderator.name if moderator else "Unknown"
+            reason = sanitize_reason(log["reason"])
+            output += f"**Case {log['case_id']}**: {log['action'].title()} by {mod_name} - {reason}\n"
+
+        # Paginate output if too long
+        if len(output) > 2000:
+            with open("modlogs.txt", "w") as f:
+                f.write(output)
+            await safe_send(
+                ctx,
+                "Logs are too long, sending as a file.",
+                file=discord.File("modlogs.txt"),
+            )
+            os.remove("modlogs.txt")
+        else:
+            await safe_send(ctx, output)
+
+    async def _show_guild_modlogs(self, ctx: commands.Context):
+        """Show recent moderation logs for the guild"""
+        logs = await self.bot.db.get_guild_moderation_logs(ctx.guild.id, limit=20)
+
+        if not logs:
+            await safe_send(ctx, "No moderation logs found for this server.")
+            return
+
+        # Sanitize reason to prevent URL embeds
+        def sanitize_reason(reason):
+            return re.sub(r"(https?://\S+)", r"<\1>", reason)
+
+        output = "**Recent moderation logs**\n\n"
+        for log in logs:
+            user = self.bot.get_user(log["user_id"])
+            user_name = user.mention if user else f"<@{log['user_id']}>"
+            moderator = self.bot.get_user(log["moderator_id"])
+            mod_name = moderator.name if moderator else "Unknown"
+            reason = sanitize_reason(log["reason"])
+            output += f"**Case {log['case_id']}**: {log['action'].title()} on {user_name} by {mod_name} - {reason}\n"
+
+        # Paginate output if too long
+        if len(output) > 2000:
+            with open("modlogs.txt", "w") as f:
+                f.write(output)
+            await safe_send(
+                ctx,
+                "Logs are too long, sending as a file.",
+                file=discord.File("modlogs.txt"),
+            )
+            os.remove("modlogs.txt")
+        else:
+            await safe_send(ctx, output)
+
+    @modlogs.command(name="update")
+    @require_permission(PermissionLevel.MODERATOR)
+    async def modlogs_update(self, ctx: commands.Context, case_id: int, *, reason: str):
+        """Updates the reason for a moderation log entry.
+
+        **Usage:** `{prefix}modlogs update <case_id> <new_reason>`
+        **Example:** `{prefix}modlogs update 123 Updated reason for action`
+        """
+        log = await self.bot.db.get_moderation_log(ctx.guild.id, case_id)
+
+        if not log:
             embed = create_embed(
-                title="📋 No Logs Found",
-                description="No moderation logs found.",
+                title=f"{EMOJIS['error']} Log Not Found",
+                description=f"No moderation log found with case ID `{case_id}`.",
+                color="error",
+            )
+            await safe_send(ctx, embed=embed)
+            return
+
+        await self.bot.db.update_moderation_log(ctx.guild.id, case_id, reason)
+
+        embed = create_embed(
+            title="✅ Log Updated",
+            description=f"Reason for case ID `{case_id}` has been updated.",
+            color="success",
+        )
+        await safe_send(ctx, embed=embed)
+
+    @commands.command(name="softban")
+    @require_permission(PermissionLevel.SENIOR_MODERATOR)
+    async def softban_user(
+        self,
+        ctx: commands.Context,
+        member: discord.Member,
+        *,
+        reason: str = "No reason provided",
+    ):
+        """Bans and immediately unbans a member to delete their recent messages.
+
+        **Usage:** `{prefix}softban <member> [reason]`
+        **Examples:**
+        - `{prefix}softban @member Spam cleanup`
+        - `{prefix}softban @member Message purge needed`
+        """
+        if not await self._can_moderate(ctx, member):
+            return
+
+        confirmed = await confirm_action(
+            ctx,
+            f"Are you sure you want to softban {member.mention}?\n"
+            f"**Reason:** {reason}\n\n"
+            f"This will ban and immediately unban them to delete their recent messages.",
+        )
+
+        if not confirmed:
+            embed = create_embed(
+                title=f"{EMOJIS['error']} Action Cancelled",
+                description="Softban action was cancelled.",
+                color="error",
+            )
+            await safe_send(ctx, embed=embed)
+            return
+
+        await self._notify_user(member, "softbanned", reason, ctx.guild)
+
+        try:
+            await member.ban(
+                reason=f"Softbanned by {ctx.author}: {reason}", delete_message_days=1
+            )
+            await asyncio.sleep(0.5)
+            await member.unban(reason="Softban - immediate unban")
+        except discord.Forbidden:
+            embed = create_embed(
+                title=f"{EMOJIS['error']} Permission Error",
+                description="I don't have permission to ban/unban this member.",
+                color="error",
+            )
+            await safe_send(ctx, embed=embed)
+            return
+
+        case_id = await self.bot.db.add_moderation_log(
+            guild_id=ctx.guild.id,
+            user_id=member.id,
+            moderator_id=ctx.author.id,
+            action="softban",
+            reason=reason,
+        )
+
+        embed = create_embed(
+            title=f"{EMOJIS['ban']} Member Softbanned",
+            description=f"**Member:** {member} ({member.id})\n"
+            f"**Reason:** {reason}\n"
+            f"**Case ID:** {case_id}",
+            color="warning",
+            timestamp=True,
+        )
+
+        await safe_send(ctx, embed=embed)
+        self.logger.moderation_action(
+            "softban", member.id, ctx.author.id, ctx.guild.id, reason
+        )
+
+    @commands.command(name="muted")
+    @require_permission(PermissionLevel.MODERATOR)
+    async def list_muted(self, ctx: commands.Context):
+        """Shows a list of all currently muted members.
+
+        **Usage:** `{prefix}muted`
+        **Example:** `{prefix}muted`
+        """
+        config = await self.bot.db.get_guild_config(ctx.guild.id)
+        mutes = config.get("mutes", [])
+
+        if not mutes:
+            embed = create_embed(
+                title="🔇 No Active Mutes",
+                description="No members are currently muted",
                 color="info",
             )
             await safe_send(ctx, embed=embed)
             return
 
-        embed = create_embed(title=f"📋 {title}", color="info")
+        embed = create_embed(title="🔇 Currently Muted Members", color="info")
 
-        for log in logs[:10]:
-            moderator = self.bot.get_user(log["moderator_id"])
-            mod_name = moderator.name if moderator else "Unknown"
+        for mute in mutes[:10]:
+            user_id = mute.get("member")
+            until = mute.get("time")
+            member = ctx.guild.get_member(int(user_id)) if user_id else None
+            name = member.mention if member else f"<@{user_id}>"
 
-            embed.add_field(
-                name=f"Case {log['case_id']} - {log['action'].title()}",
-                value=f"**User:** <@{log['user_id']}>\n**Moderator:** {mod_name}\n**Reason:** {log['reason']}",
-                inline=False,
-            )
+            if until:
+                embed.add_field(
+                    name=name, value=f"Until <t:{int(until)}:F>", inline=False
+                )
+            else:
+                embed.add_field(name=name, value="Indefinite", inline=False)
 
         await safe_send(ctx, embed=embed)
 
