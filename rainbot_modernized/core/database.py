@@ -348,6 +348,23 @@ class DatabaseManager:
 
         return case_id
 
+    async def get_moderation_log(
+        self, guild_id: int, case_id: int
+    ) -> Optional[Dict[str, Any]]:
+        """Get a specific moderation log by case ID"""
+        return await self.db.moderation_logs.find_one(
+            {"guild_id": guild_id, "case_id": case_id}
+        )
+
+    async def update_moderation_log(
+        self, guild_id: int, case_id: int, reason: str
+    ) -> None:
+        """Update the reason for a moderation log"""
+        await self.db.moderation_logs.update_one(
+            {"guild_id": guild_id, "case_id": case_id},
+            {"$set": {"reason": reason, "updated_at": datetime.now(timezone.utc)}},
+        )
+
     async def get_moderation_logs(
         self, guild_id: int, user_id: Optional[int] = None, limit: int = 50
     ) -> List[Dict[str, Any]]:
