@@ -22,6 +22,7 @@ from utils.helpers import (
     confirm_action,
     parse_time,
 )
+from utils.paginator import Paginator
 from utils.constants import EMOJIS
 from core.logging import ModLogger
 
@@ -893,69 +894,57 @@ class Moderation(commands.Cog):
 
     async def _show_user_modlogs(self, ctx: commands.Context, user: MemberOrID):
         """Show moderation logs for a specific user"""
-        logs = await self.bot.db.get_user_moderation_logs(ctx.guild.id, user.id)
+        logs = await self.bot.db.get_user_moderation_logs(
+            ctx.guild.id, user.id, limit=100
+        )
 
         if not logs:
             await safe_send(ctx, "No moderation logs found for this user.")
             return
 
-        # Sanitize reason to prevent URL embeds
         def sanitize_reason(reason):
             return re.sub(r"(https?://\S+)", r"<\1>", reason)
 
-        output = f"**Moderation logs for {user}**\n\n"
+        entries = []
         for log in logs:
             moderator = self.bot.get_user(log["moderator_id"])
-            mod_name = moderator.name if moderator else "Unknown"
+            mod_mention = moderator.mention if moderator else "Unknown"
             reason = sanitize_reason(log["reason"])
-            output += f"**Case {log['case_id']}**: {log['action'].title()} by {mod_name} - {reason}\n"
-
-        # Paginate output if too long
-        if len(output) > 2000:
-            with open("modlogs.txt", "w") as f:
-                f.write(output)
-            await safe_send(
-                ctx,
-                "Logs are too long, sending as a file.",
-                file=discord.File("modlogs.txt"),
+            case_number = str(log["case_id"]).split("-")[-1]
+            entries.append(
+                f"Case **{case_number}**: {log['action'].title()} by {mod_mention} - {reason}"
             )
-            os.remove("modlogs.txt")
-        else:
-            await safe_send(ctx, output)
+
+        pages = ["\n".join(entries[i : i + 10]) for i in range(0, len(entries), 10)]
+        paginator = Paginator(ctx, pages, show_page_count=True)
+        await paginator.start()
 
     async def _show_guild_modlogs(self, ctx: commands.Context):
         """Show recent moderation logs for the guild"""
-        logs = await self.bot.db.get_guild_moderation_logs(ctx.guild.id, limit=20)
+        logs = await self.bot.db.get_guild_moderation_logs(ctx.guild.id, limit=100)
 
         if not logs:
             await safe_send(ctx, "No moderation logs found for this server.")
             return
 
-        # Sanitize reason to prevent URL embeds
         def sanitize_reason(reason):
             return re.sub(r"(https?://\S+)", r"<\1>", reason)
 
-        output = "**Recent moderation logs**\n\n"
+        entries = []
         for log in logs:
             user = self.bot.get_user(log["user_id"])
             user_name = user.mention if user else f"<@{log['user_id']}>"
             moderator = self.bot.get_user(log["moderator_id"])
-            mod_name = moderator.name if moderator else "Unknown"
+            mod_mention = moderator.mention if moderator else "Unknown"
             reason = sanitize_reason(log["reason"])
-            output += f"**Case {log['case_id']}**: {log['action'].title()} on {user_name} by {mod_name} - {reason}\n"
-
-        # Paginate output if too long
-        if len(output) > 2000:
-            with open("modlogs.txt", "w") as f:
-                f.write(output)
-            await safe_send(
-                ctx,
-                "Logs are too long, sending as a file.",
-                file=discord.File("modlogs.txt"),
+            case_number = str(log["case_id"]).split("-")[-1]
+            entries.append(
+                f"Case **{case_number}**: {log['action'].title()} on {user_name} by {mod_mention} - {reason}"
             )
-            os.remove("modlogs.txt")
-        else:
-            await safe_send(ctx, output)
+
+        pages = ["\n".join(entries[i : i + 10]) for i in range(0, len(entries), 10)]
+        paginator = Paginator(ctx, pages, show_page_count=True)
+        await paginator.start()
 
     @modlogs.command(name="update")
     @require_permission(PermissionLevel.MODERATOR)
@@ -1402,32 +1391,30 @@ class Moderation(commands.Cog):
 
         **Usage:** `{prefix}modlogs all`
         """
-        logs = await self.bot.db.get_guild_moderation_logs(ctx.guild.id, limit=50)
+        logs = await self.bot.db.get_guild_moderation_logs(ctx.guild.id, limit=100)
 
         if not logs:
-            embed = create_embed(
-                title="📋 No Logs Found",
-                description="No moderation logs found for this server.",
-                color="info",
-            )
-            await safe_send(ctx, embed=embed)
+            await safe_send(ctx, "No moderation logs found for this server.")
             return
 
-        embed = create_embed(title="📋 All Moderation Logs", color="info")
+        def sanitize_reason(reason):
+            return re.sub(r"(https?://\S+)", r"<\1>", reason)
 
-        for log in logs[:10]:
+        entries = []
+        for log in logs:
             user = self.bot.get_user(log["user_id"])
-            user_name = user.name if user else "Unknown"
+            user_name = user.mention if user else f"<@{log['user_id']}>"
             moderator = self.bot.get_user(log["moderator_id"])
-            mod_name = moderator.name if moderator else "Unknown"
-
-            embed.add_field(
-                name=f"Case {log['case_id']} - {log['action'].title()}",
-                value=f"**User:** {user_name} (`{log['user_id']}`)\n**Moderator:** {mod_name}\n**Reason:** {log['reason']}",
-                inline=False,
+            mod_mention = moderator.mention if moderator else "Unknown"
+            reason = sanitize_reason(log["reason"])
+            case_number = str(log["case_id"]).split("-")[-1]
+            entries.append(
+                f"Case **{case_number}**: {log['action'].title()} on {user_name} by {mod_mention} - {reason}"
             )
 
-        await safe_send(ctx, embed=embed)
+        pages = ["\n".join(entries[i : i + 10]) for i in range(0, len(entries), 10)]
+        paginator = Paginator(ctx, pages, show_page_count=True)
+        await paginator.start()
 
     @modlogs.command(name="remove")
     @require_permission(PermissionLevel.ADMINISTRATOR)
