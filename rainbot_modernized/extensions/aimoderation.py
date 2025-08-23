@@ -679,7 +679,9 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
                 )
 
             log_embed.add_field(
-                name="Channel", value=message.channel.mention, inline=False
+                name="Context",
+                value=f"In {message.channel.mention} | [Jump to Message]({message.jump_url})",
+                inline=False,
             )
             log_embed.timestamp = datetime.utcnow()
 
