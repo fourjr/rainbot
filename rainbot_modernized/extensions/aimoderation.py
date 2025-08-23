@@ -244,11 +244,12 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
 
     @aimoderation.command(name="test")
     @has_permissions(level=5)
-    async def test(self, ctx: commands.Context, *, content: str):
-        """Tests the AI moderation with sample content.
+    async def test(self, ctx: commands.Context, *, content: Optional[str] = None):
+        """Tests the AI moderation with sample content or an image.
 
-        **Usage:** `{prefix}aimoderation test <content>`
-        **Example:** `{prefix}aimoderation test This is a test message`
+        **Usage:** `{prefix}aimod test [content]`
+        **Example (text):** `{prefix}aimod test This is a test message`
+        **Example (image):** `{prefix}aimod test` (with an attached image)
         """
         if not self.api_url:
             embed = create_embed(
@@ -259,50 +260,95 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
             await ctx.send(embed=embed)
             return
 
+        if ctx.message.attachments:
+            await self._test_image_moderation(ctx, ctx.message.attachments[0])
+        elif content:
+            await self._test_text_moderation(ctx, content)
+        else:
+            embed = create_embed(
+                title="❌ No Input",
+                description="Please provide text or an image attachment to test.",
+                color=discord.Color.red(),
+            )
+            await ctx.send(embed=embed)
+
+    def _add_result_fields_to_embed(self, embed: discord.Embed, result: Dict[str, Any]):
+        """Adds moderation result fields to an embed."""
+        embed.add_field(
+            name="Decision",
+            value=result.get("decision", "unknown").title(),
+            inline=True,
+        )
+
+        categories = result.get("categories", [])
+        if categories:
+            embed.add_field(
+                name="Flagged Categories",
+                value=", ".join(cat.replace("/", " / ").title() for cat in categories),
+                inline=True,
+            )
+
+        scores = result.get("category_scores", {})
+        if scores:
+            score_text = "\n".join(
+                [
+                    f"• {cat.replace('/', ' / ').title()}: {int(score * 100)}%"
+                    for cat, score in scores.items()
+                ]
+            )
+            embed.add_field(
+                name="Confidence Scores", value=score_text, inline=False
+            )
+
+    async def _test_text_moderation(self, ctx: commands.Context, content: str):
+        """Helper to test text moderation"""
         async with ctx.typing():
             try:
                 result = await self._moderate_text(content)
-
                 embed = create_embed(
-                    title="🧪 AI Moderation Test Results", color=discord.Color.blue()
+                    title="🧪 AI Text Moderation Test Results", color=discord.Color.blue()
                 )
-
                 embed.add_field(
                     name="Content",
-                    value=f"```{content[:100]}{'...' if len(content) > 100 else ''}```",
+                    value=f"```{content[:1000]}{'...' if len(content) > 1000 else ''}```",
                     inline=False,
                 )
-
-                embed.add_field(
-                    name="Decision",
-                    value=result.get("decision", "unknown").title(),
-                    inline=True,
+                self._add_result_fields_to_embed(embed, result)
+                await ctx.send(embed=embed)
+            except Exception as e:
+                self.logger.error(f"AI moderation text test failed: {e}")
+                embed = create_embed(
+                    title="❌ Test Failed",
+                    description=f"Failed to test AI moderation: {str(e)}",
+                    color=discord.Color.red(),
                 )
-
-                categories = result.get("categories", [])
-                if categories:
-                    embed.add_field(
-                        name="Flagged Categories",
-                        value=", ".join(categories),
-                        inline=True,
-                    )
-
-                scores = result.get("category_scores", {})
-                if scores:
-                    score_text = "\n".join(
-                        [
-                            f"• {cat.title()}: {int(score * 100)}%"
-                            for cat, score in scores.items()
-                        ]
-                    )
-                    embed.add_field(
-                        name="Confidence Scores", value=score_text, inline=False
-                    )
-
                 await ctx.send(embed=embed)
 
+    async def _test_image_moderation(self, ctx: commands.Context, attachment: discord.Attachment):
+        """Helper to test image moderation"""
+        if not any(
+            attachment.filename.lower().endswith(ext)
+            for ext in [".png", ".jpg", ".jpeg", ".webp"]
+        ):
+            embed = create_embed(
+                title="❌ Invalid File Type",
+                description="Please attach a valid image (.png, .jpg, .jpeg, .webp).",
+                color=discord.Color.red(),
+            )
+            await ctx.send(embed=embed)
+            return
+
+        async with ctx.typing():
+            try:
+                result = await self._moderate_image(attachment)
+                embed = create_embed(
+                    title="🧪 AI Image Moderation Test Results", color=discord.Color.blue()
+                )
+                embed.set_image(url=attachment.url)
+                self._add_result_fields_to_embed(embed, result)
+                await ctx.send(embed=embed)
             except Exception as e:
-                self.logger.error(f"AI moderation test failed: {e}")
+                self.logger.error(f"AI moderation image test failed: {e}")
                 embed = create_embed(
                     title="❌ Test Failed",
                     description=f"Failed to test AI moderation: {str(e)}",
