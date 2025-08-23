@@ -26,6 +26,7 @@ class Paginator:
         show_page_count: bool = True,
         show_navigation: bool = True,
         per_page: int = 1,
+        allowed_mentions: discord.AllowedMentions = None,
     ):
         self.ctx = ctx
         self.pages = pages
@@ -34,6 +35,7 @@ class Paginator:
         self.show_page_count = show_page_count
         self.show_navigation = show_navigation
         self.per_page = per_page
+        self.allowed_mentions = allowed_mentions
 
         self.current_page = 0
         self.message: Optional[discord.Message] = None
@@ -85,9 +87,13 @@ class Paginator:
         content = self.get_page_content(0)
 
         if isinstance(content, discord.Embed):
-            self.message = await self.ctx.send(embed=content)
+            self.message = await self.ctx.send(
+                embed=content, allowed_mentions=self.allowed_mentions
+            )
         else:
-            self.message = await self.ctx.send(content)
+            self.message = await self.ctx.send(
+                content, allowed_mentions=self.allowed_mentions
+            )
 
         # Add navigation if needed
         if self.total_pages > 1 and self.show_navigation:
@@ -173,9 +179,13 @@ class Paginator:
 
         try:
             if isinstance(content, discord.Embed):
-                await self.message.edit(embed=content)
+                await self.message.edit(
+                    embed=content, allowed_mentions=self.allowed_mentions
+                )
             else:
-                await self.message.edit(content=content)
+                await self.message.edit(
+                    content=content, allowed_mentions=self.allowed_mentions
+                )
         except discord.HTTPException:
             pass
 
