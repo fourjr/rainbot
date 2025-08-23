@@ -916,7 +916,12 @@ class Moderation(commands.Cog):
             )
 
         pages = ["\n".join(entries[i : i + 10]) for i in range(0, len(entries), 10)]
-        paginator = Paginator(ctx, pages, show_page_count=True)
+        paginator = Paginator(
+            ctx,
+            pages,
+            show_page_count=True,
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
         await paginator.start()
 
     async def _show_guild_modlogs(self, ctx: commands.Context):
@@ -943,7 +948,12 @@ class Moderation(commands.Cog):
             )
 
         pages = ["\n".join(entries[i : i + 10]) for i in range(0, len(entries), 10)]
-        paginator = Paginator(ctx, pages, show_page_count=True)
+        paginator = Paginator(
+            ctx,
+            pages,
+            show_page_count=True,
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
         await paginator.start()
 
     @modlogs.command(name="update")
@@ -1413,7 +1423,12 @@ class Moderation(commands.Cog):
             )
 
         pages = ["\n".join(entries[i : i + 10]) for i in range(0, len(entries), 10)]
-        paginator = Paginator(ctx, pages, show_page_count=True)
+        paginator = Paginator(
+            ctx,
+            pages,
+            show_page_count=True,
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
         await paginator.start()
 
     @modlogs.command(name="remove")
