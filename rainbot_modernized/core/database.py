@@ -271,6 +271,27 @@ class DatabaseManager:
 
         return result
 
+    async def update_guild_config_atomic(
+        self, guild_id: int, update: Dict[str, Any], upsert: bool = True
+    ) -> Dict[str, Any]:
+        """Update guild configuration using atomic operators"""
+        # Add timestamp
+        update.setdefault("$set", {})["updated_at"] = datetime.now(timezone.utc)
+
+        # Update in database
+        result = await self.db.guilds.find_one_and_update(
+            {"guild_id": guild_id},
+            update,
+            upsert=upsert,
+            return_document=ReturnDocument.AFTER,
+        )
+
+        # Update cache
+        if result:
+            self.guild_cache[guild_id] = result
+
+        return result
+
     async def get_user_config(self, user_id: int) -> Dict[str, Any]:
         """Get user configuration with caching"""
         # Check cache first
@@ -347,6 +368,23 @@ class DatabaseManager:
         await self.update_guild_config(guild_id, {f"stats.{action}s": {"$inc": 1}})
 
         return case_id
+
+    async def get_moderation_log(
+        self, guild_id: int, case_id: int
+    ) -> Optional[Dict[str, Any]]:
+        """Get a specific moderation log by case ID"""
+        return await self.db.moderation_logs.find_one(
+            {"guild_id": guild_id, "case_id": case_id}
+        )
+
+    async def update_moderation_log(
+        self, guild_id: int, case_id: int, reason: str
+    ) -> None:
+        """Update the reason for a moderation log"""
+        await self.db.moderation_logs.update_one(
+            {"guild_id": guild_id, "case_id": case_id},
+            {"$set": {"reason": reason, "updated_at": datetime.now(timezone.utc)}},
+        )
 
     async def get_moderation_logs(
         self, guild_id: int, user_id: Optional[int] = None, limit: int = 50

@@ -3,6 +3,7 @@ from discord.ext import commands
 from core.database import Database
 from utils.helpers import create_embed
 from utils.paginator import Paginator
+from core.permissions import PermissionLevel
 import psutil
 import time
 from datetime import datetime
@@ -69,53 +70,84 @@ class Utils(commands.Cog):
 
     @commands.command(aliases=["serverinfo", "si"])
     async def server(self, ctx):
-        """Displays information about the server.
+        """Displays detailed information about the server.
 
         **Usage:** `{prefix}server`
         **Aliases:** `{prefix}serverinfo`, `{prefix}si`
         """
         guild = ctx.guild
 
-        embed = create_embed(title=f"📊 {guild.name}", color=discord.Color.blue())
+        # Ensure member cache is loaded for accurate counts
+        if not guild.chunked:
+            await guild.chunk(cache=True)
 
-        embed.add_field(
-            name="Owner",
-            value=guild.owner.mention if guild.owner else "Unknown",
-            inline=True,
-        )
-        embed.add_field(
-            name="Created", value=guild.created_at.strftime("%Y-%m-%d"), inline=True
-        )
-        embed.add_field(
-            name="Region",
-            value=str(guild.region) if hasattr(guild, "region") else "Unknown",
-            inline=True,
-        )
+        # We use ctx.guild for member/channel lists, but fetch_guild for banner/description
+        try:
+            fetched_guild = await self.bot.fetch_guild(guild.id)
+        except discord.Forbidden:
+            fetched_guild = guild  # Fallback to context guild
 
-        embed.add_field(name="Members", value=str(guild.member_count), inline=True)
-        embed.add_field(name="Channels", value=str(len(guild.channels)), inline=True)
-        embed.add_field(name="Roles", value=str(len(guild.roles)), inline=True)
-
-        embed.add_field(
-            name="Verification",
-            value=str(guild.verification_level).title(),
-            inline=True,
-        )
-        embed.add_field(name="Boost Level", value=str(guild.premium_tier), inline=True)
-        embed.add_field(
-            name="Boosts", value=str(guild.premium_subscription_count), inline=True
+        embed = create_embed(
+            title=f"📊 Server Info: {guild.name}",
+            color=discord.Color.blue(),
+            timestamp=True,
         )
 
         if guild.icon:
             embed.set_thumbnail(url=guild.icon.url)
+
+        if fetched_guild.banner:
+            embed.set_image(url=fetched_guild.banner.with_format("png").url)
+
+        # General Info
+        general_info = (
+            f"**Owner:** {guild.owner.mention if guild.owner else 'Unknown'}\n"
+            f"**Created:** {discord.utils.format_dt(guild.created_at, style='R')}\n"
+            f"**Verification:** {str(guild.verification_level).title()}"
+        )
+        embed.add_field(name="❯ General", value=general_info, inline=False)
+
+        # Member Stats
+        member_count = guild.member_count or len(guild.members)
+        bot_count = sum(1 for member in guild.members if member.bot)
+        human_count = member_count - bot_count
+
+        member_stats = (
+            f"**Total:** {member_count}\n"
+            f"**Humans:** {human_count} | **Bots:** {bot_count}"
+        )
+        embed.add_field(name="❯ Members", value=member_stats, inline=True)
+
+        # Channel Stats
+        channel_stats = (
+            f"**Total:** {len(guild.channels)}\n"
+            f"**Text:** {len(guild.text_channels)}\n"
+            f"**Voice:** {len(guild.voice_channels)}"
+        )
+        embed.add_field(name="❯ Channels", value=channel_stats, inline=True)
+
+        # Boost Status
+        boost_status = (
+            f"**Level:** {guild.premium_tier}\n"
+            f"**Boosts:** {guild.premium_subscription_count}"
+        )
+        embed.add_field(name="❯ Boosts", value=boost_status, inline=True)
+
+        # Features & Emojis
+        emojis = [str(e) for e in guild.emojis if e.available][:20]
+        emoji_display = " ".join(emojis) if emojis else "None"
+
+        embed.add_field(
+            name=f"❯ Emojis [{len(guild.emojis)}]", value=emoji_display, inline=False
+        )
 
         embed.set_footer(text=f"ID: {guild.id}")
 
         await ctx.send(embed=embed)
 
     @commands.command(aliases=["userinfo", "ui"])
-    async def user(self, ctx, *, user: discord.Member = None):
-        """Displays information about a user.
+    async def user(self, ctx, *, member: discord.Member = None):
+        """Displays detailed information about a user.
 
         **Usage:** `{prefix}user [user]`
         **Aliases:** `{prefix}userinfo`, `{prefix}ui`
@@ -123,42 +155,58 @@ class Utils(commands.Cog):
         - `{prefix}user` (shows your info)
         - `{prefix}user @user` (shows another user's info)
         """
-        user = user or ctx.author
+        member = member or ctx.author
+
+        # Fetch user object to get banner and global profile info
+        try:
+            user = await self.bot.fetch_user(member.id)
+        except discord.NotFound:
+            await ctx.send("Could not find that user.")
+            return
 
         embed = create_embed(
-            title=f"👤 {user}",
+            title=f"👤 {member.display_name}",
             color=(
-                user.color
-                if user.color != discord.Color.default()
+                member.color
+                if member.color != discord.Color.default()
                 else discord.Color.blue()
             ),
+            timestamp=True,
         )
 
-        embed.add_field(name="ID", value=str(user.id), inline=True)
-        embed.add_field(
-            name="Created", value=user.created_at.strftime("%Y-%m-%d"), inline=True
-        )
-        embed.add_field(
-            name="Joined",
-            value=user.joined_at.strftime("%Y-%m-%d") if user.joined_at else "Unknown",
-            inline=True,
-        )
+        embed.set_thumbnail(url=member.display_avatar.url)
+        if user.banner:
+            embed.set_image(url=user.banner.with_format("png").url)
 
-        embed.add_field(name="Status", value=str(user.status).title(), inline=True)
-        embed.add_field(
-            name="Activity",
-            value=user.activity.name if user.activity else "None",
-            inline=True,
+        # User Info
+        user_info = (
+            f"**Username:** `{user}`\n"
+            f"**ID:** `{user.id}`\n"
+            f"**Account Created:** {discord.utils.format_dt(user.created_at, style='R')}"
         )
-        embed.add_field(name="Bot", value="Yes" if user.bot else "No", inline=True)
+        embed.add_field(name="❯ User Information", value=user_info, inline=False)
 
-        if user.roles[1:]:  # Exclude @everyone
-            roles = ", ".join(role.mention for role in user.roles[1:][:10])
-            if len(user.roles) > 11:
-                roles += f" (+{len(user.roles) - 11} more)"
-            embed.add_field(name="Roles", value=roles, inline=False)
+        # Member Info
+        sorted_members = sorted(ctx.guild.members, key=lambda m: m.joined_at)
+        join_pos = sorted_members.index(member) + 1
 
-        embed.set_thumbnail(url=user.display_avatar.url)
+        member_info = (
+            f"**Joined Server:** {discord.utils.format_dt(member.joined_at, style='R')}\n"
+            f"**Join Position:** #{join_pos}\n"
+            f"**Boosting Since:** {discord.utils.format_dt(member.premium_since, style='R') if member.premium_since else 'Not boosting'}"
+        )
+        embed.add_field(name="❯ Member Information", value=member_info, inline=False)
+
+        # Roles
+        if member.roles[1:]:  # Exclude @everyone
+            # Reversed to show highest roles first
+            roles = ", ".join(role.mention for role in reversed(member.roles[1:][:15]))
+            if len(member.roles) > 16:
+                roles += f" (+{len(member.roles) - 16} more)"
+            embed.add_field(
+                name=f"❯ Roles [{len(member.roles)-1}]", value=roles, inline=False
+            )
+
         embed.set_footer(text=f"Requested by {ctx.author}")
 
         await ctx.send(embed=embed)
@@ -540,22 +588,25 @@ class Utils(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @commands.command()
-    async def testperms(self, ctx):
+    @commands.command(aliases=["mypermissions"])
+    async def myperms(self, ctx):
         """Checks your permission level.
 
-        **Usage:** `{prefix}testperms`
+        **Usage:** `{prefix}myperms`
+        **Alias:** `{prefix}mypermissions`
         """
         if hasattr(self.bot, "permissions") and self.bot.permissions:
             user_level = await self.bot.permissions.get_user_level(
                 ctx.guild, ctx.author
             )
+            perm_level_name = PermissionLevel(user_level).name.replace("_", " ").title()
+
             embed = create_embed(
-                title="🔐 Permission Test",
-                description=f"Your permission level: **{user_level}**\n"
-                f"Bot owners: {list(self.bot.owner_ids) if self.bot.owner_ids else 'None set'}",
+                title="🔐 My Permissions",
+                description=f"Your permission level is **{user_level} ({perm_level_name})**.",
                 color=discord.Color.blue(),
             )
+            embed.set_footer(text=f"Checked for {ctx.author}")
         else:
             embed = create_embed(
                 title="❌ Permission System Error",
