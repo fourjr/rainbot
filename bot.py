@@ -10,8 +10,15 @@ import sys
 from pathlib import Path
 
 if __name__ == "__main__":
+    # --- Path Setup ---
+    # Get the directory where this launcher script is located (the project root).
+    project_root = Path(__file__).parent
+    
     # Define the path to the modernized bot's directory.
-    modernized_path = Path(__file__).parent / "rainbot_modernized"
+    modernized_path = project_root / 'rainbot_modernized'
+    
+    # Define the absolute path to the .env file.
+    dotenv_path = modernized_path / '.env'
 
     # Add the modernized directory to the system path. This is crucial so that
     # all the imports within the modernized code (e.g., from core, from config)
@@ -22,13 +29,18 @@ if __name__ == "__main__":
         # Import the main async function from the modernized entry point.
         from main import main
 
-        # Run the main asynchronous function from main.py
-        asyncio.run(main())
+        # Run the main asynchronous function and explicitly pass the .env path.
+        # This removes all ambiguity about which .env file to load.
+        asyncio.run(main(dotenv_path=dotenv_path))
 
+    except FileNotFoundError as e:
+        print(f"[FATAL LAUNCHER ERROR] The .env file could not be found.")
+        print(f"Please ensure a .env file exists at: {dotenv_path}")
+        sys.exit(1)
     except KeyboardInterrupt:
         # Handle Ctrl+C gracefully for a clean shutdown.
         print("\nShutdown requested by user. Bot is closing.")
     except Exception as e:
         # Catch any other fatal errors during startup or runtime.
-        print(f"A fatal error occurred: {e}")
+        print(f"A fatal error occurred during bot execution: {e}")
         sys.exit(1)
