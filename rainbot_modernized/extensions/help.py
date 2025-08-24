@@ -105,7 +105,7 @@ class Help(commands.Cog):
                         "server",
                         "serverhealth",
                         "stats",
-                        "testperms",
+                        "myperms",
                         "unload",
                         "user",
                     ],

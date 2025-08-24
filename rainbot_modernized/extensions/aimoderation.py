@@ -12,6 +12,8 @@ from datetime import datetime
 import discord
 import aiohttp
 from discord.ext import commands
+from google.cloud import vision
+from google.api_core import exceptions as google_exceptions
 
 from core.bot import RainBot
 from utils.decorators import has_permissions
@@ -36,15 +38,38 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
         "violence/graphic",
         "hate/threatening",
         "sexual/minors",
+        # Google Cloud Vision categories
+        "vision/adult",
+        "vision/violence",
+        "vision/racy",
+        "vision/spoof",
+        "vision/medical",
     ]
 
     def __init__(self, bot: RainBot):
         self.bot = bot
         self.logger = logging.getLogger("rainbot.aimoderation")
         self.api_url = config.api.moderation_api_url
+        self.vision_client = None
 
         if not self.api_url:
-            self.logger.warning("MODERATION_API_URL not set - AI moderation disabled")
+            self.logger.warning(
+                "MODERATION_API_URL not set - AI text moderation disabled"
+            )
+
+        try:
+            # GOOGLE_APPLICATION_CREDENTIALS env var must be set
+            self.vision_client = vision.ImageAnnotatorClient()
+            self.logger.info("Google Cloud Vision client initialized successfully.")
+        except Exception as e:
+            self.logger.warning(
+                f"Could not initialize Google Vision client: {e}. Image moderation will be disabled."
+            )
+
+    @property
+    def image_whitelist_collection(self):
+        """Helper to get the whitelist collection from the database."""
+        return self.bot.db.db["image_moderation_whitelist"]
 
     @commands.group(invoke_without_command=True, aliases=["aimod"])
     @has_permissions(level=5)
@@ -109,6 +134,117 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
             inline=False,
         )
 
+        await ctx.send(embed=embed)
+
+    @aimoderation.command(name="debug")
+    @commands.is_owner()
+    async def aimod_debug(self, ctx: commands.Context):
+        """(Owner Only) Shows internal bot ownership status for debugging."""
+        owner_ids = self.bot.owner_ids
+        author_id = ctx.author.id
+        is_owner = await self.bot.is_owner(ctx.author)
+
+        embed = create_embed(title="🐞 AIMod Owner Debug", color=discord.Color.gold())
+        embed.add_field(
+            name="Bot's Known Owner IDs", value=f"```\n{owner_ids}\n```", inline=False
+        )
+        embed.add_field(name="Your User ID", value=f"`{author_id}`", inline=False)
+        embed.add_field(
+            name="`is_owner()` Check Result", value=f"**{is_owner}**", inline=False
+        )
+
+        footer_text = ""
+        if is_owner:
+            footer_text = "✅ The bot correctly identifies you as an owner."
+        else:
+            footer_text = "❌ The bot does NOT identify you as an owner. Please check your .env file and restart."
+        embed.set_footer(text=footer_text)
+
+        await ctx.send(embed=embed)
+
+    async def is_server_whitelisted(self, guild_id: int) -> bool:
+        """Checks if a guild is in the image moderation whitelist."""
+        return (
+            await self.image_whitelist_collection.find_one({"guild_id": guild_id})
+            is not None
+        )
+
+    @aimoderation.group(
+        name="serverwhitelist", aliases=["swl"], invoke_without_command=True
+    )
+    @commands.is_owner()
+    async def server_whitelist(self, ctx: commands.Context):
+        """
+        **Manage Image Moderation Server Whitelist (Owner Only)**
+
+        Allows or disallows servers from using image moderation.
+
+        **Subcommands:**
+        • `add <server_id>`
+        • `remove <server_id>`
+        • `list`
+        """
+        if ctx.invoked_subcommand is None:
+            await self.swl_list(ctx)
+
+    @server_whitelist.command(name="add")
+    @commands.is_owner()
+    async def swl_add(self, ctx: commands.Context, guild_id: int):
+        """Adds a server to the image moderation whitelist."""
+        if await self.is_server_whitelisted(guild_id):
+            guild = self.bot.get_guild(guild_id)
+            await ctx.send(
+                f"❌ Server `{guild.name if guild else guild_id}` is already whitelisted."
+            )
+            return
+
+        await self.image_whitelist_collection.insert_one({"guild_id": guild_id})
+        guild = self.bot.get_guild(guild_id)
+        await ctx.send(
+            f"✅ Added `{guild.name if guild else guild_id}` to the image moderation whitelist."
+        )
+
+    @server_whitelist.command(name="remove")
+    @commands.is_owner()
+    async def swl_remove(self, ctx: commands.Context, guild_id: int):
+        """Removes a server from the image moderation whitelist."""
+        if not await self.is_server_whitelisted(guild_id):
+            guild = self.bot.get_guild(guild_id)
+            await ctx.send(
+                f"❌ Server `{guild.name if guild else guild_id}` is not whitelisted."
+            )
+            return
+
+        await self.image_whitelist_collection.delete_one({"guild_id": guild_id})
+        guild = self.bot.get_guild(guild_id)
+        await ctx.send(
+            f"✅ Removed `{guild.name if guild else guild_id}` from the image moderation whitelist."
+        )
+
+    @server_whitelist.command(name="list")
+    @commands.is_owner()
+    async def swl_list(self, ctx: commands.Context):
+        """Lists all servers in the image moderation whitelist."""
+        cursor = self.image_whitelist_collection.find({})
+
+        description_lines = []
+        async for server_doc in cursor:
+            guild_id = server_doc["guild_id"]
+            guild = self.bot.get_guild(guild_id)
+            description_lines.append(
+                f"• {guild.name if guild else 'Unknown Server'} (`{guild_id}`)"
+            )
+
+        if not description_lines:
+            description = "No servers are currently whitelisted for image moderation."
+        else:
+            description = "\n".join(description_lines)
+
+        embed = create_embed(
+            title="🖼️ Image Moderation Server Whitelist",
+            description=description,
+            color=discord.Color.blue(),
+        )
         await ctx.send(embed=embed)
 
     @aimoderation.group(name="whitelist", invoke_without_command=True)
@@ -578,13 +714,34 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
         if category is None:
             embed = create_embed(
                 title="🤖 Available AI Moderation Categories",
-                description="Here is a list of all available categories for AI moderation.",
+                description="Below are all the categories you can configure.",
                 color=discord.Color.blue(),
             )
-            embed.add_field(
-                name="Categories",
-                value="\n".join([f"• `{cat}`" for cat in self.VALID_CATEGORIES]),
-                inline=False,
+
+            text_categories = []
+            image_categories = []
+            for cat in self.VALID_CATEGORIES:
+                if cat.startswith("vision/"):
+                    image_categories.append(f"• {cat.replace('vision/', '')}")
+                else:
+                    text_categories.append(f"• {cat}")
+
+            if text_categories:
+                embed.add_field(
+                    name="📝 Text Categories",
+                    value="```\n" + "\n".join(text_categories) + "\n```",
+                    inline=False,
+                )
+
+            if image_categories:
+                embed.add_field(
+                    name="🖼️ Image Categories (Vision)",
+                    value="```\n" + "\n".join(image_categories) + "\n```",
+                    inline=False,
+                )
+
+            embed.set_footer(
+                text="When enabling/disabling, use the full name (e.g., vision/adult)"
             )
             await ctx.send(embed=embed)
             return
@@ -766,20 +923,53 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
                 return await resp.json()
 
     async def _moderate_image(self, attachment: discord.Attachment) -> Dict[str, Any]:
-        """Moderate image content using external API"""
-        if not self.api_url:
-            raise ValueError("API URL not configured")
+        """Moderate image content using Google Cloud Vision AI"""
+        if not self.vision_client:
+            raise ValueError("Google Vision client not initialized")
 
-        form = aiohttp.FormData()
-        form.add_field("file", await attachment.read(), filename=attachment.filename)
+        likelihood_to_score = {
+            vision.Likelihood.UNKNOWN: 0.0,
+            vision.Likelihood.VERY_UNLIKELY: 0.1,
+            vision.Likelihood.UNLIKELY: 0.3,
+            vision.Likelihood.POSSIBLE: 0.5,
+            vision.Likelihood.LIKELY: 0.8,
+            vision.Likelihood.VERY_LIKELY: 0.95,
+        }
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                f"{self.api_url}/moderate/image", data=form
-            ) as resp:
-                if resp.status != 200:
-                    raise ValueError(f"API request failed with status {resp.status}")
-                return await resp.json()
+        try:
+            image_content = await attachment.read()
+            image = vision.Image(content=image_content)
+
+            response = await self.bot.loop.run_in_executor(
+                None, self.vision_client.safe_search_detection, image
+            )
+            safe_search = response.safe_search_annotation
+
+            scores = {
+                "vision/adult": likelihood_to_score.get(safe_search.adult, 0.0),
+                "vision/violence": likelihood_to_score.get(safe_search.violence, 0.0),
+                "vision/racy": likelihood_to_score.get(safe_search.racy, 0.0),
+                "vision/spoof": likelihood_to_score.get(safe_search.spoof, 0.0),
+                "vision/medical": likelihood_to_score.get(safe_search.medical, 0.0),
+            }
+
+            # Default threshold is LIKELY (0.8)
+            flagged_categories = [cat for cat, score in scores.items() if score >= 0.8]
+
+            decision = "reject" if flagged_categories else "allow"
+
+            return {
+                "decision": decision,
+                "categories": flagged_categories,
+                "category_scores": scores,
+            }
+
+        except google_exceptions.GoogleAPICallError as e:
+            self.logger.error(f"Google Vision API error: {e}")
+            raise ValueError(f"Google Vision API error: {e}")
+        except Exception as e:
+            self.logger.error(f"Error moderating image with Google Vision: {e}")
+            raise ValueError(f"Error moderating image: {e}")
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -812,7 +1002,11 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
 
             # Image moderation
             if message.attachments and ai_config.get("image_moderation", True):
-                await self._process_image_moderation(message, ai_config)
+                if not self.vision_client:
+                    return
+
+                if await self.is_server_whitelisted(message.guild.id):
+                    await self._process_image_moderation(message, ai_config)
 
         except Exception as e:
             self.logger.error(f"AI moderation error: {e}")
@@ -861,13 +1055,17 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
                 if flagged_categories:
                     # Update result with categories that actually crossed the threshold
                     result["categories"] = flagged_categories
-                    await self._take_action(message, result, ai_config)
+                    await self._take_action(
+                        message, result, ai_config, attachment=attachment
+                    )
                     break
 
             except Exception as e:
                 self.logger.error(f"Image moderation failed: {e}")
 
-    async def _log_action(self, guild_id: int, embed: discord.Embed):
+    async def _log_action(
+        self, guild_id: int, embed: discord.Embed, file: Optional[discord.File] = None
+    ):
         guild_config = await self.bot.db.get_guild_config(guild_id)
         ai_config = guild_config.get("ai_moderation", {})
         log_channel_id = ai_config.get("log_channel")
@@ -876,7 +1074,7 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
             log_channel = self.bot.get_channel(log_channel_id)
             if log_channel:
                 try:
-                    await log_channel.send(embed=embed)
+                    await log_channel.send(embed=embed, file=file)
                 except discord.Forbidden:
                     self.logger.warning(
                         f"Missing permissions to send log message to {log_channel_id}"
@@ -885,7 +1083,11 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
                     self.logger.error(f"Failed to send log message: {e}")
 
     async def _take_action(
-        self, message: discord.Message, result: Dict[str, Any], ai_config
+        self,
+        message: discord.Message,
+        result: Dict[str, Any],
+        ai_config,
+        attachment: Optional[discord.Attachment] = None,
     ):
         """Take moderation action based on AI result"""
         categories = result.get("categories", [])
@@ -948,7 +1150,11 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
             )
             log_embed.timestamp = datetime.utcnow()
 
-            await self._log_action(message.guild.id, log_embed)
+            log_file = None
+            if attachment:
+                log_file = await attachment.to_file(spoiler=True)
+
+            await self._log_action(message.guild.id, log_embed, file=log_file)
 
             if action == "none":
                 return  # Only notify, take no action
