@@ -1,29 +1,37 @@
-#!/usr/bin/env python3
 """
-RainBot - Discord Moderation Bot
-Entry point for starting the bot from the root directory
+Main entry point for the RainBot.
+
+This script launches the modernized bot application, ensuring the
+correct working directory for configuration and module loading.
 """
 
-import sys
 import os
+import sys
+import asyncio
 from pathlib import Path
 
-# Change to the modernized rainbot directory
-rainbot_dir = Path(__file__).parent / "rainbot_modernized"
-os.chdir(rainbot_dir)
-
-# Add the modernized rainbot to the Python path
-sys.path.insert(0, str(rainbot_dir))
-
-# Import and run the main function from the modernized version
-from main import main
-import asyncio
-
 if __name__ == "__main__":
+    # Get the directory where this script is located (the project root).
+    project_root = Path(__file__).parent
+
+    # Change the current working directory to the project root.
+    # This ensures that load_dotenv() in main.py finds the root .env file.
+    os.chdir(project_root)
+
+    # Define the path to the modernized bot's code.
+    modernized_path = project_root / "rainbot_modernized"
+
+    # Add the modernized directory to the system path for correct imports.
+    sys.path.insert(0, str(modernized_path))
+
     try:
+        # Import and run the main application.
+        from main import main
+
         asyncio.run(main())
+
     except KeyboardInterrupt:
-        print("\nShutdown complete!")
+        print("\nShutdown requested by user.")
     except Exception as e:
-        print(f"Fatal error: {e}")
+        print(f"A fatal error occurred: {e}")
         sys.exit(1)

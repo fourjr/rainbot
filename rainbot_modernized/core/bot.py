@@ -90,14 +90,16 @@ class RainBot(commands.Bot):
     async def _load_extensions(self):
         """Load all bot extensions"""
         import os
+        from pathlib import Path
 
-        extensions_dir = "extensions"
+        # Construct an absolute path to the extensions directory
+        extensions_path = Path(__file__).parent.parent / "extensions"
         loaded = 0
         failed = 0
 
-        for filename in os.listdir(extensions_dir):
+        for filename in os.listdir(extensions_path):
             if filename.endswith(".py") and not filename.startswith("__"):
-                extension = f"{extensions_dir}.{filename[:-3]}"
+                extension = f"extensions.{filename[:-3]}"
                 try:
                     await self.load_extension(extension)
                     self.logger.info(f"Loaded extension: {extension}")

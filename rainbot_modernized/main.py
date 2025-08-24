@@ -12,6 +12,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Add the project root to Python path
+
+# Add the project root to Python path BEFORE other imports
+
 sys.path.insert(0, str(Path(__file__).parent))
 
 from config.config import config
@@ -19,8 +22,15 @@ from core.logging import setup_logging
 from core.bot import RainBot
 
 
-async def main():
+async def main(dotenv_path: Path | str | None = None):
     """Main entry point"""
+    # Load environment variables from the provided path
+    if not load_dotenv(dotenv_path=dotenv_path):
+        # This will happen if the file is not found
+        raise FileNotFoundError(
+            f"The specified .env file could not be found at: {dotenv_path}"
+        )
+
     # Setup logging
     logger = setup_logging()
 
@@ -53,8 +63,10 @@ async def main():
 
 
 if __name__ == "__main__":
+    # This allows running main.py directly for development/debugging
     try:
-        asyncio.run(main())
+        path_for_direct_run = Path(__file__).parent / ".env"
+        asyncio.run(main(dotenv_path=path_for_direct_run))
     except KeyboardInterrupt:
         print("\nShutdown complete!")
     except Exception as e:
