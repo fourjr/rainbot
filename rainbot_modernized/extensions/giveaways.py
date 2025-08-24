@@ -54,6 +54,7 @@ class Giveaways(commands.Cog):
         return timedelta(seconds=total_seconds)
 
     @commands.group(invoke_without_command=True)
+    @has_permissions(level=2)
     async def giveaway(self, ctx):
         """Manages giveaways on the server.
 

@@ -216,3 +216,6 @@ yarn-error.log*
 local/
 dev/
 test_data/
+
+# Credentials
+credentials/
