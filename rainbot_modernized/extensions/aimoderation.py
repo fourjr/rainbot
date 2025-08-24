@@ -111,6 +111,125 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
 
         await ctx.send(embed=embed)
 
+    @aimoderation.group(name="whitelist", invoke_without_command=True)
+    @has_permissions(level=5)
+    async def whitelist(self, ctx: commands.Context):
+        """
+        **Whitelist Management**
+
+        Manage users, roles, and channels to be exempt from AI moderation.
+
+        **Subcommands:**
+        • `add <user|role|channel>`
+        • `remove <user|role|channel>`
+        • `list`
+        """
+        if ctx.invoked_subcommand is None:
+            await self.list_whitelist(ctx)
+
+    @whitelist.command(name="add")
+    @has_permissions(level=5)
+    async def add_to_whitelist(
+        self,
+        ctx: commands.Context,
+        entity: discord.abc.GuildChannel | discord.Role | discord.User,
+    ):
+        """Adds a user, role, or channel to the AI moderation whitelist.
+
+        **Usage:** `{prefix}aimod whitelist add <user|role|channel>`
+        """
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        whitelist = guild_config.get("ai_moderation", {}).get("whitelist", [])
+
+        if entity.id in whitelist:
+            embed = create_embed(
+                title="❌ Already Whitelisted",
+                description=f"{entity.mention} is already in the whitelist.",
+                color=discord.Color.red(),
+            )
+            await ctx.send(embed=embed)
+            return
+
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {"$push": {"ai_moderation.whitelist": entity.id}}
+        )
+
+        embed = create_embed(
+            title="✅ Whitelist Updated",
+            description=f"{entity.mention} has been added to the AI moderation whitelist.",
+            color=discord.Color.green(),
+        )
+        await ctx.send(embed=embed)
+
+    @whitelist.command(name="remove")
+    @has_permissions(level=5)
+    async def remove_from_whitelist(
+        self,
+        ctx: commands.Context,
+        entity: discord.abc.GuildChannel | discord.Role | discord.User,
+    ):
+        """Removes a user, role, or channel from the AI moderation whitelist.
+
+        **Usage:** `{prefix}aimod whitelist remove <user|role|channel>`
+        """
+        await self.bot.db.update_guild_config(
+            ctx.guild.id, {"$pull": {"ai_moderation.whitelist": entity.id}}
+        )
+
+        embed = create_embed(
+            title="✅ Whitelist Updated",
+            description=f"{entity.mention} has been removed from the AI moderation whitelist.",
+            color=discord.Color.green(),
+        )
+        await ctx.send(embed=embed)
+
+    @whitelist.command(name="list")
+    @has_permissions(level=5)
+    async def list_whitelist(self, ctx: commands.Context):
+        """Lists all whitelisted users, roles, and channels.
+
+        **Usage:** `{prefix}aimod whitelist list`
+        """
+        guild_config = await self.bot.db.get_guild_config(ctx.guild.id)
+        whitelist_ids = guild_config.get("ai_moderation", {}).get("whitelist", [])
+
+        if not whitelist_ids:
+            embed = create_embed(
+                title="ℹ️ Whitelist is Empty",
+                description="No users, roles, or channels are currently whitelisted.",
+                color=discord.Color.blue(),
+            )
+            await ctx.send(embed=embed)
+            return
+
+        users = []
+        roles = []
+        channels = []
+
+        for entity_id in whitelist_ids:
+            user = ctx.guild.get_member(entity_id)
+            role = ctx.guild.get_role(entity_id)
+            channel = ctx.guild.get_channel(entity_id)
+
+            if user:
+                users.append(user.mention)
+            elif role:
+                roles.append(role.mention)
+            elif channel:
+                channels.append(channel.mention)
+
+        embed = create_embed(
+            title="Whitelist Configuration", color=discord.Color.blue()
+        )
+        if users:
+            embed.add_field(name="Users", value="\n".join(users), inline=False)
+        if roles:
+            embed.add_field(name="Roles", value="\n".join(roles), inline=False)
+        if channels:
+            embed.add_field(name="Channels", value="\n".join(channels), inline=False)
+
+        await ctx.send(embed=embed)
+
     @aimoderation.command(name="enable")
     @has_permissions(level=5)
     async def enable(self, ctx: commands.Context):
@@ -215,6 +334,28 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
             log_channel_status = "Not Set"
         embed.add_field(name="Log Channel", value=log_channel_status, inline=False)
 
+        # Whitelist
+        whitelist_ids = ai_config.get("whitelist", [])
+        if whitelist_ids:
+            whitelisted_items = []
+            for entity_id in whitelist_ids:
+                user = self.bot.get_user(entity_id)
+                role = ctx.guild.get_role(entity_id)
+                channel = self.bot.get_channel(entity_id)
+                if user:
+                    whitelisted_items.append(user.mention)
+                elif role:
+                    whitelisted_items.append(role.mention)
+                elif channel:
+                    whitelisted_items.append(channel.mention)
+
+            if whitelisted_items:
+                embed.add_field(
+                    name="Whitelist",
+                    value=", ".join(whitelisted_items),
+                    inline=False,
+                )
+
         # Categories
         categories = ai_config.get("categories", {})
         if categories:
@@ -296,9 +437,7 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
                     for cat, score in scores.items()
                 ]
             )
-            embed.add_field(
-                name="Confidence Scores", value=score_text, inline=False
-            )
+            embed.add_field(name="Confidence Scores", value=score_text, inline=False)
 
     async def _test_text_moderation(self, ctx: commands.Context, content: str):
         """Helper to test text moderation"""
@@ -306,7 +445,8 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
             try:
                 result = await self._moderate_text(content)
                 embed = create_embed(
-                    title="🧪 AI Text Moderation Test Results", color=discord.Color.blue()
+                    title="🧪 AI Text Moderation Test Results",
+                    color=discord.Color.blue(),
                 )
                 embed.add_field(
                     name="Content",
@@ -324,7 +464,9 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
                 )
                 await ctx.send(embed=embed)
 
-    async def _test_image_moderation(self, ctx: commands.Context, attachment: discord.Attachment):
+    async def _test_image_moderation(
+        self, ctx: commands.Context, attachment: discord.Attachment
+    ):
         """Helper to test image moderation"""
         if not any(
             attachment.filename.lower().endswith(ext)
@@ -342,7 +484,8 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
             try:
                 result = await self._moderate_image(attachment)
                 embed = create_embed(
-                    title="🧪 AI Image Moderation Test Results", color=discord.Color.blue()
+                    title="🧪 AI Image Moderation Test Results",
+                    color=discord.Color.blue(),
                 )
                 embed.set_image(url=attachment.url)
                 self._add_result_fields_to_embed(embed, result)
@@ -653,6 +796,15 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
         if not self.api_url:
             return
 
+        # Whitelist check
+        whitelist = ai_config.get("whitelist", [])
+        if message.author.id in whitelist:
+            return
+        if message.channel.id in whitelist:
+            return
+        if any(role.id in whitelist for role in message.author.roles):
+            return
+
         try:
             # Text moderation
             if message.content and ai_config.get("text_moderation", True):
@@ -669,8 +821,18 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
         """Process text moderation"""
         try:
             result = await self._moderate_text(message.content)
+            scores = result.get("category_scores", {})
+            thresholds = ai_config.get("thresholds", {})
 
-            if result.get("decision") == "flag":
+            flagged_categories = [
+                cat
+                for cat, score in scores.items()
+                if score >= thresholds.get(cat, 0.8)  # Default to 80% if not set
+            ]
+
+            if flagged_categories:
+                # Update result with categories that actually crossed the threshold
+                result["categories"] = flagged_categories
                 await self._take_action(message, result, ai_config)
 
         except Exception as e:
@@ -687,8 +849,18 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
 
             try:
                 result = await self._moderate_image(attachment)
+                scores = result.get("category_scores", {})
+                thresholds = ai_config.get("thresholds", {})
 
-                if result.get("decision") in ("block", "flag"):
+                flagged_categories = [
+                    cat
+                    for cat, score in scores.items()
+                    if score >= thresholds.get(cat, 0.8)  # Default to 80% if not set
+                ]
+
+                if flagged_categories:
+                    # Update result with categories that actually crossed the threshold
+                    result["categories"] = flagged_categories
                     await self._take_action(message, result, ai_config)
                     break
 
