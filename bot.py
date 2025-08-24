@@ -17,8 +17,8 @@ if __name__ == "__main__":
     # Define the path to the modernized bot's directory.
     modernized_path = project_root / 'rainbot_modernized'
     
-    # Define the absolute path to the .env file.
-    dotenv_path = modernized_path / '.env'
+    # Define the absolute path to the .env file, located in the project root.
+    dotenv_path = project_root / '.env'
 
     # Add the modernized directory to the system path. This is crucial so that
     # all the imports within the modernized code (e.g., from core, from config)
@@ -29,8 +29,7 @@ if __name__ == "__main__":
         # Import the main async function from the modernized entry point.
         from main import main
 
-        # Run the main asynchronous function and explicitly pass the .env path.
-        # This removes all ambiguity about which .env file to load.
+        # Run the main asynchronous function and explicitly pass the root .env path.
         asyncio.run(main(dotenv_path=dotenv_path))
 
     except FileNotFoundError as e:
