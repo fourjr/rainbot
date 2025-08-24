@@ -11,7 +11,7 @@ from pathlib import Path
 
 if __name__ == "__main__":
     # Define the path to the modernized bot's directory.
-    modernized_path = Path(__file__).parent / 'rainbot_modernized'
+    modernized_path = Path(__file__).parent / "rainbot_modernized"
 
     # Add the modernized directory to the system path. This is crucial so that
     # all the imports within the modernized code (e.g., from core, from config)
