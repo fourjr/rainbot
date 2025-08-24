@@ -150,7 +150,7 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
             await ctx.send(embed=embed)
             return
 
-        await self.bot.db.update_guild_config(
+        await self.bot.db.update_guild_config_atomic(
             ctx.guild.id, {"$push": {"ai_moderation.whitelist": entity.id}}
         )
 
@@ -172,7 +172,7 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
 
         **Usage:** `{prefix}aimod whitelist remove <user|role|channel>`
         """
-        await self.bot.db.update_guild_config(
+        await self.bot.db.update_guild_config_atomic(
             ctx.guild.id, {"$pull": {"ai_moderation.whitelist": entity.id}}
         )
 

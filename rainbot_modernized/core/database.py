@@ -271,6 +271,27 @@ class DatabaseManager:
 
         return result
 
+    async def update_guild_config_atomic(
+        self, guild_id: int, update: Dict[str, Any], upsert: bool = True
+    ) -> Dict[str, Any]:
+        """Update guild configuration using atomic operators"""
+        # Add timestamp
+        update.setdefault("$set", {})["updated_at"] = datetime.now(timezone.utc)
+
+        # Update in database
+        result = await self.db.guilds.find_one_and_update(
+            {"guild_id": guild_id},
+            update,
+            upsert=upsert,
+            return_document=ReturnDocument.AFTER,
+        )
+
+        # Update cache
+        if result:
+            self.guild_cache[guild_id] = result
+
+        return result
+
     async def get_user_config(self, user_id: int) -> Dict[str, Any]:
         """Get user configuration with caching"""
         # Check cache first
