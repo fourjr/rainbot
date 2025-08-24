@@ -9,9 +9,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Load environment variables first
-# Construct the path to the .env file relative to this script's location
-dotenv_path = Path(__file__).parent / ".env"
-load_dotenv(dotenv_path=dotenv_path)
+load_dotenv()
 
 # Add the project root to Python path
 sys.path.insert(0, str(Path(__file__).parent))
