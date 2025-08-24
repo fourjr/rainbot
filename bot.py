@@ -1,45 +1,36 @@
 """
 Main entry point for the RainBot.
 
-This script acts as a launcher for the modernized bot application,
-allowing you to run the bot from the root directory using `python bot.py`.
+This script launches the modernized bot application, ensuring the
+correct working directory for configuration and module loading.
 """
 
-import asyncio
+import os
 import sys
+import asyncio
 from pathlib import Path
 
 if __name__ == "__main__":
-    # --- Path Setup ---
-    # Get the directory where this launcher script is located (the project root).
+    # Get the directory where this script is located (the project root).
     project_root = Path(__file__).parent
     
-    # Define the path to the modernized bot's directory.
-    modernized_path = project_root / 'rainbot_modernized'
-    
-    # Define the absolute path to the .env file, located in the project root.
-    dotenv_path = project_root / '.env'
+    # Change the current working directory to the project root.
+    # This ensures that load_dotenv() in main.py finds the root .env file.
+    os.chdir(project_root)
 
-    # Add the modernized directory to the system path. This is crucial so that
-    # all the imports within the modernized code (e.g., from core, from config)
-    # can be found correctly by Python.
+    # Define the path to the modernized bot's code.
+    modernized_path = project_root / 'rainbot_modernized'
+
+    # Add the modernized directory to the system path for correct imports.
     sys.path.insert(0, str(modernized_path))
 
     try:
-        # Import the main async function from the modernized entry point.
+        # Import and run the main application.
         from main import main
+        asyncio.run(main())
 
-        # Run the main asynchronous function and explicitly pass the root .env path.
-        asyncio.run(main(dotenv_path=dotenv_path))
-
-    except FileNotFoundError as e:
-        print(f"[FATAL LAUNCHER ERROR] The .env file could not be found.")
-        print(f"Please ensure a .env file exists at: {dotenv_path}")
-        sys.exit(1)
     except KeyboardInterrupt:
-        # Handle Ctrl+C gracefully for a clean shutdown.
-        print("\nShutdown requested by user. Bot is closing.")
+        print("\nShutdown requested by user.")
     except Exception as e:
-        # Catch any other fatal errors during startup or runtime.
-        print(f"A fatal error occurred during bot execution: {e}")
+        print(f"A fatal error occurred: {e}")
         sys.exit(1)
