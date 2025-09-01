@@ -23,31 +23,44 @@ class PermissionLevel(IntEnum):
 class PermissionManager:
     """Manages permission levels for users"""
 
-    def __init__(self, db):
+    def __init__(self, db, bot):
         self.db = db
+        self.bot = bot
 
     async def get_user_level(self, guild: discord.Guild, user: discord.Member) -> int:
-        """Get the permission level for a user"""
+        """Get the permission level for a user, combining custom roles and Discord permissions."""
         # Bot owners have maximum permissions
-        if user.id in [188363246695219201, 95280508384063488, 231595246213922828]:
+        if user.id in self.bot.owner_ids:
             return PermissionLevel.BOT_OWNER
 
-        # Server owner has server manager permissions
+        # Server owner
         if user.id == guild.owner_id:
             return PermissionLevel.SERVER_OWNER
 
-        # Check role-based permissions
-        config = await self.db.get_guild_config(guild.id)
-        permission_roles = config.get("permission_roles", {})
-
+        # Start with base level
         highest_level = PermissionLevel.EVERYONE
 
+        # 1. Check custom permission roles from DB
+        config = await self.db.get_guild_config(guild.id)
+        permission_roles = config.get("permission_roles", {})
         for role in user.roles:
             role_level = permission_roles.get(str(role.id), 0)
             if role_level > highest_level:
-                highest_level = role_level
+                highest_level = PermissionLevel(role_level)
 
-        return highest_level
+        # 2. Check built-in Discord permissions and assign a corresponding level
+        discord_perms_level = PermissionLevel.EVERYONE
+        if user.guild_permissions.administrator:
+            discord_perms_level = PermissionLevel.ADMINISTRATOR
+        elif user.guild_permissions.ban_members:
+            discord_perms_level = PermissionLevel.SENIOR_MODERATOR
+        elif user.guild_permissions.kick_members:
+            discord_perms_level = PermissionLevel.MODERATOR
+        elif user.guild_permissions.manage_messages:
+            discord_perms_level = PermissionLevel.HELPER
+
+        # Return the highest of the two
+        return max(highest_level, discord_perms_level)
 
     async def has_permission(
         self, guild: discord.Guild, user: discord.Member, required_level: int
