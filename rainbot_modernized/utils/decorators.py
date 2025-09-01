@@ -5,19 +5,7 @@ from discord.ext import commands
 from typing import Callable, Any
 from enum import IntEnum
 
-
-class PermissionLevel(IntEnum):
-    EVERYONE = 0
-    HELPER = 1
-    MODERATOR = 2
-    SENIOR_MODERATOR = 3
-    ADMINISTRATOR = 4
-    SENIOR_ADMINISTRATOR = 5
-    SERVER_MANAGER = 6
-    SERVER_OWNER = 7
-    BOT_DEVELOPER = 8
-    BOT_OWNER = 9
-    SYSTEM = 10
+from core.permissions import PermissionLevel
 
 
 def require_permission(level: PermissionLevel):
