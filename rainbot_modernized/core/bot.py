@@ -77,7 +77,7 @@ class RainBot(commands.Bot):
         self.logger.info("✅ Database connection successful")
 
         # Initialize permissions
-        self.permissions = PermissionManager(self.db)
+        self.permissions = PermissionManager(self.db, self)
 
         # Create HTTP session
         self.session = aiohttp.ClientSession()

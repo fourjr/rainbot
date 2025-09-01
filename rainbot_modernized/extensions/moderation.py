@@ -180,7 +180,7 @@ class Moderation(commands.Cog):
         await self._check_auto_punishment(ctx, user, "warn")
 
     @commands.command(name="mute")
-    @require_permission(PermissionLevel.MODERATOR)
+    @require_permission(PermissionLevel.HELPER)
     async def mute_user(
         self,
         ctx: commands.Context,
@@ -290,7 +290,7 @@ class Moderation(commands.Cog):
         )
 
     @commands.command(name="unmute")
-    @require_permission(PermissionLevel.MODERATOR)
+    @require_permission(PermissionLevel.HELPER)
     async def unmute_user(
         self,
         ctx: commands.Context,
@@ -403,7 +403,7 @@ class Moderation(commands.Cog):
         )
 
     @commands.command(name="kick")
-    @require_permission(PermissionLevel.SENIOR_MODERATOR)
+    @require_permission(PermissionLevel.MODERATOR)
     async def kick_user(
         self,
         ctx: commands.Context,
@@ -1262,7 +1262,7 @@ class Moderation(commands.Cog):
         await safe_send(ctx, embed=embed)
 
     @commands.command(name="purge", aliases=["clean", "prune"])
-    @require_permission(PermissionLevel.MODERATOR)
+    @require_permission(PermissionLevel.HELPER)
     async def purge_messages(
         self, ctx: commands.Context, limit: int, member: discord.Member = None
     ):
