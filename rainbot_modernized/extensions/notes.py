@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from core.database import Database
 from utils.decorators import has_permissions
-from utils.helpers import create_embed
+from utils.helpers import create_embed, status_embed, update_nested_config
 from utils.converters import MemberOrUser
 from datetime import datetime, timezone
 
@@ -62,10 +62,10 @@ class Notes(commands.Cog):
         notes.append(note_entry)
         await self.db.update_guild_config(ctx.guild.id, {"notes": notes})
 
-        embed = create_embed(
+        embed = status_embed(
             title="✅ Note Added",
             description=f"Note #{case_number} added for {member.mention}: {note_text}",
-            color="success",
+            status="success",
         )
         await ctx.send(embed=embed)
 
@@ -87,20 +87,20 @@ class Notes(commands.Cog):
                 break
 
         if not note_to_remove:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Note Not Found",
                 description=f"Note #{case_number} doesn't exist",
-                color="error",
+                status="error",
             )
             await ctx.send(embed=embed)
             return
 
         await self.db.update_guild_config(ctx.guild.id, {"notes": notes})
 
-        embed = create_embed(
+        embed = status_embed(
             title="✅ Note Removed",
             description=f"Note #{case_number} has been removed",
-            color="success",
+            status="success",
         )
         await ctx.send(embed=embed)
 
@@ -118,10 +118,10 @@ class Notes(commands.Cog):
         user_notes = [note for note in notes if note.get("member_id") == str(member.id)]
 
         if not user_notes:
-            embed = create_embed(
+            embed = status_embed(
                 title="📝 No Notes",
                 description=f"{member.mention} has no notes",
-                color="info",
+                status="info",
             )
             await ctx.send(embed=embed)
             return

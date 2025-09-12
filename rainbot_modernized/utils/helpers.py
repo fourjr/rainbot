@@ -40,6 +40,54 @@ from discord.ext import commands
 from .constants import COLORS, EMOJIS
 
 
+# --- Utility functions for config updates and status embeds ---
+async def update_nested_config(db, guild_id: int, key: str, subkey: str, value: Any):
+    """
+    Update a nested config key (e.g., log_channels, permission_roles) in the guild config.
+    """
+    config = await db.get_guild_config(guild_id)
+    nested = config.get(key, {})
+    nested[subkey] = value
+    await db.update_guild_config(guild_id, {key: nested})
+    return nested
+
+
+async def remove_nested_config(db, guild_id: int, key: str, subkey: str):
+    """
+    Remove a subkey from a nested config dict (e.g., permission_roles).
+    """
+    config = await db.get_guild_config(guild_id)
+    nested = config.get(key, {})
+    if subkey in nested:
+        del nested[subkey]
+        await db.update_guild_config(guild_id, {key: nested})
+    return nested
+
+
+def status_embed(
+    title: str,
+    description: str,
+    status: str = "success",
+    *,
+    ephemeral: bool = False,
+    **kwargs,
+) -> discord.Embed:
+    """
+    Create a standardized status embed (success, error, info).
+    """
+    color_map = {
+        "success": COLORS.get("success", 0x43B581),
+        "error": COLORS.get("error", 0xF04747),
+        "info": COLORS.get("primary", 0x7289DA),
+        "warning": COLORS.get("warning", 0xFAA61A),
+    }
+    color = color_map.get(status, COLORS.get("primary", 0x7289DA))
+    embed = discord.Embed(title=title, description=description, color=color, **kwargs)
+    if ephemeral:
+        embed.set_footer(text="Only you can see this message.")
+    return embed
+
+
 def format_duration(seconds: Union[int, float, timedelta]) -> str:
     """
     Format a duration in seconds to a human-readable string
