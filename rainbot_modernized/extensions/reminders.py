@@ -10,7 +10,7 @@ from typing import Optional
 import re
 import secrets
 
-from utils.helpers import create_embed
+from utils.helpers import create_embed, status_embed
 from utils.constants import COLORS, EMOJIS
 
 
@@ -66,11 +66,10 @@ class Reminders(commands.Cog):
         """
         delta = self.parse_timedelta(time)
         if not delta:
-            embed = create_embed(
+            embed = status_embed(
                 title=f"{EMOJIS['error']} Invalid Time Format",
-                description="Use time units: `s`, `m`, `h`, `d`, `w`, `mo`, `y`\n"
-                "Example: `1h30m` or `2d`",
-                color=COLORS["error"],
+                description="Use time units: `s`, `m`, `h`, `d`, `w`, `mo`, `y`\nExample: `1h30m` or `2d`",
+                status="error",
             )
             return await ctx.send(embed=embed)
 
@@ -100,18 +99,13 @@ class Reminders(commands.Cog):
         else:
             await self.db.db.reminders.insert_one(stored_data)
 
-        formatted_time = f"<t:{int(remind_time.timestamp())}:R>"
-        location = "via DM" if dm else "in this channel"
-
-        embed = create_embed(
+        embed = status_embed(
             title=f"{EMOJIS['success']} Reminder Set",
-            description=f"Reminder `{reminder_id}` set {location} for {formatted_time}",
-            color=COLORS["success"],
+            description=f"Reminder `{reminder_id}` set {'via DM' if dm else 'in this channel'} for <t:{int(remind_time.timestamp())}:R>",
+            status="success",
         )
-
         if message:
             embed.add_field(name="Message", value=message, inline=False)
-
         await ctx.send(embed=embed)
 
     @commands.group(invoke_without_command=True, aliases=["reminders"])
@@ -138,10 +132,10 @@ class Reminders(commands.Cog):
         reminders = db_reminders + memory_reminders
 
         if not reminders:
-            embed = create_embed(
+            embed = status_embed(
                 title=f"{EMOJIS['info']} No Active Reminders",
                 description="You have no active reminders set.",
-                color=COLORS["info"],
+                status="info",
             )
             return await ctx.send(embed=embed)
 
@@ -179,46 +173,46 @@ class Reminders(commands.Cog):
         # Check short-term reminders first
         if reminder_id in self.short_term:
             if self.short_term[reminder_id]["user_id"] != ctx.author.id:
-                embed = create_embed(
+                embed = status_embed(
                     title=f"{EMOJIS['error']} Permission Denied",
                     description="You can only cancel your own reminders.",
-                    color=COLORS["error"],
+                    status="error",
                 )
                 return await ctx.send(embed=embed)
 
             del self.short_term[reminder_id]
-            embed = create_embed(
+            embed = status_embed(
                 title=f"{EMOJIS['success']} Reminder Cancelled",
                 description=f"Reminder `{reminder_id}` has been cancelled.",
-                color=COLORS["success"],
+                status="success",
             )
             return await ctx.send(embed=embed)
 
         # Check database reminders
         reminder = await self.db.db.reminders.find_one({"_id": reminder_id})
         if not reminder:
-            embed = create_embed(
+            embed = status_embed(
                 title=f"{EMOJIS['error']} Reminder Not Found",
-                description=f"No reminder found with ID `{reminder_id}`",
-                color=COLORS["error"],
+                description="No reminder found with that ID.",
+                status="error",
             )
             return await ctx.send(embed=embed)
 
-        if reminder["user_id"] != ctx.author.id:
-            embed = create_embed(
+        if reminder.get("user_id") != ctx.author.id:
+            embed = status_embed(
                 title=f"{EMOJIS['error']} Permission Denied",
                 description="You can only cancel your own reminders.",
-                color=COLORS["error"],
+                status="error",
             )
             return await ctx.send(embed=embed)
 
         await self.db.db.reminders.delete_one({"_id": reminder_id})
-        embed = create_embed(
+        embed = status_embed(
             title=f"{EMOJIS['success']} Reminder Cancelled",
             description=f"Reminder `{reminder_id}` has been cancelled.",
-            color=COLORS["success"],
+            status="success",
         )
-        await ctx.send(embed=embed)
+        return await ctx.send(embed=embed)
 
     @tasks.loop(seconds=5)
     async def check_reminders(self):

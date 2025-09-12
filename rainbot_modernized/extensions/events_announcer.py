@@ -6,7 +6,12 @@ from collections import defaultdict
 from typing import Union
 from core.database import Database
 from utils.decorators import has_permissions
-from utils.helpers import create_embed
+from utils.helpers import (
+    create_embed,
+    status_embed,
+    update_nested_config,
+    remove_nested_config,
+)
 
 
 class SafeFormat(dict):
@@ -97,38 +102,32 @@ class EventsAnnouncer(commands.Cog):
         valid_events = ["member_join", "member_remove"]
 
         if event_type not in valid_events:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Invalid Event",
                 description=f"Valid events: {', '.join(valid_events)}",
-                color="error",
+                status="error",
             )
             await ctx.send(embed=embed)
             return
 
         if channel and channel != "dm" and not isinstance(channel, discord.TextChannel):
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Invalid Channel",
                 description="Channel must be a text channel mention or 'dm'",
-                color="error",
+                status="error",
             )
             await ctx.send(embed=embed)
             return
 
-        config = await self.db.get_guild_config(ctx.guild.id)
-        events_config = config.get("events_announce", {})
-
+        # Clear announcement when message is None
         if message is None:
-            # Clear announcement
-            if event_type in events_config:
-                del events_config[event_type]
-            await self.db.update_guild_config(
-                ctx.guild.id, {"events_announce": events_config}
+            await remove_nested_config(
+                self.db, ctx.guild.id, "events_announce", event_type
             )
-
-            embed = create_embed(
+            embed = status_embed(
                 title="✅ Announcement Cleared",
                 description=f"Announcement for `{event_type}` has been cleared",
-                color="success",
+                status="success",
             )
             await ctx.send(embed=embed)
             return
@@ -143,24 +142,23 @@ class EventsAnnouncer(commands.Cog):
                 await channel.send(**formatted)
                 channel_id = str(channel.id)
 
-            events_config[event_type] = {"channel_id": channel_id, "message": message}
-
-            await self.db.update_guild_config(
-                ctx.guild.id, {"events_announce": events_config}
+            value = {"channel_id": channel_id, "message": message}
+            await update_nested_config(
+                self.db, ctx.guild.id, "events_announce", event_type, value
             )
 
-            embed = create_embed(
+            embed = status_embed(
                 title="✅ Announcement Set",
                 description=f"Announcement for `{event_type}` has been set and test message sent",
-                color="success",
+                status="success",
             )
             await ctx.send(embed=embed)
 
         except Exception as e:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Invalid Message Format",
                 description=f"Error: {str(e)}",
-                color="error",
+                status="error",
             )
             await ctx.send(embed=embed)
 

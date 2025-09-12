@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from core.database import Database
 from utils.decorators import has_permissions
-from utils.helpers import create_embed
+from utils.helpers import create_embed, status_embed
 import re
 
 
@@ -37,10 +37,10 @@ class Tags(commands.Cog):
             tags = await self.db.get_tags(ctx.guild.id)
 
             if not tags:
-                embed = create_embed(
+                embed = status_embed(
                     title="📝 Tags",
                     description="No tags found for this server",
-                    color=discord.Color.blue(),
+                    status="info",
                 )
             else:
                 tag_list = ", ".join(f"`{tag}`" for tag in tags.keys())
@@ -56,10 +56,10 @@ class Tags(commands.Cog):
             tags = await self.db.get_tags(ctx.guild.id)
 
             if name.lower() not in tags:
-                embed = create_embed(
+                embed = status_embed(
                     title="❌ Tag Not Found",
                     description=f"Tag `{name}` doesn't exist",
-                    color=discord.Color.red(),
+                    status="error",
                 )
                 await ctx.send(embed=embed)
                 return
@@ -85,19 +85,19 @@ class Tags(commands.Cog):
         **Example:** `{prefix}tag add welcome Welcome to our server!`
         """
         if len(name) > 50:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Name Too Long",
                 description="Tag names must be 50 characters or less",
-                color=discord.Color.red(),
+                status="error",
             )
             await ctx.send(embed=embed)
             return
 
         if len(content) > 2000:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Content Too Long",
                 description="Tag content must be 2000 characters or less",
-                color=discord.Color.red(),
+                status="error",
             )
             await ctx.send(embed=embed)
             return
@@ -105,20 +105,20 @@ class Tags(commands.Cog):
         tags = await self.db.get_tags(ctx.guild.id)
 
         if name.lower() in tags:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Tag Exists",
                 description=f"Tag `{name}` already exists",
-                color=discord.Color.red(),
+                status="error",
             )
             await ctx.send(embed=embed)
             return
 
         await self.db.add_tag(ctx.guild.id, name.lower(), content, ctx.author.id)
 
-        embed = create_embed(
+        embed = status_embed(
             title="✅ Tag Created",
             description=f"Tag `{name}` has been created",
-            color=discord.Color.green(),
+            status="success",
         )
         await ctx.send(embed=embed)
 
@@ -133,29 +133,29 @@ class Tags(commands.Cog):
         tags = await self.db.get_tags(ctx.guild.id)
 
         if name.lower() not in tags:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Tag Not Found",
                 description=f"Tag `{name}` doesn't exist",
-                color=discord.Color.red(),
+                status="error",
             )
             await ctx.send(embed=embed)
             return
 
         if len(content) > 2000:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Content Too Long",
                 description="Tag content must be 2000 characters or less",
-                color=discord.Color.red(),
+                status="error",
             )
             await ctx.send(embed=embed)
             return
 
         await self.db.update_tag(ctx.guild.id, name.lower(), content)
 
-        embed = create_embed(
+        embed = status_embed(
             title="✅ Tag Updated",
             description=f"Tag `{name}` has been updated",
-            color=discord.Color.green(),
+            status="success",
         )
         await ctx.send(embed=embed)
 
@@ -170,20 +170,20 @@ class Tags(commands.Cog):
         tags = await self.db.get_tags(ctx.guild.id)
 
         if name.lower() not in tags:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Tag Not Found",
                 description=f"Tag `{name}` doesn't exist",
-                color=discord.Color.red(),
+                status="error",
             )
             await ctx.send(embed=embed)
             return
 
         await self.db.delete_tag(ctx.guild.id, name.lower())
 
-        embed = create_embed(
+        embed = status_embed(
             title="✅ Tag Deleted",
             description=f"Tag `{name}` has been deleted",
-            color=discord.Color.green(),
+            status="success",
         )
         await ctx.send(embed=embed)
 
@@ -197,10 +197,10 @@ class Tags(commands.Cog):
         tag_info = await self.db.get_tag_info(ctx.guild.id, name.lower())
 
         if not tag_info:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Tag Not Found",
                 description=f"Tag `{name}` doesn't exist",
-                color=discord.Color.red(),
+                status="error",
             )
             await ctx.send(embed=embed)
             return
@@ -229,10 +229,10 @@ class Tags(commands.Cog):
         matching_tags = [name for name in tags.keys() if query.lower() in name.lower()]
 
         if not matching_tags:
-            embed = create_embed(
+            embed = status_embed(
                 title="🔍 Search Results",
                 description=f"No tags found matching `{query}`",
-                color=discord.Color.blue(),
+                status="info",
             )
         else:
             tag_list = ", ".join(
@@ -261,10 +261,10 @@ class Tags(commands.Cog):
         tags = await self.db.get_tags(ctx.guild.id)
 
         if name.lower() not in tags:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Tag Not Found",
                 description=f"Tag `{name}` doesn't exist",
-                color=discord.Color.red(),
+                status="error",
             )
             await ctx.send(embed=embed)
             return
@@ -315,10 +315,10 @@ class Tags(commands.Cog):
         """
         await self.db.add_canned_response(ctx.guild.id, name.lower(), content)
 
-        embed = create_embed(
+        embed = status_embed(
             title="✅ Canned Response Added",
             description=f"Canned response `{name}` has been created",
-            color=discord.Color.green(),
+            status="success",
         )
         await ctx.send(embed=embed)
 
@@ -333,10 +333,10 @@ class Tags(commands.Cog):
         canned = await self.db.get_canned_responses(ctx.guild.id)
 
         if name.lower() not in canned:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Response Not Found",
                 description=f"Canned response `{name}` doesn't exist",
-                color=discord.Color.red(),
+                status="error",
             )
             await ctx.send(embed=embed)
             return

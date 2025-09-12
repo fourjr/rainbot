@@ -18,28 +18,27 @@ class Help(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        # Remove the default help command
-        self.bot.remove_command("help")
-        # Define the category structure
         self.categories = OrderedDict(
             [
                 (
-                    "🛡️ Moderation",
+                    "🛠️ Setup Wizard",
                     [
-                        "aimoderation",
-                        "ban",
-                        "kick",
-                        "lockdown",
-                        "modlogs",
-                        "mute",
-                        "muted",
-                        "note",
-                        "purge",
-                        "slowmode",
-                        "softban",
-                        "unban",
-                        "unmute",
-                        "warn",
+                        "setup",
+                        "setup quick",
+                        "setup automod",
+                        "viewconfig",
+                    ],
+                ),
+                (
+                    "🔒 Permissions Setup",
+                    [
+                        "setup permissions",
+                    ],
+                ),
+                (
+                    "📝 Logging Setup",
+                    [
+                        "setup logging",
                     ],
                 ),
                 (
@@ -56,8 +55,6 @@ class Help(commands.Cog):
                         "setpermission",
                         "setprefix",
                         "setwarnpunishment",
-                        "setup",
-                        "viewconfig",
                     ],
                 ),
                 (
@@ -139,11 +136,33 @@ class Help(commands.Cog):
         """Sends the main help embed listing all categories."""
         embed = create_embed(
             title="RainBot Help",
-            description=f"Use `{ctx.prefix}help <category>` to see the commands in that category.",
+            description=(
+                f"Use `{ctx.prefix}help <category>` to see the commands in that category.\n"
+                "Some commands have subcommands. Use the main command to see available options.\n\n"
+                f"For logging and permissions setup, use `{ctx.prefix}help setup` to see all related subcommands."
+            ),
             color="info",
         )
 
         available_commands = await self.get_filtered_commands(ctx)
+
+        # Add custom Logging/Permissions Setup section always
+        embed.add_field(
+            name="📝 Logging Setup",
+            value=(
+                f"Configure logging channels and options.\n"
+                f"Use `{ctx.prefix}setup logging` and subcommands like `mod`, `member`, `message`."
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="🔒 Permissions Setup",
+            value=(
+                f"Configure role permission levels.\n"
+                f"Use `{ctx.prefix}setup permissions` and subcommands like `set`, `clear`."
+            ),
+            inline=False,
+        )
 
         for category_name, command_list in self.categories.items():
             # Only show commands that exist and the user can run

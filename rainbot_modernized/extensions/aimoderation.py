@@ -50,9 +50,7 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
         self.api_url = config.api.moderation_api_url
 
         if not self.api_url:
-            self.logger.warning(
-                "MODERATION_API_URL not set - AI moderation disabled"
-            )
+            self.logger.warning("MODERATION_API_URL not set - AI moderation disabled")
 
     @property
     def image_whitelist_collection(self):
@@ -557,7 +555,7 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
         if scores:
             # Check if scores are binary (0/1) or percentage (0.0-1.0)
             is_binary = all(score in [0, 1] for score in scores.values())
-            
+
             if is_binary:
                 score_text = "\n".join(
                     [
@@ -572,7 +570,11 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
                         for cat, score in scores.items()
                     ]
                 )
-            embed.add_field(name="Detection Results" if is_binary else "Confidence Scores", value=score_text, inline=False)
+            embed.add_field(
+                name="Detection Results" if is_binary else "Confidence Scores",
+                value=score_text,
+                inline=False,
+            )
 
     async def _test_text_moderation(self, ctx: commands.Context, content: str):
         """Helper to test text moderation"""
@@ -931,30 +933,34 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
         # Validate image type
         valid_extensions = [".png", ".jpg", ".jpeg", ".webp", ".gif"]
         if not any(
-            attachment.filename.lower().endswith(ext)
-            for ext in valid_extensions
+            attachment.filename.lower().endswith(ext) for ext in valid_extensions
         ):
             raise ValueError(f"Unsupported image type: {attachment.filename}")
 
         try:
             image_content = await attachment.read()
-            
+
             # Determine proper content type based on file extension
             filename_lower = attachment.filename.lower()
-            if filename_lower.endswith(('.jpg', '.jpeg')):
-                content_type = 'image/jpeg'
-            elif filename_lower.endswith('.png'):
-                content_type = 'image/png'
-            elif filename_lower.endswith('.gif'):
-                content_type = 'image/gif'
-            elif filename_lower.endswith('.webp'):
-                content_type = 'image/webp'
+            if filename_lower.endswith((".jpg", ".jpeg")):
+                content_type = "image/jpeg"
+            elif filename_lower.endswith(".png"):
+                content_type = "image/png"
+            elif filename_lower.endswith(".gif"):
+                content_type = "image/gif"
+            elif filename_lower.endswith(".webp"):
+                content_type = "image/webp"
             else:
-                content_type = 'application/octet-stream'
-            
+                content_type = "application/octet-stream"
+
             # Create form data for image upload - use 'file' as field name to match API docs
             data = aiohttp.FormData()
-            data.add_field('file', image_content, filename=attachment.filename, content_type=content_type)
+            data.add_field(
+                "file",
+                image_content,
+                filename=attachment.filename,
+                content_type=content_type,
+            )
 
             async with aiohttp.ClientSession() as session:
                 async with session.post(
@@ -963,7 +969,9 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
                     if resp.status == 422:
                         raise ValueError(f"Invalid media type: {attachment.filename}")
                     if resp.status != 200:
-                        raise ValueError(f"API request failed with status {resp.status}")
+                        raise ValueError(
+                            f"API request failed with status {resp.status}"
+                        )
                     result = await resp.json()
                     self.logger.debug(f"Image moderation API response: {result}")
                     return result
@@ -1126,7 +1134,7 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
             scores = result.get("category_scores", {})
             if scores:
                 is_binary = all(score in [0, 1] for score in scores.values())
-                
+
                 if is_binary:
                     score_text = "\n".join(
                         [
@@ -1143,7 +1151,7 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
                         ]
                     )
                     field_name = "Confidence Scores"
-                    
+
                 log_embed.add_field(name=field_name, value=score_text, inline=False)
 
             log_embed.add_field(

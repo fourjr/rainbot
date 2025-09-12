@@ -2,7 +2,12 @@ import discord
 from discord.ext import commands
 from core.database import Database
 from utils.decorators import has_permissions
-from utils.helpers import create_embed
+from utils.helpers import (
+    create_embed,
+    status_embed,
+    update_nested_config,
+    remove_nested_config,
+)
 
 
 class Roles(commands.Cog):
@@ -23,16 +28,14 @@ class Roles(commands.Cog):
         if role in member.roles:
             await member.remove_roles(role, reason=f"Role removed by {ctx.author}")
             action = "removed from"
-            color = discord.Color.red()
         else:
             await member.add_roles(role, reason=f"Role added by {ctx.author}")
             action = "added to"
-            color = discord.Color.green()
 
-        embed = create_embed(
+        embed = status_embed(
             title="🎭 Role Updated",
             description=f"{role.mention} has been {action} {member.mention}",
-            color=color,
+            status="success",
         )
         await ctx.send(embed=embed)
 
@@ -50,10 +53,10 @@ class Roles(commands.Cog):
         self_roles = config.get("self_roles", [])
 
         if not self_roles:
-            embed = create_embed(
+            embed = status_embed(
                 title="🎭 Self Roles",
                 description="No self-assignable roles configured",
-                color=discord.Color.blue(),
+                status="info",
             )
         else:
             roles = [ctx.guild.get_role(role_id) for role_id in self_roles]
@@ -82,21 +85,19 @@ class Roles(commands.Cog):
         self_roles = config.get("self_roles", [])
 
         if role.id in self_roles:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Already Added",
                 description=f"{role.mention} is already a self-assignable role",
-                color=discord.Color.red(),
+                status="error",
             )
         else:
             self_roles.append(role.id)
             await self.db.update_guild_config(ctx.guild.id, {"self_roles": self_roles})
-
-            embed = create_embed(
+            embed = status_embed(
                 title="✅ Self Role Added",
                 description=f"{role.mention} is now self-assignable",
-                color=discord.Color.green(),
+                status="success",
             )
-
         await ctx.send(embed=embed)
 
     @selfrole.command(name="remove")
@@ -111,21 +112,19 @@ class Roles(commands.Cog):
         self_roles = config.get("self_roles", [])
 
         if role.id not in self_roles:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Not Found",
                 description=f"{role.mention} is not a self-assignable role",
-                color=discord.Color.red(),
+                status="error",
             )
         else:
             self_roles.remove(role.id)
             await self.db.update_guild_config(ctx.guild.id, {"self_roles": self_roles})
-
-            embed = create_embed(
+            embed = status_embed(
                 title="✅ Self Role Removed",
                 description=f"{role.mention} is no longer self-assignable",
-                color=discord.Color.green(),
+                status="success",
             )
-
         await ctx.send(embed=embed)
 
     @commands.command()
@@ -143,37 +142,34 @@ class Roles(commands.Cog):
         # Find role by name
         role = discord.utils.get(ctx.guild.roles, name=role_name)
         if not role:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Role Not Found",
                 description=f"Role '{role_name}' not found",
-                color=discord.Color.red(),
+                status="error",
             )
             await ctx.send(embed=embed)
             return
-
         if role.id not in self_roles:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Not Self-Assignable",
                 description=f"{role.mention} is not self-assignable",
-                color=discord.Color.red(),
+                status="error",
             )
             await ctx.send(embed=embed)
             return
-
         if role in ctx.author.roles:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Already Have Role",
                 description=f"You already have {role.mention}",
-                color=discord.Color.red(),
+                status="error",
             )
         else:
             await ctx.author.add_roles(role, reason="Self-assigned role")
-            embed = create_embed(
+            embed = status_embed(
                 title="✅ Role Assigned",
                 description=f"You now have {role.mention}",
-                color=discord.Color.green(),
+                status="success",
             )
-
         await ctx.send(embed=embed)
 
     @commands.command()
@@ -191,37 +187,34 @@ class Roles(commands.Cog):
         # Find role by name
         role = discord.utils.get(ctx.guild.roles, name=role_name)
         if not role:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Role Not Found",
                 description=f"Role '{role_name}' not found",
-                color=discord.Color.red(),
+                status="error",
             )
             await ctx.send(embed=embed)
             return
-
         if role.id not in self_roles:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Not Self-Assignable",
                 description=f"{role.mention} is not self-assignable",
-                color=discord.Color.red(),
+                status="error",
             )
             await ctx.send(embed=embed)
             return
-
         if role not in ctx.author.roles:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Don't Have Role",
                 description=f"You don't have {role.mention}",
-                color=discord.Color.red(),
+                status="error",
             )
         else:
             await ctx.author.remove_roles(role, reason="Self-removed role")
-            embed = create_embed(
+            embed = status_embed(
                 title="✅ Role Removed",
                 description=f"You no longer have {role.mention}",
-                color=discord.Color.green(),
+                status="success",
             )
-
         await ctx.send(embed=embed)
 
     @commands.group(invoke_without_command=True)
@@ -238,10 +231,10 @@ class Roles(commands.Cog):
         auto_roles = config.get("auto_roles", [])
 
         if not auto_roles:
-            embed = create_embed(
+            embed = status_embed(
                 title="🤖 Auto Roles",
                 description="No auto roles configured",
-                color=discord.Color.blue(),
+                status="info",
             )
         else:
             roles = [ctx.guild.get_role(role_id) for role_id in auto_roles]
@@ -270,21 +263,19 @@ class Roles(commands.Cog):
         auto_roles = config.get("auto_roles", [])
 
         if role.id in auto_roles:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Already Added",
                 description=f"{role.mention} is already an auto role",
-                color=discord.Color.red(),
+                status="error",
             )
         else:
             auto_roles.append(role.id)
             await self.db.update_guild_config(ctx.guild.id, {"auto_roles": auto_roles})
-
-            embed = create_embed(
+            embed = status_embed(
                 title="✅ Auto Role Added",
                 description=f"{role.mention} will be given to new members",
-                color=discord.Color.green(),
+                status="success",
             )
-
         await ctx.send(embed=embed)
 
     @autorole.command(name="remove")
@@ -299,21 +290,19 @@ class Roles(commands.Cog):
         auto_roles = config.get("auto_roles", [])
 
         if role.id not in auto_roles:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Not Found",
                 description=f"{role.mention} is not an auto role",
-                color=discord.Color.red(),
+                status="error",
             )
         else:
             auto_roles.remove(role.id)
             await self.db.update_guild_config(ctx.guild.id, {"auto_roles": auto_roles})
-
-            embed = create_embed(
+            embed = status_embed(
                 title="✅ Auto Role Removed",
                 description=f"{role.mention} will no longer be given to new members",
-                color=discord.Color.green(),
+                status="success",
             )
-
         await ctx.send(embed=embed)
 
     @commands.Cog.listener()
@@ -358,23 +347,21 @@ class Roles(commands.Cog):
         """
         try:
             await message.add_reaction(emoji)
-
-            await self.db.update_guild_config(
-                ctx.guild.id, {f"reaction_roles.{message.id}_{emoji}": role.id}
+            key = f"{message.id}_{emoji}"
+            await update_nested_config(
+                self.db, ctx.guild.id, "reaction_roles", key, role.id
             )
-
-            embed = create_embed(
+            embed = status_embed(
                 title="✅ Reaction Role Set",
                 description=f"Reacting with {emoji} will give {role.mention}",
-                color=discord.Color.green(),
+                status="success",
             )
             await ctx.send(embed=embed)
-
         except discord.NotFound:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Message Not Found",
                 description="Could not find the specified message",
-                color=discord.Color.red(),
+                status="error",
             )
             await ctx.send(embed=embed)
 
@@ -386,14 +373,12 @@ class Roles(commands.Cog):
         **Usage:** `{prefix}reactionrole remove <message_link> <emoji>`
         **Example:** `{prefix}reactionrole remove https://discord.com/... 🎮`
         """
-        await self.db.update_guild_config(
-            ctx.guild.id, {f"$unset": {f"reaction_roles.{message.id}_{emoji}": ""}}
-        )
-
-        embed = create_embed(
+        key = f"{message.id}_{emoji}"
+        await remove_nested_config(self.db, ctx.guild.id, "reaction_roles", key)
+        embed = status_embed(
             title="✅ Reaction Role Removed",
             description=f"Reaction role for {emoji} on message {message.id} has been removed.",
-            color=discord.Color.green(),
+            status="success",
         )
         await ctx.send(embed=embed)
 
