@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from core.database import Database
-from utils.helpers import create_embed
+from utils.helpers import create_embed, status_embed, update_nested_config
 from datetime import datetime
 
 
@@ -114,6 +114,11 @@ class Logs(commands.Cog):
             name="Author", value=f"{before.author} ({before.author.id})", inline=True
         )
         embed.add_field(name="Channel", value=before.channel.mention, inline=True)
+        # Add message link field
+        message_link = f"https://discord.com/channels/{before.guild.id}/{before.channel.id}/{before.id}"
+        embed.add_field(
+            name="Jump to Message", value=f"[Click Here]({message_link})", inline=False
+        )
         embed.timestamp = datetime.utcnow()
 
         await self.log_event(before.guild.id, "message_edit", embed, before.channel.id)
@@ -218,19 +223,77 @@ class Logs(commands.Cog):
             title="📝 Logging Configuration", color=discord.Color.blue()
         )
 
-        log_types = {
-            "member": "Member Events",
-            "message": "Message Events",
-            "voice": "Voice Events",
-            "server": "Server Events",
-            "moderation": "Moderation Actions",
-        }
+        # Moderation
+        mod_channel = (
+            ctx.guild.get_channel(log_channels.get("moderation"))
+            if log_channels.get("moderation")
+            else None
+        )
+        embed.add_field(
+            name="Moderation Actions",
+            value=mod_channel.mention if mod_channel else "Not set",
+            inline=True,
+        )
 
-        for log_type, name in log_types.items():
-            channel_id = log_channels.get(log_type)
-            channel = ctx.guild.get_channel(channel_id) if channel_id else None
-            value = channel.mention if channel else "Not set"
-            embed.add_field(name=name, value=value, inline=True)
+        # Member events (join/leave/role updates)
+        member_channel = (
+            ctx.guild.get_channel(log_channels.get("member"))
+            if log_channels.get("member")
+            else None
+        )
+        embed.add_field(
+            name="Member Events",
+            value=member_channel.mention if member_channel else "Not set",
+            inline=True,
+        )
+
+        # Message events (edits/deletes) — may be same or different channels
+        msg_edit = (
+            ctx.guild.get_channel(log_channels.get("message_edit"))
+            if log_channels.get("message_edit")
+            else None
+        )
+        msg_delete = (
+            ctx.guild.get_channel(log_channels.get("message_delete"))
+            if log_channels.get("message_delete")
+            else None
+        )
+        if msg_edit and msg_delete and msg_edit.id == msg_delete.id:
+            msg_value = msg_edit.mention
+        elif msg_edit or msg_delete:
+            parts = []
+            if msg_edit:
+                parts.append(f"Edits: {msg_edit.mention}")
+            if msg_delete:
+                parts.append(f"Deletes: {msg_delete.mention}")
+            msg_value = ", ".join(parts)
+        else:
+            msg_value = "Not set"
+        embed.add_field(name="Message Events", value=msg_value, inline=True)
+
+        # Voice events
+        voice_channel = (
+            ctx.guild.get_channel(log_channels.get("voice"))
+            if log_channels.get("voice")
+            else None
+        )
+        embed.add_field(
+            name="Voice Events",
+            value=voice_channel.mention if voice_channel else "Not set",
+            inline=True,
+        )
+
+        # Server updates
+        server_channel = (
+            ctx.guild.get_channel(log_channels.get("server"))
+            if log_channels.get("server")
+            else None
+        )
+        embed.add_field(
+            name="Server Events",
+            value=server_channel.mention if server_channel else "Not set",
+            inline=True,
+        )
 
         await ctx.send(embed=embed)
 
@@ -238,7 +301,15 @@ class Logs(commands.Cog):
     @commands.has_permissions(manage_guild=True)
     async def set_mod_log(self, ctx, channel: discord.TextChannel):
         """Sets the log channel for moderation actions"""
-        await self.set_log(ctx, "moderation", channel)
+        await update_nested_config(
+            self.db, ctx.guild.id, "log_channels", "moderation", channel.id
+        )
+        embed = status_embed(
+            title="✅ Moderation Log Set",
+            description=f"Moderation logs will be sent to {channel.mention}",
+            status="success",
+        )
+        await ctx.send(embed=embed)
 
     @logging.command(name="ignore", aliases=["setlogignore"])
     @commands.has_permissions(manage_guild=True)
@@ -247,10 +318,10 @@ class Logs(commands.Cog):
         valid_types = ["message_edit", "message_delete"]
 
         if log_type not in valid_types:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Invalid Log Type",
                 description=f"Valid types for ignoring: {', '.join(valid_types)}",
-                color=discord.Color.red(),
+                status="error",
             )
             await ctx.send(embed=embed)
             return
@@ -262,10 +333,10 @@ class Logs(commands.Cog):
             ignored_channels[log_type] = []
 
         if channel.id in ignored_channels[log_type]:
-            embed = create_embed(
+            embed = status_embed(
                 title="⚠️ Already Ignored",
                 description=f"{channel.mention} is already ignored for {log_type} logs.",
-                color=discord.Color.orange(),
+                status="info",
             )
             await ctx.send(embed=embed)
             return
@@ -275,10 +346,10 @@ class Logs(commands.Cog):
             ctx.guild.id, {"ignored_channels": ignored_channels}
         )
 
-        embed = create_embed(
+        embed = status_embed(
             title="✅ Channel Ignored",
             description=f"{channel.mention} will now be ignored for {log_type} logs.",
-            color=discord.Color.green(),
+            status="success",
         )
         await ctx.send(embed=embed)
 
@@ -287,34 +358,40 @@ class Logs(commands.Cog):
     async def set_log(self, ctx, log_type: str, channel: discord.TextChannel):
         """Set a logging channel"""
         valid_types = [
-            "member_join",
-            "member_leave",
+            "member",
             "message_edit",
             "message_delete",
-            "voice_activity",
-            "server_updates",
+            "voice",
+            "server",
             "moderation",
         ]
 
         if log_type not in valid_types:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Invalid Log Type",
                 description=f"Valid types: {', '.join(valid_types)}",
-                color=discord.Color.red(),
+                status="error",
             )
             await ctx.send(embed=embed)
             return
 
-        config = await self.db.get_guild_config(ctx.guild.id)
-        log_channels = config.get("log_channels", {})
-        log_channels[log_type] = channel.id
+        await update_nested_config(
+            self.db, ctx.guild.id, "log_channels", log_type, channel.id
+        )
 
-        await self.db.update_guild_config(ctx.guild.id, {"log_channels": log_channels})
+        title_map = {
+            "member": "Member Events",
+            "message_edit": "Message Edit Events",
+            "message_delete": "Message Delete Events",
+            "voice": "Voice Events",
+            "server": "Server Events",
+            "moderation": "Moderation Actions",
+        }
 
-        embed = create_embed(
+        embed = status_embed(
             title="✅ Logging Updated",
-            description=f"{log_type.title()} logs will be sent to {channel.mention}",
-            color=discord.Color.green(),
+            description=f"{title_map.get(log_type, log_type.title())} will be sent to {channel.mention}",
+            status="success",
         )
         await ctx.send(embed=embed)
 

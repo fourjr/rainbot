@@ -4,7 +4,7 @@ import re
 import asyncio
 from collections import defaultdict, deque
 from core.database import Database
-from utils.helpers import create_embed
+from utils.helpers import create_embed, status_embed, update_nested_config
 import time
 
 
@@ -132,7 +132,9 @@ class Detections(commands.Cog):
         )
 
         config = await self.db.get_guild_config(guild.id)
-        mod_log_id = config.get("mod_log_channel")
+        # Prefer unified log_channels.moderation, fallback to legacy mod_log_channel
+        log_channels = config.get("log_channels", {}) or {}
+        mod_log_id = log_channels.get("moderation") or config.get("mod_log_channel")
         if mod_log_id:
             channel = guild.get_channel(mod_log_id)
             if channel:
@@ -140,7 +142,8 @@ class Detections(commands.Cog):
 
     async def _mute_user(self, user, guild, reason, duration):
         config = await self.db.get_guild_config(guild.id)
-        mute_role_id = config.get("mute_role")
+        # Prefer standardized key, fallback to legacy
+        mute_role_id = config.get("mute_role_id") or config.get("mute_role")
 
         if mute_role_id:
             mute_role = guild.get_role(mute_role_id)
@@ -193,10 +196,10 @@ class Detections(commands.Cog):
         ]
 
         if feature not in valid_features:
-            embed = create_embed(
+            embed = status_embed(
                 title="❌ Invalid Feature",
                 description=f"Valid features: {', '.join(valid_features)}",
-                color=discord.Color.red(),
+                status="error",
             )
             await ctx.send(embed=embed)
             return
@@ -207,14 +210,14 @@ class Detections(commands.Cog):
         current_state = automod.get(feature, False)
         new_state = not current_state
 
-        automod[feature] = new_state
-        await self.db.update_guild_config(ctx.guild.id, {"automod": automod})
+        # Use nested config helper for DRY update
+        await update_nested_config(self.db, ctx.guild.id, "automod", feature, new_state)
 
         status = "enabled" if new_state else "disabled"
-        embed = create_embed(
+        embed = status_embed(
             title="✅ Feature Updated",
             description=f"{feature.title()} detection has been {status}",
-            color=discord.Color.green(),
+            status="success",
         )
         await ctx.send(embed=embed)
 

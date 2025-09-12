@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands, tasks
 from core.database import Database
 from utils.decorators import has_permissions
-from utils.helpers import create_embed
+from utils.helpers import create_embed, status_embed, update_nested_config
 import asyncio
 import random
 from datetime import datetime, timedelta, timezone
@@ -54,28 +54,23 @@ class Giveaways(commands.Cog):
         return timedelta(seconds=total_seconds)
 
     @commands.group(invoke_without_command=True)
-    @has_permissions(level=2)
     async def giveaway(self, ctx):
         """Manages giveaways on the server.
 
         **Usage:** `{prefix}giveaway <subcommand>`
-        **Examples:**
-        - `{prefix}gstart 1h 1 Discord Nitro`
-        - `{prefix}gend 123456789`
-        - `{prefix}greroll 123456789`
         """
         embed = create_embed(
             title="🎉 Giveaway System",
-            description="Use the following commands:",
-            color=discord.Color.gold(),
+            description=(
+                "Subcommands:\n"
+                "Create: `!giveaway start <duration> <winners> <prize>`\n"
+                "End: `!giveaway end <message_id>`\n"
+                "Reroll: `!giveaway reroll <message_id>`\n"
+                "Stats: `!giveaway stats <message_id>`\n"
+                "List: `!giveaway list`"
+            ),
+            color="primary",
         )
-        embed.add_field(
-            name="Start", value="`!gstart <duration> <winners> <prize>`", inline=False
-        )
-        embed.add_field(name="End", value="`!gend <message_id>`", inline=False)
-        embed.add_field(name="Stop", value="`!gstop <message_id>`", inline=False)
-        embed.add_field(name="Reroll", value="`!greroll <message_id>`", inline=False)
-        embed.add_field(name="List", value="`!giveaway list`", inline=False)
         await ctx.send(embed=embed)
 
     @commands.command(aliases=["gstart"])
@@ -332,17 +327,18 @@ class Giveaways(commands.Cog):
         # Mark as ended in database
         await self.db.end_giveaway(giveaway["message_id"])
 
-    @commands.command(aliases=["setg"])
-    @has_permissions(level=2)
+    @commands.command(name="setgiveaway")
+    @commands.has_permissions(manage_guild=True)
     async def setgiveaway(
-        self, ctx, channel: discord.TextChannel, emoji: str, role: discord.Role = None
+        self,
+        ctx,
+        channel: discord.TextChannel,
+        emoji: str = "🎉",
+        role: discord.Role = None,
     ):
         """Sets the default channel, emoji, and optional role requirement for giveaways.
 
         **Usage:** `{prefix}setgiveaway <channel> <emoji> [role]`
-        **Examples:**
-        - `{prefix}setgiveaway #giveaways 🎉`
-        - `{prefix}setgiveaway #events 🎁 @Member`
         """
         await self.db.update_guild_config(
             ctx.guild.id,
@@ -352,11 +348,13 @@ class Giveaways(commands.Cog):
                 "giveaway_config.required_role": role.id if role else None,
             },
         )
-
-        embed = create_embed(
+        embed = status_embed(
             title="✅ Giveaway Settings Updated",
-            description=f"**Channel:** {channel.mention}\n**Emoji:** {emoji}\n**Required Role:** {role.mention if role else 'None'}",
-            color=discord.Color.green(),
+            description=(
+                f"Channel: {channel.mention}\nEmoji: {emoji}\n"
+                f"Required Role: {role.mention if role else 'None'}"
+            ),
+            status="success",
         )
         await ctx.send(embed=embed)
 

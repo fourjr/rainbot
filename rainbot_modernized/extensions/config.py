@@ -11,7 +11,7 @@ from discord.ext import commands
 from core.bot import RainBot
 from core.permissions import PermissionLevel
 from utils.decorators import require_permission
-from utils.helpers import create_embed, confirm_action, safe_send
+from utils.helpers import create_embed, confirm_action, safe_send, status_embed
 from utils.constants import EMOJIS
 
 
@@ -41,16 +41,16 @@ class Config(commands.Cog):
             "This will overwrite all existing server settings.",
         )
         if not confirmed:
-            await safe_send(ctx, "Configuration import cancelled.", ephemeral=True)
+            await safe_send(ctx, "Configuration import cancelled.")
             return
 
         try:
             async with self.bot.session.get(url) as resp:
                 if resp.status != 200:
-                    embed = create_embed(
+                    embed = status_embed(
                         title=f"{EMOJIS['error']} Download Failed",
                         description=f"Could not fetch the configuration file. Status: {resp.status}",
-                        color="error",
+                        status="error",
                     )
                     await safe_send(ctx, embed=embed)
                     return
@@ -58,19 +58,19 @@ class Config(commands.Cog):
                 config_data = await resp.json(content_type=None)
 
         except (aiohttp.ClientError, json.JSONDecodeError, asyncio.TimeoutError) as e:
-            embed = create_embed(
+            embed = status_embed(
                 title=f"{EMOJIS['error']} Import Failed",
                 description=f"Failed to download or parse the configuration file.\n`{e}`",
-                color="error",
+                status="error",
             )
             await safe_send(ctx, embed=embed)
             return
 
         if not isinstance(config_data, dict):
-            embed = create_embed(
+            embed = status_embed(
                 title=f"{EMOJIS['error']} Invalid Format",
                 description="The configuration file is not in the correct format (must be a JSON object).",
-                color="error",
+                status="error",
             )
             await safe_send(ctx, embed=embed)
             return
@@ -85,10 +85,10 @@ class Config(commands.Cog):
 
         self.bot._prefix_cache.pop(ctx.guild.id, None)
 
-        embed = create_embed(
+        embed = status_embed(
             title="✅ Configuration Imported",
             description="The new configuration has been successfully imported and applied.",
-            color="success",
+            status="success",
         )
         await safe_send(ctx, embed=embed)
 
@@ -108,16 +108,16 @@ class Config(commands.Cog):
         )
 
         if not confirmed:
-            await safe_send(ctx, "Configuration reset cancelled.", ephemeral=True)
+            await safe_send(ctx, "Configuration reset cancelled.")
             return
 
         await self.bot.db.delete_guild_config(ctx.guild.id)
         self.bot._prefix_cache.pop(ctx.guild.id, None)
 
-        embed = create_embed(
+        embed = status_embed(
             title="✅ Configuration Reset",
             description="All server settings have been reset to their defaults.",
-            color="success",
+            status="success",
         )
         await safe_send(ctx, embed=embed)
 
@@ -135,10 +135,10 @@ class Config(commands.Cog):
         """
         command = self.bot.get_command(command_name.lower())
         if not command:
-            embed = create_embed(
+            embed = status_embed(
                 title=f"{EMOJIS['error']} Command Not Found",
                 description=f"No command named `{command_name}` was found.",
-                color="error",
+                status="error",
             )
             await safe_send(ctx, embed=embed)
             return
@@ -146,20 +146,20 @@ class Config(commands.Cog):
         level_upper = level.upper()
         if level_upper not in PermissionLevel.__members__:
             levels = ", ".join(PermissionLevel.__members__.keys())
-            embed = create_embed(
+            embed = status_embed(
                 title=f"{EMOJIS['error']} Invalid Level",
                 description=f"Valid levels are: {levels}",
-                color="error",
+                status="error",
             )
             await safe_send(ctx, embed=embed)
             return
 
         permission_level = PermissionLevel[level_upper]
         if permission_level >= PermissionLevel.SERVER_OWNER:
-            embed = create_embed(
+            embed = status_embed(
                 title=f"{EMOJIS['error']} Invalid Level",
                 description="You cannot set a permission level this high.",
-                color="error",
+                status="error",
             )
             await safe_send(ctx, embed=embed)
             return
@@ -169,10 +169,10 @@ class Config(commands.Cog):
             {f"command_levels.{command.qualified_name}": permission_level.value},
         )
 
-        embed = create_embed(
+        embed = status_embed(
             title="✅ Command Permission Updated",
             description=f"The required permission level for `{command.qualified_name}` is now **{level_upper.title()}**.",
-            color="success",
+            status="success",
         )
         await safe_send(ctx, embed=embed)
 
@@ -191,20 +191,20 @@ class Config(commands.Cog):
             if not (-12 <= offset_val <= 14):
                 raise ValueError("Offset out of range.")
         except ValueError:
-            embed = create_embed(
+            embed = status_embed(
                 title=f"{EMOJIS['error']} Invalid Offset",
                 description="Please provide a valid UTC offset (an integer between -12 and +14).",
-                color="error",
+                status="error",
             )
             await safe_send(ctx, embed=embed)
             return
 
         await self.bot.db.update_guild_config(ctx.guild.id, {"time_offset": offset_val})
 
-        embed = create_embed(
+        embed = status_embed(
             title="✅ Time Offset Set",
             description=f"The time offset for this server has been set to **UTC{offset_val:+}**.",
-            color="success",
+            status="success",
         )
         await safe_send(ctx, embed=embed)
 
@@ -228,10 +228,10 @@ class Config(commands.Cog):
             ctx.guild.id, {"punishment_alert": message}
         )
 
-        embed = create_embed(
+        embed = status_embed(
             title="✅ Punishment Alert Set",
             description="The custom punishment alert message has been updated.",
-            color="success",
+            status="success",
         )
         await safe_send(ctx, embed=embed)
 
@@ -278,12 +278,11 @@ class Config(commands.Cog):
                 )
                 await safe_send(ctx, embed=embed)
                 await safe_send(ctx, file=file)
-
             except Exception as e:
-                embed = create_embed(
+                embed = status_embed(
                     title=f"{EMOJIS['error']} Export Failed",
                     description=f"An unexpected error occurred while exporting the configuration: `{e}`",
-                    color="error",
+                    status="error",
                 )
         await safe_send(ctx, embed=embed)
 
@@ -302,19 +301,19 @@ class Config(commands.Cog):
             await self.bot.db.update_guild_config(
                 ctx.guild.id, {"announcement_channel": channel.id}
             )
-            embed = create_embed(
+            embed = status_embed(
                 title="✅ Announcement Channel Set",
                 description=f"Bot announcements will now be sent to {channel.mention}.",
-                color="success",
+                status="success",
             )
         else:
             await self.bot.db.update_guild_config(
                 ctx.guild.id, {"announcement_channel": None}
             )
-            embed = create_embed(
+            embed = status_embed(
                 title="✅ Announcement Channel Disabled",
                 description="Bot announcements have been disabled for this server.",
-                color="success",
+                status="success",
             )
 
         await safe_send(ctx, embed=embed)

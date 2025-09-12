@@ -12,8 +12,6 @@ from datetime import datetime
 import discord
 import aiohttp
 from discord.ext import commands
-from google.cloud import vision
-from google.api_core import exceptions as google_exceptions
 
 from core.bot import RainBot
 from utils.decorators import has_permissions
@@ -50,21 +48,9 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
         self.bot = bot
         self.logger = logging.getLogger("rainbot.aimoderation")
         self.api_url = config.api.moderation_api_url
-        self.vision_client = None
 
         if not self.api_url:
-            self.logger.warning(
-                "MODERATION_API_URL not set - AI text moderation disabled"
-            )
-
-        try:
-            # GOOGLE_APPLICATION_CREDENTIALS env var must be set
-            self.vision_client = vision.ImageAnnotatorClient()
-            self.logger.info("Google Cloud Vision client initialized successfully.")
-        except Exception as e:
-            self.logger.warning(
-                f"Could not initialize Google Vision client: {e}. Image moderation will be disabled."
-            )
+            self.logger.warning("MODERATION_API_URL not set - AI moderation disabled")
 
     @property
     def image_whitelist_collection(self):
@@ -567,13 +553,28 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
 
         scores = result.get("category_scores", {})
         if scores:
-            score_text = "\n".join(
-                [
-                    f"• {cat.replace('/', ' / ').title()}: {int(score * 100)}%"
-                    for cat, score in scores.items()
-                ]
+            # Check if scores are binary (0/1) or percentage (0.0-1.0)
+            is_binary = all(score in [0, 1] for score in scores.values())
+
+            if is_binary:
+                score_text = "\n".join(
+                    [
+                        f"• {cat.replace('/', ' / ').title()}: {'✅ Detected' if score == 1 else '❌ Not Detected'}"
+                        for cat, score in scores.items()
+                    ]
+                )
+            else:
+                score_text = "\n".join(
+                    [
+                        f"• {cat.replace('/', ' / ').title()}: {int(score * 100)}%"
+                        for cat, score in scores.items()
+                    ]
+                )
+            embed.add_field(
+                name="Detection Results" if is_binary else "Confidence Scores",
+                value=score_text,
+                inline=False,
             )
-            embed.add_field(name="Confidence Scores", value=score_text, inline=False)
 
     async def _test_text_moderation(self, ctx: commands.Context, content: str):
         """Helper to test text moderation"""
@@ -606,11 +607,11 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
         """Helper to test image moderation"""
         if not any(
             attachment.filename.lower().endswith(ext)
-            for ext in [".png", ".jpg", ".jpeg", ".webp"]
+            for ext in [".png", ".jpg", ".jpeg", ".webp", ".gif"]
         ):
             embed = create_embed(
                 title="❌ Invalid File Type",
-                description="Please attach a valid image (.png, .jpg, .jpeg, .webp).",
+                description="Please attach a valid image (.png, .jpg, .jpeg, .webp, .gif).",
                 color=discord.Color.red(),
             )
             await ctx.send(embed=embed)
@@ -920,55 +921,63 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
             ) as resp:
                 if resp.status != 200:
                     raise ValueError(f"API request failed with status {resp.status}")
-                return await resp.json()
+                result = await resp.json()
+                self.logger.debug(f"Text moderation API response: {result}")
+                return result
 
     async def _moderate_image(self, attachment: discord.Attachment) -> Dict[str, Any]:
-        """Moderate image content using Google Cloud Vision AI"""
-        if not self.vision_client:
-            raise ValueError("Google Vision client not initialized")
+        """Moderate image content using moderation API"""
+        if not self.api_url:
+            raise ValueError("API URL not configured")
 
-        likelihood_to_score = {
-            vision.Likelihood.UNKNOWN: 0.0,
-            vision.Likelihood.VERY_UNLIKELY: 0.1,
-            vision.Likelihood.UNLIKELY: 0.3,
-            vision.Likelihood.POSSIBLE: 0.5,
-            vision.Likelihood.LIKELY: 0.8,
-            vision.Likelihood.VERY_LIKELY: 0.95,
-        }
+        # Validate image type
+        valid_extensions = [".png", ".jpg", ".jpeg", ".webp", ".gif"]
+        if not any(
+            attachment.filename.lower().endswith(ext) for ext in valid_extensions
+        ):
+            raise ValueError(f"Unsupported image type: {attachment.filename}")
 
         try:
             image_content = await attachment.read()
-            image = vision.Image(content=image_content)
 
-            response = await self.bot.loop.run_in_executor(
-                None, self.vision_client.safe_search_detection, image
+            # Determine proper content type based on file extension
+            filename_lower = attachment.filename.lower()
+            if filename_lower.endswith((".jpg", ".jpeg")):
+                content_type = "image/jpeg"
+            elif filename_lower.endswith(".png"):
+                content_type = "image/png"
+            elif filename_lower.endswith(".gif"):
+                content_type = "image/gif"
+            elif filename_lower.endswith(".webp"):
+                content_type = "image/webp"
+            else:
+                content_type = "application/octet-stream"
+
+            # Create form data for image upload - use 'file' as field name to match API docs
+            data = aiohttp.FormData()
+            data.add_field(
+                "file",
+                image_content,
+                filename=attachment.filename,
+                content_type=content_type,
             )
-            safe_search = response.safe_search_annotation
 
-            scores = {
-                "vision/adult": likelihood_to_score.get(safe_search.adult, 0.0),
-                "vision/violence": likelihood_to_score.get(safe_search.violence, 0.0),
-                "vision/racy": likelihood_to_score.get(safe_search.racy, 0.0),
-                "vision/spoof": likelihood_to_score.get(safe_search.spoof, 0.0),
-                "vision/medical": likelihood_to_score.get(safe_search.medical, 0.0),
-            }
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{self.api_url}/moderate/image", data=data
+                ) as resp:
+                    if resp.status == 422:
+                        raise ValueError(f"Invalid media type: {attachment.filename}")
+                    if resp.status != 200:
+                        raise ValueError(
+                            f"API request failed with status {resp.status}"
+                        )
+                    result = await resp.json()
+                    self.logger.debug(f"Image moderation API response: {result}")
+                    return result
 
-            # Default threshold is LIKELY (0.8)
-            flagged_categories = [cat for cat, score in scores.items() if score >= 0.8]
-
-            decision = "reject" if flagged_categories else "allow"
-
-            return {
-                "decision": decision,
-                "categories": flagged_categories,
-                "category_scores": scores,
-            }
-
-        except google_exceptions.GoogleAPICallError as e:
-            self.logger.error(f"Google Vision API error: {e}")
-            raise ValueError(f"Google Vision API error: {e}")
         except Exception as e:
-            self.logger.error(f"Error moderating image with Google Vision: {e}")
+            self.logger.error(f"Error moderating image with API: {e}")
             raise ValueError(f"Error moderating image: {e}")
 
     @commands.Cog.listener()
@@ -1002,9 +1011,6 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
 
             # Image moderation
             if message.attachments and ai_config.get("image_moderation", True):
-                if not self.vision_client:
-                    return
-
                 if await self.is_server_whitelisted(message.guild.id):
                     await self._process_image_moderation(message, ai_config)
 
@@ -1035,12 +1041,6 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
     async def _process_image_moderation(self, message: discord.Message, ai_config):
         """Process image moderation"""
         for attachment in message.attachments:
-            if not any(
-                attachment.filename.lower().endswith(ext)
-                for ext in [".png", ".jpg", ".jpeg", ".webp"]
-            ):
-                continue
-
             try:
                 result = await self._moderate_image(attachment)
                 scores = result.get("category_scores", {})
@@ -1133,15 +1133,26 @@ class AIModerationExtension(commands.Cog, name="AI Moderation"):
 
             scores = result.get("category_scores", {})
             if scores:
-                score_text = "\n".join(
-                    [
-                        f"• {cat.title()}: {int(score * 100)}%"
-                        for cat, score in scores.items()
-                    ]
-                )
-                log_embed.add_field(
-                    name="Confidence Scores", value=score_text, inline=False
-                )
+                is_binary = all(score in [0, 1] for score in scores.values())
+
+                if is_binary:
+                    score_text = "\n".join(
+                        [
+                            f"• {cat.title()}: {'✅ Detected' if score == 1 else '❌ Not Detected'}"
+                            for cat, score in scores.items()
+                        ]
+                    )
+                    field_name = "Detection Results"
+                else:
+                    score_text = "\n".join(
+                        [
+                            f"• {cat.title()}: {int(score * 100)}%"
+                            for cat, score in scores.items()
+                        ]
+                    )
+                    field_name = "Confidence Scores"
+
+                log_embed.add_field(name=field_name, value=score_text, inline=False)
 
             log_embed.add_field(
                 name="Context",
