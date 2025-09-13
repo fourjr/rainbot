@@ -125,7 +125,7 @@ class Logs(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_update(self, before, after):
-        # Role changes
+        # Log role changes
         if before.roles != after.roles:
             added_roles = set(after.roles) - set(before.roles)
             removed_roles = set(before.roles) - set(after.roles)
@@ -136,7 +136,6 @@ class Logs(commands.Cog):
                     description=f"Roles updated for {after.mention}",
                     color=discord.Color.blue(),
                 )
-
                 if added_roles:
                     embed.add_field(
                         name="Added Roles",
@@ -149,9 +148,68 @@ class Logs(commands.Cog):
                         value=", ".join(role.mention for role in removed_roles),
                         inline=False,
                     )
-
                 embed.timestamp = datetime.utcnow()
                 await self.log_event(after.guild.id, "member", embed)
+
+        # Log nickname changes
+        if before.nick != after.nick:
+
+            def nick_display(n):
+                return n if n else "No nickname"
+
+            embed = create_embed(
+                title="📝 Nickname Changed",
+                description=f"{after.mention} changed their nickname.",
+                color=discord.Color.blue(),
+            )
+            embed.add_field(name="Before", value=nick_display(before.nick), inline=True)
+            embed.add_field(name="After", value=nick_display(after.nick), inline=True)
+            embed.timestamp = datetime.utcnow()
+            await self.log_event(after.guild.id, "member", embed)
+
+        # Log username changes
+        if before.name != after.name:
+            embed = create_embed(
+                title="📝 Username Changed",
+                description=f"{after.mention} changed their username.",
+                color=discord.Color.blue(),
+            )
+            embed.add_field(name="Before", value=before.name, inline=True)
+            embed.add_field(name="After", value=after.name, inline=True)
+            embed.timestamp = datetime.utcnow()
+            await self.log_event(after.guild.id, "member", embed)
+
+        # Log avatar changes
+        if before.avatar != after.avatar:
+            embed = create_embed(
+                title="🖼️ Avatar Changed",
+                description=f"{after.mention} changed their avatar.",
+                color=discord.Color.blue(),
+            )
+            embed.set_thumbnail(url=after.display_avatar.url)
+            embed.add_field(name="User", value=f"{after} ({after.id})", inline=True)
+            embed.timestamp = datetime.utcnow()
+            await self.log_event(after.guild.id, "member", embed)
+
+        # Log banner changes (profile banner)
+        if getattr(before, "banner", None) != getattr(after, "banner", None):
+            embed = create_embed(
+                title="🖼️ Banner Changed",
+                description=f"{after.mention} changed their profile banner.",
+                color=discord.Color.blue(),
+            )
+            before_banner = (
+                before.banner.url if getattr(before, "banner", None) else "No banner"
+            )
+            after_banner = (
+                after.banner.url if getattr(after, "banner", None) else "No banner"
+            )
+            embed.add_field(name="Before", value=before_banner, inline=False)
+            embed.add_field(name="After", value=after_banner, inline=False)
+            if getattr(after, "banner", None):
+                embed.set_image(url=after.banner.url)
+            embed.timestamp = datetime.utcnow()
+            await self.log_event(after.guild.id, "member", embed)
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
