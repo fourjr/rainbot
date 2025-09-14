@@ -5,11 +5,13 @@ Modern moderation extension with enhanced features and user experience
 import asyncio
 import os
 import re
+import io
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Union
 
 import discord
 from discord.ext import commands
+import aiohttp
 
 from utils.constants import COLORS, EMOJIS
 from core.permissions import PermissionLevel
@@ -1451,10 +1453,119 @@ class Moderation(commands.Cog):
         )
 
         msg = await safe_send(ctx, embed=embed)
+
+        # Build a transcript of deleted messages and upload to hastebin.cc or attach as .txt
+        if deleted:
+            try:
+                # Determine destination: message_delete log channel, or moderation, else current channel
+                config = await self.bot.db.get_guild_config(ctx.guild.id)
+                log_channels = config.get("log_channels") or {}
+                dest_channel_id = log_channels.get(
+                    "message_delete"
+                ) or log_channels.get("moderation")
+                dest_channel = (
+                    ctx.guild.get_channel(dest_channel_id)
+                    if dest_channel_id
+                    else ctx.channel
+                )
+
+                # Create transcript text (oldest -> newest)
+                lines = []
+                header = [
+                    f"Guild: {ctx.guild.name} ({ctx.guild.id})",
+                    f"Channel: #{ctx.channel.name} ({ctx.channel.id})",
+                    f"Moderator: {ctx.author} ({ctx.author.id})",
+                    f"When: {datetime.now(timezone.utc).isoformat()}",
+                    f"Filter: {'user=' + str(member) if member else 'none'}",
+                    f"Total deleted: {len(deleted)}",
+                    "",
+                    "=== Deleted Messages (oldest -> newest) ===",
+                ]
+                lines.extend(header)
+
+                for m in reversed(deleted):
+                    ts = m.created_at
+                    ts_str = ts.astimezone(timezone.utc).isoformat() if ts else ""
+                    author = f"{m.author} ({m.author.id})"
+                    content = m.content or ""
+                    # Include attachments
+                    if m.attachments:
+                        attach_lines = [
+                            f"    [Attachment] {a.filename}: {a.url}"
+                            for a in m.attachments
+                        ]
+                    else:
+                        attach_lines = []
+                    # Simple embeds summary
+                    if m.embeds:
+                        embed_summaries = [
+                            f"    [Embed] type={e.type} title={getattr(e, 'title', None)}"
+                            for e in m.embeds
+                        ]
+                    else:
+                        embed_summaries = []
+
+                    lines.append(f"[{ts_str}] {author}:")
+                    if content:
+                        for line in content.splitlines() or [""]:
+                            lines.append(f"    {line}")
+                    else:
+                        lines.append("    <no content>")
+                    lines.extend(attach_lines)
+                    lines.extend(embed_summaries)
+                    lines.append("")
+
+                transcript = "\n".join(lines)
+
+                paste_url = None
+                # Try to upload to hastebin.cc
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(
+                            "https://hastebin.cc/documents",
+                            data=transcript.encode("utf-8"),
+                            timeout=aiohttp.ClientTimeout(total=10),
+                        ) as resp:
+                            if resp.status == 200:
+                                data = await resp.json()
+                                key = data.get("key")
+                                if key:
+                                    paste_url = f"https://hastebin.cc/{key}"
+                except Exception:
+                    paste_url = None
+
+                if paste_url:
+                    await safe_send(
+                        dest_channel,
+                        embed=create_embed(
+                            title=f"{EMOJIS['info']} Purge Transcript",
+                            description=(
+                                f"Deleted messages transcript uploaded to: {paste_url}"
+                            ),
+                            color="info",
+                        ),
+                        allowed_mentions=discord.AllowedMentions.none(),
+                    )
+                else:
+                    # Fallback: attach as a .txt file
+                    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                    filename = f"purge-{ctx.guild.id}-{ctx.channel.id}-{stamp}.txt"
+                    buf = io.BytesIO(transcript.encode("utf-8"))
+                    file = discord.File(buf, filename=filename)
+                    await safe_send(
+                        dest_channel,
+                        content="Deleted messages transcript attached.",
+                        file=file,
+                        allowed_mentions=discord.AllowedMentions.none(),
+                    )
+            except Exception:
+                # Don't block purge flow on transcript errors
+                pass
+
         await asyncio.sleep(3)
         try:
             await msg.delete()
-        except:
+        except Exception:
             pass
 
     @commands.command(name="lockdown")
@@ -1687,8 +1798,323 @@ class Moderation(commands.Cog):
         user: Union[discord.Member, discord.User],
         action: str,
     ):
-        """Check and apply automatic punishments based on warning count"""
-        pass
+        """Check and apply automatic punishments based on warning count."""
+        if action != "warn":
+            return
+
+        guild_id = ctx.guild.id
+        config = await self.bot.db.get_guild_config(guild_id)
+        warn_cfg = config.get("warn_punishment") or {}
+
+        threshold = int(warn_cfg.get("threshold") or 0)
+        punish_action = (warn_cfg.get("action") or "").lower()
+        duration_seconds = warn_cfg.get("duration")  # optional
+
+        if threshold <= 0 or not punish_action:
+            return
+
+        # Count total warnings (lifetime) for this user in this guild
+        try:
+            warn_count = await self.bot.db.db.moderation_logs.count_documents(
+                {"guild_id": guild_id, "user_id": user.id, "action": "warn"}
+            )
+        except Exception:
+            return
+
+        # Trigger at multiples of threshold (e.g., 2, 4, 6, ...)
+        if warn_count % threshold != 0:
+            return
+
+        # Resolve member
+        member: Optional[discord.Member] = (
+            user if isinstance(user, discord.Member) else ctx.guild.get_member(user.id)
+        )
+
+        # Confirm with invoking moderator
+        duration_td = timedelta(seconds=duration_seconds) if duration_seconds else None
+        duration_text = f" for {format_duration(duration_td)}" if duration_td else ""
+        target_display = (
+            user.mention if isinstance(user, discord.Member) else f"<@{user.id}>"
+        )
+        confirm_msg = (
+            f"{target_display} reached `{threshold}` warnings.\n"
+            f"Apply auto-punishment: **{punish_action}**{duration_text}?"
+        )
+        approved = await confirm_action(ctx, confirm_msg)
+        if not approved:
+            await safe_send(
+                ctx,
+                embed=create_embed(
+                    title=f"{EMOJIS['error']} Auto-Punishment Cancelled",
+                    description="Moderator denied the automatic action.",
+                    color="error",
+                ),
+            )
+            return
+
+        async def announce_applied(title: str, body_lines: list[str]):
+            desc = "\n".join(body_lines)
+            embed = create_embed(
+                title=title, description=desc, color="warning", timestamp=True
+            )
+            await safe_send(ctx, embed=embed)
+
+        # mute
+        if punish_action == "mute":
+            if not member:
+                await announce_applied(
+                    "⚠️ Auto-Punishment Skipped",
+                    [
+                        "User is not in the server; cannot apply mute.",
+                        f"Warnings reached: {warn_count}/{threshold}",
+                    ],
+                )
+                return
+
+            if not await self._can_moderate(ctx, member):
+                return
+
+            mute_role = await self._get_mute_role(ctx.guild)
+            if not mute_role:
+                await announce_applied(
+                    "⚠️ Auto-Punishment Skipped",
+                    ["Mute role not configured or cannot be created."],
+                )
+                return
+
+            try:
+                await member.add_roles(
+                    mute_role, reason=f"Auto-mute at {threshold} warns"
+                )
+            except discord.Forbidden:
+                await announce_applied(
+                    "⚠️ Auto-Punishment Failed",
+                    ["I don't have permission to add the mute role."],
+                )
+                return
+
+            case_id = await self.bot.db.add_moderation_log(
+                guild_id=guild_id,
+                user_id=member.id,
+                moderator_id=ctx.author.id,
+                action="mute",
+                reason=f"Auto-mute: reached {threshold} warnings",
+                duration=duration_seconds if duration_seconds else None,
+            )
+
+            if duration_seconds and duration_seconds > 0:
+                asyncio.create_task(
+                    self._schedule_unmute(
+                        guild_id, member.id, timedelta(seconds=duration_seconds)
+                    )
+                )
+                dur_text = format_duration(timedelta(seconds=duration_seconds))
+                await self._notify_user(
+                    member,
+                    f"muted for {dur_text}",
+                    f"Auto-mute: reached {threshold} warnings",
+                    ctx.guild,
+                )
+            else:
+                await self._notify_user(
+                    member,
+                    "muted",
+                    f"Auto-mute: reached {threshold} warnings",
+                    ctx.guild,
+                )
+
+            lines = [
+                f"User: {member.mention}",
+                f"Reason: Reached {threshold} warnings",
+                f"Case ID: {case_id}",
+            ]
+            if duration_seconds:
+                lines.append(
+                    f"Duration: {format_duration(timedelta(seconds=duration_seconds))}"
+                )
+            await announce_applied(f"{EMOJIS['mute']} Automatic Mute Applied", lines)
+            self.logger.moderation_action(
+                "auto_mute",
+                member.id,
+                ctx.author.id,
+                guild_id,
+                f"Reached {threshold} warnings",
+            )
+            return
+
+        # kick
+        if punish_action == "kick":
+            if not member:
+                await announce_applied(
+                    "⚠️ Auto-Punishment Skipped",
+                    ["User is not in the server; cannot kick."],
+                )
+                return
+            if not await self._can_moderate(ctx, member):
+                return
+
+            await self._notify_user(
+                member, "kicked", f"Auto-kick: reached {threshold} warnings", ctx.guild
+            )
+            try:
+                await member.kick(reason=f"Auto-kick at {threshold} warns")
+            except discord.Forbidden:
+                await announce_applied(
+                    "⚠️ Auto-Punishment Failed",
+                    ["I don't have permission to kick this member."],
+                )
+                return
+
+            case_id = await self.bot.db.add_moderation_log(
+                guild_id=guild_id,
+                user_id=member.id,
+                moderator_id=ctx.author.id,
+                action="kick",
+                reason=f"Auto-kick: reached {threshold} warnings",
+            )
+            await announce_applied(
+                f"{EMOJIS['kick']} Automatic Kick Applied",
+                [
+                    f"User: {member.mention}",
+                    f"Reason: Reached {threshold} warnings",
+                    f"Case ID: {case_id}",
+                ],
+            )
+            self.logger.moderation_action(
+                "auto_kick",
+                member.id,
+                ctx.author.id,
+                guild_id,
+                f"Reached {threshold} warnings",
+            )
+            return
+
+        # softban
+        if punish_action == "softban":
+            if not member:
+                await announce_applied(
+                    "⚠️ Auto-Punishment Skipped",
+                    ["User is not in the server; cannot softban."],
+                )
+                return
+            if not await self._can_moderate(ctx, member):
+                return
+
+            await self._notify_user(
+                member,
+                "softbanned",
+                f"Auto-softban: reached {threshold} warnings",
+                ctx.guild,
+            )
+            try:
+                await member.ban(
+                    reason=f"Auto-softban at {threshold} warns", delete_message_days=1
+                )
+                await asyncio.sleep(0.5)
+                await ctx.guild.unban(member, reason="Auto-softban - immediate unban")
+            except discord.Forbidden:
+                await announce_applied(
+                    "⚠️ Auto-Punishment Failed",
+                    ["I lack permissions to (un)ban this member."],
+                )
+                return
+
+            case_id = await self.bot.db.add_moderation_log(
+                guild_id=guild_id,
+                user_id=member.id,
+                moderator_id=ctx.author.id,
+                action="softban",
+                reason=f"Auto-softban: reached {threshold} warnings",
+            )
+            await announce_applied(
+                f"{EMOJIS['ban']} Automatic Softban Applied",
+                [
+                    f"User: {member.mention}",
+                    f"Reason: Reached {threshold} warnings",
+                    f"Case ID: {case_id}",
+                ],
+            )
+            self.logger.moderation_action(
+                "auto_softban",
+                member.id,
+                ctx.author.id,
+                guild_id,
+                f"Reached {threshold} warnings",
+            )
+            return
+
+        # ban / tempban
+        if punish_action in {"ban", "tempban"}:
+            target_user: Union[discord.Member, discord.User] = user
+            if not isinstance(target_user, (discord.Member, discord.User)):
+                target_user = await ctx.bot.fetch_user(user.id)
+
+            duration_td2 = (
+                timedelta(seconds=duration_seconds) if duration_seconds else None
+            )
+            duration_text2 = (
+                f" for {format_duration(duration_td2)}"
+                if duration_td2
+                else " permanently"
+            )
+
+            await self._notify_user(
+                target_user,
+                f"banned{duration_text2}",
+                f"Auto-ban: reached {threshold} warnings",
+                ctx.guild,
+            )
+            try:
+                await ctx.guild.ban(
+                    target_user,
+                    reason=f"Auto-ban at {threshold} warns",
+                    delete_message_days=1,
+                )
+            except discord.Forbidden:
+                await announce_applied(
+                    "⚠️ Auto-Punishment Failed",
+                    ["I don't have permission to ban this user."],
+                )
+                return
+
+            case_id = await self.bot.db.add_moderation_log(
+                guild_id=guild_id,
+                user_id=target_user.id,
+                moderator_id=ctx.author.id,
+                action="ban",
+                reason=f"Auto-ban: reached {threshold} warnings",
+                duration=int(duration_td2.total_seconds()) if duration_td2 else None,
+            )
+
+            if duration_td2:
+                asyncio.create_task(
+                    self._schedule_unban(guild_id, target_user.id, duration_td2)
+                )
+
+            lines = [
+                f"User: {getattr(target_user, 'mention', str(target_user))}",
+                f"Reason: Reached {threshold} warnings",
+                f"Case ID: {case_id}",
+            ]
+            if duration_td2:
+                lines.append(f"Duration: {format_duration(duration_td2)}")
+            await announce_applied(f"{EMOJIS['ban']} Automatic Ban Applied", lines)
+            self.logger.moderation_action(
+                "auto_ban",
+                target_user.id,
+                ctx.author.id,
+                guild_id,
+                f"Reached {threshold} warnings",
+            )
+            return
+
+        # Unknown action
+        await announce_applied(
+            "⚠️ Auto-Punishment Misconfigured",
+            [
+                f"Unknown action '{punish_action}'. Supported: mute, kick, softban, ban, tempban."
+            ],
+        )
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
