@@ -1687,24 +1687,22 @@ class Moderation(commands.Cog):
         user: Union[discord.Member, discord.User],
         action: str,
     ):
-        """Check and apply automatic punishments based on warning count"""
-        # Only trigger on warnings
+        """Check and apply automatic punishments based on warning count."""
         if action != "warn":
             return
 
-        # Load guild configuration
         guild_id = ctx.guild.id
         config = await self.bot.db.get_guild_config(guild_id)
         warn_cfg = config.get("warn_punishment") or {}
 
-        threshold = int(warn_cfg.get("threshold" or 0) or 0)
+        threshold = int(warn_cfg.get("threshold") or 0)
         punish_action = (warn_cfg.get("action") or "").lower()
-        duration_seconds = warn_cfg.get("duration")  # Optional int seconds
+        duration_seconds = warn_cfg.get("duration")  # optional
 
         if threshold <= 0 or not punish_action:
-            return  # Not configured
+            return
 
-        # Count total warnings for this user in this guild (lifetime)
+        # Count total warnings (lifetime) for this user in this guild
         try:
             warn_count = await self.bot.db.db.moderation_logs.count_documents(
                 {"guild_id": guild_id, "user_id": user.id, "action": "warn"}
@@ -1712,34 +1710,51 @@ class Moderation(commands.Cog):
         except Exception:
             return
 
-        # Apply punishment exactly when reaching the threshold to avoid repeats
+        # Trigger exactly at threshold
         if warn_count != threshold:
             return
 
-        # Resolve member if possible
-        if isinstance(user, discord.Member):
-            member: Optional[discord.Member] = user
-        else:
-            member = ctx.guild.get_member(user.id)
+        # Resolve member
+        member: Optional[discord.Member] = (
+            user if isinstance(user, discord.Member) else ctx.guild.get_member(user.id)
+        )
 
-        # Helper to announce in channel
+        # Confirm with invoking moderator
+        duration_td = timedelta(seconds=duration_seconds) if duration_seconds else None
+        duration_text = f" for {format_duration(duration_td)}" if duration_td else ""
+        target_display = (
+            user.mention if isinstance(user, discord.Member) else f"<@{user.id}>"
+        )
+        confirm_msg = (
+            f"{target_display} reached `{threshold}` warnings.\n"
+            f"Apply auto-punishment: **{punish_action}**{duration_text}?"
+        )
+        approved = await confirm_action(ctx, confirm_msg)
+        if not approved:
+            await safe_send(
+                ctx,
+                embed=create_embed(
+                    title=f"{EMOJIS['error']} Auto-Punishment Cancelled",
+                    description="Moderator denied the automatic action.",
+                    color="error",
+                ),
+            )
+            return
+
         async def announce_applied(title: str, body_lines: list[str]):
             desc = "\n".join(body_lines)
             embed = create_embed(
                 title=title, description=desc, color="warning", timestamp=True
             )
-            try:
-                await safe_send(ctx, embed=embed)
-            except Exception:
-                pass
+            await safe_send(ctx, embed=embed)
 
-        # MUTE
+        # mute
         if punish_action == "mute":
             if not member:
                 await announce_applied(
                     "⚠️ Auto-Punishment Skipped",
                     [
-                        f"User is not in the server; cannot apply mute.",
+                        "User is not in the server; cannot apply mute.",
                         f"Warnings reached: {warn_count}/{threshold}",
                     ],
                 )
@@ -1767,7 +1782,6 @@ class Moderation(commands.Cog):
                 )
                 return
 
-            # Log to DB and schedule unmute if needed
             case_id = await self.bot.db.add_moderation_log(
                 guild_id=guild_id,
                 user_id=member.id,
@@ -1783,10 +1797,10 @@ class Moderation(commands.Cog):
                         guild_id, member.id, timedelta(seconds=duration_seconds)
                     )
                 )
-                duration_text = format_duration(timedelta(seconds=duration_seconds))
+                dur_text = format_duration(timedelta(seconds=duration_seconds))
                 await self._notify_user(
                     member,
-                    f"muted for {duration_text}",
+                    f"muted for {dur_text}",
                     f"Auto-mute: reached {threshold} warnings",
                     ctx.guild,
                 )
@@ -1798,21 +1812,16 @@ class Moderation(commands.Cog):
                     ctx.guild,
                 )
 
-            await announce_applied(
-                f"{EMOJIS['mute']} Automatic Mute Applied",
-                [
-                    f"User: {member.mention}",
-                    f"Reason: Reached {threshold} warnings",
-                    f"Case ID: {case_id}",
-                ]
-                + (
-                    [
-                        f"Duration: {format_duration(timedelta(seconds=duration_seconds))}"
-                    ]
-                    if duration_seconds
-                    else []
-                ),
-            )
+            lines = [
+                f"User: {member.mention}",
+                f"Reason: Reached {threshold} warnings",
+                f"Case ID: {case_id}",
+            ]
+            if duration_seconds:
+                lines.append(
+                    f"Duration: {format_duration(timedelta(seconds=duration_seconds))}"
+                )
+            await announce_applied(f"{EMOJIS['mute']} Automatic Mute Applied", lines)
             self.logger.moderation_action(
                 "auto_mute",
                 member.id,
@@ -1822,7 +1831,7 @@ class Moderation(commands.Cog):
             )
             return
 
-        # KICK
+        # kick
         if punish_action == "kick":
             if not member:
                 await announce_applied(
@@ -1830,7 +1839,6 @@ class Moderation(commands.Cog):
                     ["User is not in the server; cannot kick."],
                 )
                 return
-
             if not await self._can_moderate(ctx, member):
                 return
 
@@ -1870,7 +1878,7 @@ class Moderation(commands.Cog):
             )
             return
 
-        # SOFTBAN
+        # softban
         if punish_action == "softban":
             if not member:
                 await announce_applied(
@@ -1878,7 +1886,6 @@ class Moderation(commands.Cog):
                     ["User is not in the server; cannot softban."],
                 )
                 return
-
             if not await self._can_moderate(ctx, member):
                 return
 
@@ -1925,24 +1932,24 @@ class Moderation(commands.Cog):
             )
             return
 
-        # BAN / TEMPBAN
+        # ban / tempban
         if punish_action in {"ban", "tempban"}:
             target_user: Union[discord.Member, discord.User] = user
             if not isinstance(target_user, (discord.Member, discord.User)):
                 target_user = await ctx.bot.fetch_user(user.id)
 
-            duration_td = (
+            duration_td2 = (
                 timedelta(seconds=duration_seconds) if duration_seconds else None
             )
-            duration_text = (
-                f" for {format_duration(duration_td)}"
-                if duration_td
+            duration_text2 = (
+                f" for {format_duration(duration_td2)}"
+                if duration_td2
                 else " permanently"
             )
 
             await self._notify_user(
                 target_user,
-                f"banned{duration_text}",
+                f"banned{duration_text2}",
                 f"Auto-ban: reached {threshold} warnings",
                 ctx.guild,
             )
@@ -1965,25 +1972,22 @@ class Moderation(commands.Cog):
                 moderator_id=ctx.author.id,
                 action="ban",
                 reason=f"Auto-ban: reached {threshold} warnings",
-                duration=int(duration_td.total_seconds()) if duration_td else None,
+                duration=int(duration_td2.total_seconds()) if duration_td2 else None,
             )
 
-            if duration_td:
+            if duration_td2:
                 asyncio.create_task(
-                    self._schedule_unban(guild_id, target_user.id, duration_td)
+                    self._schedule_unban(guild_id, target_user.id, duration_td2)
                 )
 
-            await announce_applied(
-                f"{EMOJIS['ban']} Automatic Ban Applied",
-                [
-                    f"User: {getattr(target_user, 'mention', str(target_user))}",
-                    f"Reason: Reached {threshold} warnings",
-                    f"Case ID: {case_id}",
-                ]
-                + (
-                    [f"Duration: {format_duration(duration_td)}"] if duration_td else []
-                ),
-            )
+            lines = [
+                f"User: {getattr(target_user, 'mention', str(target_user))}",
+                f"Reason: Reached {threshold} warnings",
+                f"Case ID: {case_id}",
+            ]
+            if duration_td2:
+                lines.append(f"Duration: {format_duration(duration_td2)}")
+            await announce_applied(f"{EMOJIS['ban']} Automatic Ban Applied", lines)
             self.logger.moderation_action(
                 "auto_ban",
                 target_user.id,
@@ -1993,7 +1997,7 @@ class Moderation(commands.Cog):
             )
             return
 
-        # Unknown action in config - ignore gracefully
+        # Unknown action
         await announce_applied(
             "⚠️ Auto-Punishment Misconfigured",
             [
