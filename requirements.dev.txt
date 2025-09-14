@@ -32,7 +32,7 @@ ipython==8.27.0
 ipdb==0.13.13
 
 # Type Checking
-types-requests==2.32.0.20240921
+types-requests==2.32.0.20250602
 types-PyYAML==6.0.12.20240917
 
 # Performance
