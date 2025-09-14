@@ -65,7 +65,9 @@ class Moderation(commands.Cog):
         moderator = self.bot.get_user(log.get("moderator_id"))
 
         user_display = user.mention if user else f"<@{log.get('user_id')}>"
-        mod_display = moderator.mention if moderator else f"<@{log.get('moderator_id')}>"
+        mod_display = (
+            moderator.mention if moderator else f"<@{log.get('moderator_id')}>"
+        )
 
         # Timestamp handling
         ts = log.get("timestamp")
@@ -77,8 +79,16 @@ class Moderation(commands.Cog):
         )
 
         embed.add_field(name="Case ID", value=str(log.get("case_id")), inline=False)
-        embed.add_field(name="Action", value=str(log.get("action", "")).title() or "Unknown", inline=True)
-        embed.add_field(name="Active", value="Yes" if log.get("active", False) else "No", inline=True)
+        embed.add_field(
+            name="Action",
+            value=str(log.get("action", "")).title() or "Unknown",
+            inline=True,
+        )
+        embed.add_field(
+            name="Active",
+            value="Yes" if log.get("active", False) else "No",
+            inline=True,
+        )
 
         if ts_unix:
             embed.add_field(name="When", value=f"<t:{ts_unix}:F>", inline=True)
@@ -92,15 +102,23 @@ class Moderation(commands.Cog):
         duration = log.get("duration")
         if duration:
             try:
-                embed.add_field(name="Duration", value=format_duration(timedelta(seconds=int(duration))), inline=True)
+                embed.add_field(
+                    name="Duration",
+                    value=format_duration(timedelta(seconds=int(duration))),
+                    inline=True,
+                )
             except Exception:
-                embed.add_field(name="Duration", value=f"{duration} seconds", inline=True)
+                embed.add_field(
+                    name="Duration", value=f"{duration} seconds", inline=True
+                )
 
         if not log.get("active") and log.get("completed_at"):
             comp = log["completed_at"]
             comp_unix = int(comp.timestamp()) if isinstance(comp, datetime) else None
             if comp_unix:
-                embed.add_field(name="Completed", value=f"<t:{comp_unix}:F>", inline=True)
+                embed.add_field(
+                    name="Completed", value=f"<t:{comp_unix}:F>", inline=True
+                )
 
         return embed
 
@@ -961,7 +979,9 @@ class Moderation(commands.Cog):
             return
 
         # If numeric and short (< 17 digits), treat as case number; if full id with '-', treat as case
-        if (target.isdigit() and len(target) < 17) or ("-" in target and all(p.isdigit() for p in target.split("-", 1))):
+        if (target.isdigit() and len(target) < 17) or (
+            "-" in target and all(p.isdigit() for p in target.split("-", 1))
+        ):
             full_id = self._normalize_case_id(ctx.guild.id, target)
             log = await self.bot.db.get_moderation_log(ctx.guild.id, full_id)
             if not log:
@@ -1084,7 +1104,9 @@ class Moderation(commands.Cog):
 
     @modlogs.command(name="update")
     @require_permission(PermissionLevel.MODERATOR)
-    async def modlogs_update(self, ctx: commands.Context, case_id: Union[int, str], *, reason: str):
+    async def modlogs_update(
+        self, ctx: commands.Context, case_id: Union[int, str], *, reason: str
+    ):
         """Updates the reason for a moderation log entry.
 
         **Usage:** `{prefix}modlogs update <case_id> <new_reason>`
