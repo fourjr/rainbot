@@ -3,6 +3,7 @@ Modern bot implementation with enhanced error handling and features
 """
 
 import asyncio
+import difflib
 import logging
 import traceback
 from datetime import datetime, timezone
@@ -355,7 +356,12 @@ class RainBot(commands.Bot):
 
         # Handle specific error types
         if isinstance(error, commands.CommandNotFound):
-            return  # Ignore unknown commands
+            # Suggest closest commands/subcommands
+            try:
+                await self._suggest_command(ctx)
+            except Exception:
+                pass
+            return
 
         elif isinstance(error, commands.MissingRequiredArgument):
             embed = discord.Embed(
@@ -448,6 +454,126 @@ class RainBot(commands.Bot):
 
             # Report to error channel
             await self._report_error(ctx, error)
+
+    async def _suggest_command(self, ctx: commands.Context):
+        """Suggest similar commands or subcommands when user types a wrong command.
+
+        Traverses nested command groups and suggests at the exact level where
+        the mismatch occurs.
+        """
+        content = ctx.message.content or ""
+        prefix = ctx.prefix or ""
+
+        if not content.startswith(prefix):
+            return
+
+        # Extract the raw invocation after prefix
+        raw = content[len(prefix) :].strip()
+        if not raw:
+            return
+
+        tokens = raw.split()
+        if not tokens:
+            return
+
+        def _format_suggestions(base: str, options: list[str]) -> list[str]:
+            formatted = []
+            for opt in options[:5]:
+                if base:
+                    formatted.append(f"`{prefix}{base} {opt}`")
+                else:
+                    formatted.append(f"`{prefix}{opt}`")
+            return formatted
+
+        # Walk through the command tree
+        current_base = []  # list of tokens forming the valid base path
+        current_group: Optional[commands.Group] = None
+
+        # Helper to get options at current level
+        def _get_options_at_level(group: Optional[commands.Group]) -> list[str]:
+            opts: list[str] = []
+            if group is None:
+                # top-level commands
+                for c in self.commands:
+                    opts.append(c.name)
+                    opts.extend(c.aliases)
+            else:
+                for sub in group.commands:
+                    opts.append(sub.name)
+                    opts.extend(sub.aliases)
+            return sorted(set(opts))
+
+        # Resolve as deep as possible
+        for idx, tok in enumerate(tokens):
+            search_space = current_group.commands if current_group else self.commands
+            match = None
+            for c in search_space:
+                if tok.lower() == c.name.lower() or tok.lower() in [
+                    a.lower() for a in c.aliases
+                ]:
+                    match = c
+                    break
+
+            if match is None:
+                # Mismatch here; suggest at this level
+                options = _get_options_at_level(current_group)
+                suggestions = difflib.get_close_matches(
+                    tok.lower(), options, n=5, cutoff=0.5
+                )
+                if len(suggestions) < 5:
+                    suggestions += [
+                        o
+                        for o in options
+                        if o.startswith(tok.lower()) and o not in suggestions
+                    ]
+
+                base_qualified = " ".join(current_base)
+                if current_base:
+                    title = f"Unknown subcommand: `{tok}`"
+                    extra = (
+                        f"Use `{prefix}{base_qualified}` to see available subcommands."
+                    )
+                else:
+                    title = f"Unknown command: `{tok}`"
+                    extra = f"Use `{prefix}help` to see all commands."
+
+                if suggestions:
+                    suggestion_lines = _format_suggestions(base_qualified, suggestions)
+                    desc = "Did you mean: " + ", ".join(suggestion_lines) + f"\n{extra}"
+                else:
+                    # List available options at this level as a fallback
+                    if current_base:
+                        opts_fmt = ", ".join(f"`{o}`" for o in options)
+                        desc = f"Available subcommands for `{prefix}{base_qualified}`:\n{opts_fmt}"
+                    else:
+                        desc = extra
+
+                embed = discord.Embed(
+                    title=title, description=desc, color=COLORS.get("warning")
+                )
+                try:
+                    await ctx.send(embed=embed)
+                except discord.HTTPException:
+                    pass
+                return
+
+            # Token matched a command; if it's a group, go deeper
+            current_base.append(match.name)
+            current_group = match if isinstance(match, commands.Group) else None
+
+        # If we resolved all tokens but still ended in a non-group with extra tokens
+        # or user attempted to use a command as if it had subcommands
+        if current_group is None and len(tokens) > 0:
+            base_qualified = " ".join(current_base)
+            embed = discord.Embed(
+                title=f"Command usage",
+                description=f"`{prefix}{base_qualified}` does not have subcommands. Try `{prefix}help {base_qualified}`.",
+                color=COLORS.get("warning"),
+            )
+            try:
+                await ctx.send(embed=embed)
+            except discord.HTTPException:
+                pass
 
     async def _report_error(self, ctx: commands.Context, error: Exception):
         """Report error to error channel"""
