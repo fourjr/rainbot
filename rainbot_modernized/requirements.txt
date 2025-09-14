@@ -34,7 +34,6 @@ python-Levenshtein>=0.21.0
 
 # HTTP requests
 requests>=2.31.0
-google-cloud-vision>=3.10.2
 
 # Development dependencies (optional)
 pytest>=7.4.0

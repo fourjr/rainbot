@@ -1,0 +1,55 @@
+[MASTER]
+ignore=.venv,build,dist,__pycache__
+jobs=0
+load-plugins=
+
+[PYTHON]
+py-version=3.11
+
+[MESSAGES CONTROL]
+# Disable convention/refactor messages and noisy/false-positive checks for this project
+disable=
+    C,
+    R,
+    missing-docstring,
+    too-few-public-methods,
+    too-many-arguments,
+    too-many-locals,
+    too-many-instance-attributes,
+    too-many-branches,
+    too-many-statements,
+    invalid-name,
+    line-too-long,
+    fixme,
+    logging-fstring-interpolation,
+    # Dynamic libraries/attrs (discord.py, motor) often trigger these
+    import-error,
+    no-member,
+    no-name-in-module,
+    unsubscriptable-object,
+    unsupported-membership-test,
+    not-an-iterable,
+    no-value-for-parameter,
+    too-many-function-args
+
+[REPORTS]
+score=no
+fail-under=0.0
+
+[FORMAT]
+max-line-length=120
+
+[TYPECHECK]
+ignored-modules=discord,discord.ext,asyncio,aiohttp,motor,pymongo
+generated-members=
+ignored-classes=ContextVar
+
+[SIMILARITIES]
+min-similarity-lines=5
+
+[DESIGN]
+max-args=10
+max-locals=30
+max-branches=20
+max-statements=100
+max-attributes=15

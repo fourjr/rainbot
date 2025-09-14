@@ -39,6 +39,89 @@ class Moderation(commands.Cog):
         self.bot = bot
         self.logger = ModLogger()
 
+    # --- Internal helpers for modlog case handling ---
+    def _normalize_case_id(self, guild_id: int, case: Union[int, str]) -> str:
+        """Return the full case_id string in format '<guild_id>-<n>'.
+
+        Accepts either a numeric case number (42) or a full case id string
+        ('<guild_id>-42'). If a numeric string like '42' is provided, it will
+        be normalized to '<guild_id>-42'. If a full id is provided, it's
+        returned as-is.
+        """
+        # Numeric (int) or numeric string -> compose full id
+        if isinstance(case, int) or (isinstance(case, str) and case.isdigit()):
+            return f"{guild_id}-{int(case)}"
+
+        # Already a string; if it looks like a full id, return as-is
+        if isinstance(case, str) and "-" in case:
+            return case
+
+        # Fallback: stringify
+        return str(case)
+
+    def _format_case_embed(self, ctx: commands.Context, log: dict) -> discord.Embed:
+        """Create a rich embed for a single moderation log case."""
+        user = self.bot.get_user(log.get("user_id"))
+        moderator = self.bot.get_user(log.get("moderator_id"))
+
+        user_display = user.mention if user else f"<@{log.get('user_id')}>"
+        mod_display = (
+            moderator.mention if moderator else f"<@{log.get('moderator_id')}>"
+        )
+
+        # Timestamp handling
+        ts = log.get("timestamp")
+        ts_unix = int(ts.timestamp()) if isinstance(ts, datetime) else None
+
+        embed = create_embed(
+            title=f"🗂️ Case {str(log.get('case_id')).split('-')[-1]}",
+            color="info",
+        )
+
+        embed.add_field(name="Case ID", value=str(log.get("case_id")), inline=False)
+        embed.add_field(
+            name="Action",
+            value=str(log.get("action", "")).title() or "Unknown",
+            inline=True,
+        )
+        embed.add_field(
+            name="Active",
+            value="Yes" if log.get("active", False) else "No",
+            inline=True,
+        )
+
+        if ts_unix:
+            embed.add_field(name="When", value=f"<t:{ts_unix}:F>", inline=True)
+
+        embed.add_field(name="User", value=user_display, inline=False)
+        embed.add_field(name="Moderator", value=mod_display, inline=False)
+
+        reason = log.get("reason") or "No reason provided"
+        embed.add_field(name="Reason", value=reason, inline=False)
+
+        duration = log.get("duration")
+        if duration:
+            try:
+                embed.add_field(
+                    name="Duration",
+                    value=format_duration(timedelta(seconds=int(duration))),
+                    inline=True,
+                )
+            except Exception:
+                embed.add_field(
+                    name="Duration", value=f"{duration} seconds", inline=True
+                )
+
+        if not log.get("active") and log.get("completed_at"):
+            comp = log["completed_at"]
+            comp_unix = int(comp.timestamp()) if isinstance(comp, datetime) else None
+            if comp_unix:
+                embed.add_field(
+                    name="Completed", value=f"<t:{comp_unix}:F>", inline=True
+                )
+
+        return embed
+
     @commands.command(name="setprefix")
     @require_permission(PermissionLevel.ADMINISTRATOR)
     async def set_prefix(self, ctx: commands.Context, *, prefix: str):
@@ -877,20 +960,83 @@ class Moderation(commands.Cog):
 
     @commands.group(invoke_without_command=True)
     @require_permission(PermissionLevel.MODERATOR)
-    async def modlogs(self, ctx: commands.Context, user: MemberOrID = None):
-        """Views moderation logs for a user or the entire server.
+    async def modlogs(self, ctx: commands.Context, target: str = None):
+        """View moderation logs: server-wide, for a user, or a specific case.
 
-        **Usage:** `{prefix}modlogs [user]`
-        **Examples:**
-        - `{prefix}modlogs` (shows recent server logs)
-        - `{prefix}modlogs @user` (shows all logs for a user)
-        - `{prefix}modlogs 123456789` (shows logs for a user by ID)
+        Usage:
+        - `{prefix}modlogs` → recent server logs
+        - `{prefix}modlogs @user` → logs for a user
+        - `{prefix}modlogs <user_id>` → logs for a user by ID
+        - `{prefix}modlogs <case_number>` → view a specific case (e.g., `modlogs 4`)
+        - `{prefix}modlogs <guild_id>-<case_number>` → view a specific case by full ID
         """
-        if ctx.invoked_subcommand is None:
-            if user:
-                await self._show_user_modlogs(ctx, user)
-            else:
-                await self._show_guild_modlogs(ctx)
+        if ctx.invoked_subcommand is not None:
+            return
+
+        # No argument: show recent guild logs
+        if not target:
+            await self._show_guild_modlogs(ctx)
+            return
+
+        # If numeric and short (< 17 digits), treat as case number; if full id with '-', treat as case
+        if (target.isdigit() and len(target) < 17) or (
+            "-" in target and all(p.isdigit() for p in target.split("-", 1))
+        ):
+            full_id = self._normalize_case_id(ctx.guild.id, target)
+            log = await self.bot.db.get_moderation_log(ctx.guild.id, full_id)
+            if not log:
+                embed = create_embed(
+                    title=f"{EMOJIS['error']} Case Not Found",
+                    description=f"No moderation case found with ID `{target}`.",
+                    color="error",
+                )
+                await safe_send(ctx, embed=embed)
+                return
+
+            embed = self._format_case_embed(ctx, log)
+            await safe_send(ctx, embed=embed)
+            return
+
+        # Otherwise, try to resolve as a user and show their logs
+        try:
+            member_or_user = await MemberOrID().convert(ctx, target)
+            await self._show_user_modlogs(ctx, member_or_user)
+        except Exception:
+            # Fallback to guild logs with a gentle hint
+            embed = create_embed(
+                title=f"{EMOJIS['error']} Not Found",
+                description=(
+                    "Couldn't resolve that as a user or case ID. "
+                    "Try `modlogs @user`, `modlogs <user_id>`, or `modlogs <case_number>`."
+                ),
+                color="error",
+            )
+            await safe_send(ctx, embed=embed)
+
+    @modlogs.command(name="case", aliases=["view", "info"])
+    @require_permission(PermissionLevel.MODERATOR)
+    async def modlogs_case(self, ctx: commands.Context, case: str):
+        """View a specific moderation case by number or full Case ID.
+
+        Usage: {prefix}modlogs case <case_number|case_id>
+        Examples:
+        - {prefix}modlogs case 42
+        - {prefix}modlogs case {ctx.guild.id}-42
+        """
+        full_id = self._normalize_case_id(ctx.guild.id, case)
+        log = await self.bot.db.get_moderation_log(ctx.guild.id, full_id)
+
+        if not log:
+            embed = create_embed(
+                title=f"{EMOJIS['error']} Case Not Found",
+                description=f"No moderation case found with ID `{case}`.",
+                color="error",
+            )
+            await safe_send(ctx, embed=embed)
+            return
+
+        embed = self._format_case_embed(ctx, log)
+        await safe_send(ctx, embed=embed)
 
     async def _show_user_modlogs(self, ctx: commands.Context, user: MemberOrID):
         """Show moderation logs for a specific user"""
@@ -958,13 +1104,16 @@ class Moderation(commands.Cog):
 
     @modlogs.command(name="update")
     @require_permission(PermissionLevel.MODERATOR)
-    async def modlogs_update(self, ctx: commands.Context, case_id: int, *, reason: str):
+    async def modlogs_update(
+        self, ctx: commands.Context, case_id: Union[int, str], *, reason: str
+    ):
         """Updates the reason for a moderation log entry.
 
         **Usage:** `{prefix}modlogs update <case_id> <new_reason>`
         **Example:** `{prefix}modlogs update 123 Updated reason for action`
         """
-        log = await self.bot.db.get_moderation_log(ctx.guild.id, case_id)
+        full_id = self._normalize_case_id(ctx.guild.id, case_id)
+        log = await self.bot.db.get_moderation_log(ctx.guild.id, full_id)
 
         if not log:
             embed = create_embed(
@@ -975,11 +1124,11 @@ class Moderation(commands.Cog):
             await safe_send(ctx, embed=embed)
             return
 
-        await self.bot.db.update_moderation_log(ctx.guild.id, case_id, reason)
+        await self.bot.db.update_moderation_log(ctx.guild.id, full_id, reason)
 
         embed = create_embed(
             title="✅ Log Updated",
-            description=f"Reason for case ID `{case_id}` has been updated.",
+            description=f"Reason for case `{full_id}` has been updated.",
             color="success",
         )
         await safe_send(ctx, embed=embed)
@@ -1433,16 +1582,17 @@ class Moderation(commands.Cog):
 
     @modlogs.command(name="remove")
     @require_permission(PermissionLevel.ADMINISTRATOR)
-    async def modlogs_remove(self, ctx: commands.Context, case_id: str):
+    async def modlogs_remove(self, ctx: commands.Context, case_id: Union[int, str]):
         """Removes a specific moderation log entry by its case ID.
 
         **Usage:** `{prefix}modlogs remove <case_id>`
         **Example:** `{prefix}modlogs remove 123`
         """
-        await self.bot.db.deactivate_punishment(case_id)
+        full_id = self._normalize_case_id(ctx.guild.id, case_id)
+        await self.bot.db.deactivate_punishment(full_id)
         embed = create_embed(
             title="✅ Log Removed",
-            description=f"Moderation log with case ID `{case_id}` has been removed.",
+            description=f"Moderation log with case ID `{full_id}` has been removed.",
             color="success",
         )
         await safe_send(ctx, embed=embed)
