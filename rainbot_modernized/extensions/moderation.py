@@ -5,11 +5,13 @@ Modern moderation extension with enhanced features and user experience
 import asyncio
 import os
 import re
+import io
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Union
 
 import discord
 from discord.ext import commands
+import aiohttp
 
 from utils.constants import COLORS, EMOJIS
 from core.permissions import PermissionLevel
@@ -1451,10 +1453,119 @@ class Moderation(commands.Cog):
         )
 
         msg = await safe_send(ctx, embed=embed)
+
+        # Build a transcript of deleted messages and upload to hastebin.cc or attach as .txt
+        if deleted:
+            try:
+                # Determine destination: message_delete log channel, or moderation, else current channel
+                config = await self.bot.db.get_guild_config(ctx.guild.id)
+                log_channels = config.get("log_channels") or {}
+                dest_channel_id = log_channels.get(
+                    "message_delete"
+                ) or log_channels.get("moderation")
+                dest_channel = (
+                    ctx.guild.get_channel(dest_channel_id)
+                    if dest_channel_id
+                    else ctx.channel
+                )
+
+                # Create transcript text (oldest -> newest)
+                lines = []
+                header = [
+                    f"Guild: {ctx.guild.name} ({ctx.guild.id})",
+                    f"Channel: #{ctx.channel.name} ({ctx.channel.id})",
+                    f"Moderator: {ctx.author} ({ctx.author.id})",
+                    f"When: {datetime.now(timezone.utc).isoformat()}",
+                    f"Filter: {'user=' + str(member) if member else 'none'}",
+                    f"Total deleted: {len(deleted)}",
+                    "",
+                    "=== Deleted Messages (oldest -> newest) ===",
+                ]
+                lines.extend(header)
+
+                for m in reversed(deleted):
+                    ts = m.created_at
+                    ts_str = ts.astimezone(timezone.utc).isoformat() if ts else ""
+                    author = f"{m.author} ({m.author.id})"
+                    content = m.content or ""
+                    # Include attachments
+                    if m.attachments:
+                        attach_lines = [
+                            f"    [Attachment] {a.filename}: {a.url}"
+                            for a in m.attachments
+                        ]
+                    else:
+                        attach_lines = []
+                    # Simple embeds summary
+                    if m.embeds:
+                        embed_summaries = [
+                            f"    [Embed] type={e.type} title={getattr(e, 'title', None)}"
+                            for e in m.embeds
+                        ]
+                    else:
+                        embed_summaries = []
+
+                    lines.append(f"[{ts_str}] {author}:")
+                    if content:
+                        for line in content.splitlines() or [""]:
+                            lines.append(f"    {line}")
+                    else:
+                        lines.append("    <no content>")
+                    lines.extend(attach_lines)
+                    lines.extend(embed_summaries)
+                    lines.append("")
+
+                transcript = "\n".join(lines)
+
+                paste_url = None
+                # Try to upload to hastebin.cc
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(
+                            "https://hastebin.cc/documents",
+                            data=transcript.encode("utf-8"),
+                            timeout=aiohttp.ClientTimeout(total=10),
+                        ) as resp:
+                            if resp.status == 200:
+                                data = await resp.json()
+                                key = data.get("key")
+                                if key:
+                                    paste_url = f"https://hastebin.cc/{key}"
+                except Exception:
+                    paste_url = None
+
+                if paste_url:
+                    await safe_send(
+                        dest_channel,
+                        embed=create_embed(
+                            title=f"{EMOJIS['info']} Purge Transcript",
+                            description=(
+                                f"Deleted messages transcript uploaded to: {paste_url}"
+                            ),
+                            color="info",
+                        ),
+                        allowed_mentions=discord.AllowedMentions.none(),
+                    )
+                else:
+                    # Fallback: attach as a .txt file
+                    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                    filename = f"purge-{ctx.guild.id}-{ctx.channel.id}-{stamp}.txt"
+                    buf = io.BytesIO(transcript.encode("utf-8"))
+                    file = discord.File(buf, filename=filename)
+                    await safe_send(
+                        dest_channel,
+                        content="Deleted messages transcript attached.",
+                        file=file,
+                        allowed_mentions=discord.AllowedMentions.none(),
+                    )
+            except Exception:
+                # Don't block purge flow on transcript errors
+                pass
+
         await asyncio.sleep(3)
         try:
             await msg.delete()
-        except:
+        except Exception:
             pass
 
     @commands.command(name="lockdown")
