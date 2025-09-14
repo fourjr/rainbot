@@ -1710,8 +1710,8 @@ class Moderation(commands.Cog):
         except Exception:
             return
 
-        # Trigger exactly at threshold
-        if warn_count != threshold:
+        # Trigger at multiples of threshold (e.g., 2, 4, 6, ...)
+        if warn_count % threshold != 0:
             return
 
         # Resolve member
