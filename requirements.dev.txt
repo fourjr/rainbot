@@ -12,7 +12,7 @@ mypy==1.11.2
 pylint==3.2.6
 
 # Testing
-pytest==8.3.3
+pytest==9.0.3
 pytest-asyncio==0.24.0
 pytest-cov==5.0.0
 pytest-mock==3.14.0
